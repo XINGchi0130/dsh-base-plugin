@@ -1,0 +1,7 @@
+# dsh-base-plugin composition layer.
+#
+# One row: the node half (index.js) 提供 HTTP API 与数据面；浏览器半边从
+# exports["./client"] 分发，经 package.json 的 dsh.client 声明被发现。
+- insert:
+    - id: dsh-base-plugin
+      name: dsh-base-plugin

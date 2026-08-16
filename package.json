@@ -1,0 +1,40 @@
+{
+  "name": "dsh-base-plugin",
+  "version": "0.4.2",
+  "description": "DSH Hub — base plugin: Plugin Market (one-click GitHub installs), MCP server management, and skill browsing in Settings; UI follows the DSH language setting (中文/English)",
+  "type": "module",
+  "license": "MIT",
+  "main": "index.js",
+  "exports": {
+    ".": "./index.js",
+    "./client": "./client.js",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "index.js",
+    "lib/**/*.js",
+    "lib/mobile/qr-vendor.cjs",
+    "lib/mobile/QR-VENDOR-LICENSE.txt",
+    "client.js",
+    "cordis.patch.yml",
+    "README.md",
+    "README.zh.md"
+  ],
+  "keywords": [
+    "dsh",
+    "deepseek-harness",
+    "plugin",
+    "market",
+    "mcp",
+    "skill"
+  ],
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "inject": []
+    }
+  }
+}
