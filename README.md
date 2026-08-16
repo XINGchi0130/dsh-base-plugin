@@ -1,5 +1,7 @@
 # dsh-base-plugin
 
+English | [中文](README.zh.md)
+
 A base plugin for [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) (DSH): a Plugin
 Market, MCP server management, and skill browsing — added to Settings without touching DSH source
 code. UI text follows the DSH language setting (中文 / English), and every page adapts to

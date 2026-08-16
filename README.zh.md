@@ -1,5 +1,7 @@
 # dsh-base-plugin
 
+[English](README.md) | 中文
+
 DeepSeek Harness（DSH）基础插件：插件市场、MCP 服务器管理与技能浏览——全部通过设置页面提供，
 不改动 DSH 源代码。界面文案跟随 DSH 设置里的语言（中文 / English），所有页面适配手机宽度屏幕
 （见下文「移动端适配」）。
