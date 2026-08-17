@@ -856,6 +856,12 @@ window.__ModuleLoader__.load({
       /* Touch targets: buttons grow, small icon buttons reach 32px. */
       '.dhb-btn{padding:8px 14px;font-size:13px}',
       '.dhb-smBtn{width:32px;height:32px}',
+      /* The message rail is a pointer-precision affordance: 12px-wide
+         ticks beside a scrollbar the finger-drag already controls. On
+         touch/narrow viewports they only steal taps near the right edge
+         and add noise — hide the rail entirely (CSS gate; the observer
+         machinery stays dormant and cheap with nothing displayed). */
+      '.dhb-rail{display:none !important}',
       '.dhb-tmX{width:20px;height:20px}',
       '.dhb-skillRow{padding:12px}',
       /* Inputs share rows with labels: let them shrink instead of forcing
