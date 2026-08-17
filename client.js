@@ -742,6 +742,7 @@ window.__ModuleLoader__.load({
       '.dhb-diffL[data-k="-"]{color:#c0392b;background:rgba(192,57,43,.06)}',
       '.dhb-diffL[data-k="@"]{color:#2f6fed}',
       '.dhb-diffL[data-k="h"]{color:var(--dsw-alias-label-caption,#8a919e)}',
+      '.dhb-diffN{display:inline-block;text-align:right;padding-right:8px;color:var(--dsw-alias-label-caption,#8a919e);opacity:.75;user-select:none;-webkit-user-select:none;vertical-align:baseline}',
       '.dhb-tmPage{display:flex;flex-direction:column;height:100%;padding:12px 16px;box-sizing:border-box;gap:8px;font-size:13px;color:var(--dsw-alias-label-secondary,#3f4550)}',
       '.dhb-tmBar{display:flex;align-items:center;gap:6px;flex-wrap:wrap;flex:none}',
       '.dhb-tmTab{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border:none;border-radius:9px;background:transparent;color:var(--dsw-alias-label-caption,#8a919e);cursor:pointer;font-size:12px;font-family:inherit}',
@@ -828,6 +829,9 @@ window.__ModuleLoader__.load({
       /* Code blocks and diffs: keep more of the viewport for content. */
       '.dhb-pre{max-height:56vh}',
       '.dhb-diff{font-size:11px}',
+      /* Tighter diff gutters on narrow viewports. */
+      '.dhb-diffL{padding:0 8px}',
+      '.dhb-diffN{padding-right:6px}',
       /* QR pairing card scales with the viewport. */
       '.dhb-qrBox svg{width:min(240px,68vw);height:auto}',
       /* The tool dock (file changes / terminal) is a desktop side column;
@@ -2028,6 +2032,63 @@ window.__ModuleLoader__.load({
     // ── File Changes panel (git, read-only) ───────────────────────────────
 
     /**
+     * Parse a unified diff into display rows carrying old/new line numbers.
+     *
+     * Numbering follows the unified-diff grammar: a `@@ -a,b +c,d @@` header
+     * resets both counters to its stated starts; `+` advances only the new
+     * side, `-` only the old side, context advances both. File headers
+     * (`diff `, `index `, `--- `, `+++ `), meta lines (`\ No newline`, mode /
+     * rename / Binary markers) carry no numbers. Header detection runs
+     * BEFORE the +/- branches so `+++ b/file` is not misclassified as an
+     * addition (the pre-line-numbers renderer had exactly that bug).
+     *
+     * @returns array of { k, text, oldN, newN, pad } — oldN/newN null on
+     * non-content rows; pad is the shared gutter width in characters.
+     */
+    function buildDiffRows(diff) {
+      var rows = []
+      var oldN = 0
+      var newN = 0
+      var maxNum = 0
+      var lines = String(diff).split('\n')
+      for (var i = 0; i < lines.length; i++) {
+        var line = lines[i]
+        if (line === '') continue
+        if (line.indexOf('@@') === 0) {
+          var m = /^@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)? @@/.exec(line)
+          if (m !== null) { oldN = parseInt(m[1], 10); newN = parseInt(m[2], 10) }
+          rows.push({ k: '@', text: line, oldN: null, newN: null })
+          continue
+        }
+        if (line.indexOf('diff ') === 0 || line.indexOf('index ') === 0
+          || line.indexOf('--- ') === 0 || line.indexOf('+++ ') === 0
+          || line.indexOf('\\') === 0
+          || /^(old mode|new mode|deleted file mode|new file mode|similarity index|dissimilarity index|rename from|rename to|copy from|copy to|Binary files)/.test(line)) {
+          rows.push({ k: 'h', text: line, oldN: null, newN: null })
+          continue
+        }
+        var ch = line.charAt(0)
+        if (ch === '+') {
+          rows.push({ k: '+', text: line, oldN: null, newN: newN })
+          newN += 1
+        } else if (ch === '-') {
+          rows.push({ k: '-', text: line, oldN: oldN, newN: null })
+          oldN += 1
+        } else {
+          // Context line (leading space) — both sides advance.
+          rows.push({ k: '', text: line, oldN: oldN, newN: newN })
+          oldN += 1
+          newN += 1
+        }
+        if (oldN > maxNum) maxNum = oldN
+        if (newN > maxNum) maxNum = newN
+      }
+      var pad = Math.max(3, String(maxNum).length)
+      for (var j = 0; j < rows.length; j++) rows[j].pad = pad
+      return rows
+    }
+
+    /**
      * The "File Changes" panel (opened from the header ⋯ menu's right-docked
      * overlay, only when the host reports a git binary). Reads the session
      * workspace's git status through the host API (which auto-inits a repo +
@@ -2076,6 +2137,10 @@ window.__ModuleLoader__.load({
         setData(function (prev) { return Object.assign({}, prev, { status: 'loading', error: '' }) })
         api('/git/status?cwd=' + encodeURIComponent(dir))
           .then(function (value) {
+            // Fresh entries arrived — cached per-file diffs from the previous
+            // load are stale, drop them so an expanded row never shows an
+            // outdated diff after a refresh.
+            setDiffs({})
             setData({
               status: 'ready',
               entries: value.entries === undefined ? [] : value.entries,
@@ -2285,9 +2350,17 @@ window.__ModuleLoader__.load({
                       slot.status === 'loading' ? h('span', { className: 'dhb-diffL', 'data-k': 'h' }, t('loading'))
                       : slot.status === 'error' ? h('span', { className: 'dhb-diffL', 'data-k': 'h' }, slot.diff)
                       : slot.diff === '' ? h('span', { className: 'dhb-diffL', 'data-k': 'h' }, t('gitDiffEmpty'))
-                      : slot.diff.split('\n').map(function (line, idx) {
-                          var k = line.indexOf('+') === 0 ? '+' : line.indexOf('-') === 0 ? '-' : line.indexOf('@@') === 0 ? '@' : line.indexOf('diff ') === 0 || line.indexOf('index ') === 0 || line.indexOf('--- ') === 0 || line.indexOf('+++ ') === 0 ? 'h' : ''
-                          return h('span', { className: 'dhb-diffL', 'data-k': k, key: idx }, line)
+                      : buildDiffRows(slot.diff).map(function (row, idx) {
+                          // Gutters render on every row (blank on the absent
+                          // side and on headers) so the text column stays
+                          // fixed; numbers are visual guides, not selectable.
+                          return h('span', { className: 'dhb-diffL', 'data-k': row.k, key: idx },
+                            h('span', { className: 'dhb-diffN', style: { width: row.pad + 'ch' }, key: 'o' },
+                              row.oldN === null ? '' : String(row.oldN)),
+                            h('span', { className: 'dhb-diffN', style: { width: row.pad + 'ch' }, key: 'n' },
+                              row.newN === null ? '' : String(row.newN)),
+                            row.text,
+                          )
                         }),
                     )
                   : null,
