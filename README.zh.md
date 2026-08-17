@@ -8,9 +8,12 @@ DeepSeek Harness（DSH）基础插件：插件市场、MCP 服务器管理与技
 
 ## 功能
 
-1. **插件市场** —— 设置 → 插件 分区里的新标签页。搜索 GitHub 上的 dsh 插件（GitHub Search
-   API，5 分钟缓存），一键安装（`pnpm add` 装进 web profile + 组合行写入
-   `~/.dsh/cordis.patch.yml` 的受管区块），校验结果确为 DSH 插件（否则自动回滚），支持一键卸载。
+1. **插件市场** —— 设置 → 插件 分区里的新标签页。基于生态认证集（`topic:dsh-plugin` + dsh 命名）
+   的发现式搜索：关键词既直查 GitHub、又对认证集的名称/描述做本地软匹配——真插件不再因为关键词
+   字面不命中而整批消失（中文词能搜到中文描述的插件）；空搜索直接浏览认证集前 100 名；仅当认证集
+   零命中时才降级旧版名称搜索（无徽章行）。认证行带「topic 认证」徽章。一键安装（`pnpm add`
+   装进 web profile + 组合行写入 `~/.dsh/cordis.patch.yml` 的受管区块），校验结果确为 DSH 插件
+   （否则自动回滚），支持一键卸载。
 2. **MCP** —— 设置里的新页面。以 YAML 直接编辑 MCP 服务器列表（每条 stdio 或 Streamable HTTP）；
    保存即写入 `~/.dsh/cordis.patch.yml` 受管区块，经官方 `@deepseek-ai/dsh-mcp-client` 热加载，
    无需重启。每个服务器显示实时状态（fiber 阶段 + 已注册工具数）；手动添加的行只读展示。

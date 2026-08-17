@@ -9,10 +9,15 @@ phone-width screens (see Mobile below).
 
 ## Features
 
-1. **Plugin Market** — a new tab inside Settings → Plugins. Searches GitHub for `dsh` plugins
-   (GitHub Search API, 5-minute cache), one-click install (`pnpm add` into the web profile +
-   composition rows written into the managed block of `~/.dsh/cordis.patch.yml`), validation that
-   the result is really a DSH plugin (auto-rollback otherwise), and one-click uninstall.
+1. **Plugin Market** — a new tab inside Settings → Plugins. Discovery-first search over the
+   ecosystem-certified set (`topic:dsh-plugin` + dsh-named): your term hits GitHub directly AND
+   soft-matches names/descriptions locally, so real plugins no longer vanish behind literal
+   keyword misses (Chinese terms find Chinese-described plugins); empty search browses the top
+   100 certified plugins; only when nothing certified matches does a legacy name-search fallback
+   run (unbadged rows). Certified rows carry a "topic verified" badge. One-click install
+   (`pnpm add` into the web profile + composition rows written into the managed block of
+   `~/.dsh/cordis.patch.yml`), validation that the result is really a DSH plugin (auto-rollback
+   otherwise), and one-click uninstall.
 2. **MCP** — a new Settings page. Edit the MCP server list directly as YAML (stdio or Streamable
    HTTP per entry); saving writes the managed block of `~/.dsh/cordis.patch.yml` and hot-loads
    through the official `@deepseek-ai/dsh-mcp-client` — no restart needed. Live status per server
