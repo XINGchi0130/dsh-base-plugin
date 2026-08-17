@@ -1,26 +1,23 @@
 /**
  * dsh-base-plugin — browser bundle.
  *
- * Hand-written in the web boot protocol format (no build step): registers a
- * factory with window.__ModuleLoader__ whose module exports are a cordis
- * plugin. React resolves through the loader module table.
+ * 手写遵循 web boot 协议格式（无构建步骤）：向 window.__ModuleLoader__
+ * 注册工厂，模块导出即 cordis 插件。React 经加载器模块表解析。
  *
- * Contributions (all text ZH/EN through the DSH locale service — the
- * language follows the setting in Settings):
+ * 贡献面（全部文案经 DSH locale 服务做中英双语——语言跟随设置页的
+ * 语言选项）：
  *
- * 1. `settings.plugins.tab` entry id `market` — the Plugin Market tab
- *    inside the Plugins settings section (GitHub search + one-click
- *    install/uninstall through the host half's HTTP API).
- * 2. `settings.section` entry id `dsh-base-plugin-mcp` — the MCP settings page
- *    (live status + direct YAML config editing; saves hot-load).
- * 3. `settings.section` entry id `dsh-base-plugin-skills` — the Skills page
- *    (list + content viewer; `~/.dsh/skills` entries editable/creatable).
- * 4. `settings.section` entry id `dsh-base-plugin-prompt` — the global System
- *    Prompt page (persona override; saves hot-load, empty restores default).
- * 5. `sidebar.footer.action` entry id `dsh-base-plugin-service` — Stop /
- *    Restart buttons beside Settings (host exits gracefully; restart
- *    re-execs the same invocation and this page reloads itself once back,
- *    with a `shell.overlay` status card while in flight).
+ * 1. `settings.plugins.tab` 注册项 id `market` —— 插件设置区里的
+ *    「插件市场」标签页（GitHub 搜索 + 经宿主半 HTTP API 一键安装/卸载）。
+ * 2. `settings.section` 注册项 id `dsh-base-plugin-mcp` —— MCP 设置页
+ *    （实时状态 + YAML 直接编辑；保存即热加载）。
+ * 3. `settings.section` 注册项 id `dsh-base-plugin-skills` —— 技能页
+ *    （列表 + 内容查看；`~/.dsh/skills` 下的技能可编辑/新建）。
+ * 4. `settings.section` 注册项 id `dsh-base-plugin-prompt` —— 全局系统
+ *    提示词页（persona 覆盖；保存热加载，置空恢复默认）。
+ * 5. `sidebar.footer.action` 注册项 id `dsh-base-plugin-service` —— 设置
+ *    旁的停止/重启按钮（宿主优雅退出；重启按原命令行 re-exec，回来后
+ *    页面自刷新，期间显示 `shell.overlay` 状态卡）。
  * 6. `conversation.session.header.utilities` entry id
  *    `dsh-base-plugin-session-more` + `shell.overlay` entry id
  *    `dsh-base-plugin-tools` — the header ⋯ menu hosts the File Changes
@@ -49,12 +46,10 @@
  *    already shows position). Mount-tracked via a body observer; fully
  *    disposable.
  *
- * Single file BY PROTOCOL CONSTRAINT, not by choice: the web boot loader
- * materializes exactly one factory per package (no bundler, no relative
- * imports — `require` reaches only the platform module table), so this file
- * is organized with section banners instead of modules. Section order:
- * i18n dictionaries → store/api/styles helpers → MarketTab → McpSection →
- * SkillsSection → plugin apply.
+ * 单文件是协议约束而非选择：web boot 加载器为每个包只物化一个工厂
+ * （无打包器、无相对导入——`require` 只能触达平台模块表），因此本文件
+ * 用分区横幅代替模块切分。分区顺序：i18n 词典 → store/api/styles
+ * 辅助 → MarketTab → McpSection → SkillsSection → plugin apply。
  */
 window.__ModuleLoader__.load({
   id: 'dsh-base-plugin',
@@ -64,7 +59,7 @@ window.__ModuleLoader__.load({
     var React = require('react')
     var h = React.createElement
 
-    // ── i18n dictionaries ─────────────────────────────────────────────────
+    // ── i18n 词典 ─────────────────────────────────────────────────────────
 
     var ZH = {
       tabMarket: '插件市场',
@@ -548,7 +543,7 @@ window.__ModuleLoader__.load({
       sessUntitled: '(untitled session)',
     }
 
-    /** Locale-service-free fallback: pick by browser language, replace {x}. */
+    /** 无 locale 服务时的回退：按浏览器语言选择词典，替换 {x} 占位。 */
     function fallbackT(key, params) {
       var lang = 'en'
       try {
@@ -565,16 +560,15 @@ window.__ModuleLoader__.load({
     }
 
     /**
-     * Locale change re-render trigger. One SHARED store for every mounted
-     * component (per-render inline store objects made useSyncExternalStore
-     * resubscribe on every render).
+     * 语言切换的重渲染触发器。所有已挂载组件共享一个 store（每次渲染
+     * 内联新建 store 对象会让 useSyncExternalStore 逐渲染重订阅）。
      */
     var localeStore = { initial: 0, instance: null }
     function bumpLocale() {
       if (localeStore.instance !== null) localeStore.instance.set(localeStore.instance.getSnapshot() + 1)
     }
 
-    // ── tiny store ────────────────────────────────────────────────────────
+    // ── 轻量 store ────────────────────────────────────────────────────────
 
     function createStore(initial) {
       var snapshot = initial
@@ -603,7 +597,7 @@ window.__ModuleLoader__.load({
       return state[0]
     }
 
-    // ── api helper ────────────────────────────────────────────────────────
+    // ── api 辅助 ──────────────────────────────────────────────────────────
 
     function api(path, init) {
       var fetcher = typeof globalThis !== 'undefined' ? globalThis.fetch : undefined
@@ -619,14 +613,14 @@ window.__ModuleLoader__.load({
           }
           return payload.value
         }, function () {
-          // Non-JSON body (proxy error page, truncated response): a bare
-          // "Unexpected token" helps nobody.
+          // 非 JSON 应答体（代理错误页、截断响应）：裸的
+          // "Unexpected token" 对谁都没帮助。
           throw new Error('bad response from the dsh-base-plugin API (HTTP ' + res.status + ') — is dsh restarting?')
         })
       })
     }
 
-    // ── styles ────────────────────────────────────────────────────────────
+    // ── 样式 ──────────────────────────────────────────────────────────────
 
     var CSS = [
       '.dhb-page{display:flex;flex-direction:column;gap:12px;font-size:13px;line-height:1.5;color:var(--dsw-alias-label-secondary,#3f4550)}',
@@ -674,39 +668,31 @@ window.__ModuleLoader__.load({
       '.dhb-skillName{font-weight:600;font-size:13px;color:var(--dsw-alias-label-primary,#222)}',
       '.dhb-pre{margin:0;padding:10px 12px;border-radius:8px;border:1px solid var(--dsw-alias-border-l2,#e3e6ec);background:var(--dsw-alias-markdown-code-block,rgba(127,127,127,.08));font-size:12px;white-space:pre-wrap;word-break:break-word;max-height:420px;overflow:auto;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--dsw-alias-label-secondary,#3f4550)}',
       '.dhb-sectTitle{margin:4px 0 0;font-size:13px;font-weight:600;color:var(--dsw-alias-label-secondary,#3f4550)}',
-      /* Contained hover row: NO negative margins (the official trigger's
-         -4px bleed above it made the two hit areas overlap; the compositor
-         repainting that overlap band read as a grey flicker in light
-         theme). Our row stays strictly inside its own box. */
-      /* Opaque shelf matching the sidebar background: the ancestor scroller
-         repaints its bottom edge whenever ANY footer hover state changes
-         (harness layout behavior — layers/isolation cannot stop it). An
-         opaque shelf makes that repaint pixel-identical, so nothing is
-         visible: the "flickering lines" were the scroller's rounded clip
-         edge alternating between two subpixel positions over TRANSPARENT
-         gaps; over a solid shelf the two positions paint the same color. */
+      /* 悬停行完全容纳在自身盒内：不用负外边距（官方触发器上方 -4px 的
+         渗出让两个命中区重叠，合成器重绘重叠带在浅色主题下表现为灰色
+         闪烁）。本行严格限制在自己的盒内。 */
+      /* 与侧栏背景同色的不透明垫层：只要底部任意悬停状态变化，祖先滚动
+         容器就重绘其底缘（harness 布局行为——分层/隔离都拦不住）。不透明
+         垫层让该重绘逐像素一致，于是不可见：「闪烁的线」本是滚动容器圆角
+         裁剪边在透明间隙上于两个子像素位置间来回；在实色垫层上两个位置
+         画同一颜色。 */
       '.dhb-svcWrap{flex:none;display:flex;width:100%;margin:4px 0;box-sizing:border-box;padding:2px 4px;border-radius:10px;background:var(--dsw-alias-bg-base,#fff)}',
-      /* Static-geometry opaque sheet: up past the scroller's bottom clip
-         edge, down past the settings row. footerActions is position:static,
-         so this absolute child anchors to the nearest positioned ancestor —
-         the sidebar column — which is exactly the strip we want to cover. */
+      /* 静态几何不透明垫层：上探越过滚动容器的底部裁剪边、下盖过设置行。
+         footerActions 是 position:static，因此这个绝对定位子元素锚到最近
+         的定位祖先——侧栏列——恰好就是我们要覆盖的条带。 */
       '.dhb-svcBackdrop{position:absolute;left:0;right:0;top:-10px;bottom:-92px;pointer-events:none;z-index:-1;background:var(--dsw-alias-bg-base,#fff)}',
-      /* No transitions on hover: an animated background on a flex row in the
-         sidebar foot caused visible flicker on pointer-enter (the paint of
-         the transition's first frames raced the flex relayout). Hover is an
-         instant state swap now, matching the settings trigger below. */
-      /* Integer-pixel geometry, no overflow clipping (rounded hover paints
-         its own mask; overflow:hidden forced a clip layer whose 1px edges
-         sat on subpixel boundaries and shimmered on Retina). */
+      /* 悬停不做过渡动画：侧栏底部 flex 行的背景动画在指针进入时明显闪烁
+         （过渡头几帧的绘制与 flex 重排竞速）。现在悬停是即时状态切换，
+         与下方设置触发器一致。 */
+      /* 整数像素几何、不裁剪溢出（圆角悬停自绘遮罩；overflow:hidden 会
+         强制裁剪层，其 1px 边缘落在子像素边界上，Retina 屏上闪烁）。 */
       '.dhb-svcBtn{flex:1;min-width:0;display:flex;align-items:center;justify-content:center;gap:7px;height:34px;padding:6px 10px;box-sizing:border-box;border:none;border-radius:0;background:transparent;color:var(--dsw-alias-label-secondary,#3f4550);cursor:pointer;font-family:inherit;font-size:13px;line-height:22px;white-space:nowrap}',
       '.dhb-svcBtn:first-child{border-radius:12px 0 0 12px}',
       '.dhb-svcBtn:last-child{border-radius:0 12px 12px 0}',
       '.dhb-svcBtn:only-child{border-radius:12px}',
-      /* Hover background via INSET BOX-SHADOW, not background+radius: a
-         rounded background forces an antialiased clip whose top/bottom
-         edges resample on every compositor promotion (the "two flickering
-         lines" on Retina). An inset shadow with the same radius paints the
-         identical pill with no clip layer at all. */
+      /* 悬停背景用内嵌 box-shadow 而非 background+圆角：圆角背景强制抗锯齿
+         裁剪，上下边在每次合成器提升时重采样（Retina 上的「两条闪烁线」）。
+         同半径的内嵌阴影画出完全相同的药丸形，且完全没有裁剪层。 */
       '.dhb-svcBtn:hover:not(:disabled){box-shadow:inset 0 0 0 9999px var(--dsw-alias-interactive-bg-hover,rgba(127,127,127,.12))}',
       '.dhb-svcBtn:disabled{opacity:.4;cursor:not-allowed}',
       '.dhb-svcBtn svg{flex:none;display:block}',
@@ -715,18 +701,15 @@ window.__ModuleLoader__.load({
       '.dhb-svcRail{width:36px;height:36px;flex:none;display:flex;align-items:center;justify-content:center;padding:0;border:none;border-radius:50%;background:transparent;color:var(--dsw-alias-label-secondary,#3f4550);cursor:pointer}',
       '.dhb-svcRail:hover:not(:disabled){box-shadow:inset 0 0 0 9999px var(--dsw-alias-interactive-bg-hover,rgba(127,127,127,.12))}',
       '.dhb-svcRail:disabled{opacity:.4;cursor:not-allowed}',
-      /* Above the settings modal (its mask sits at z-index 1000): the confirm
-         card is a global answer to a destructive action and must never be
-         covered by the surface that asked for it. */
+      /* 高于设置模态（其遮罩在 z-index 1000）：确认卡是对破坏性操作的全局
+         应答，绝不能被发起它的界面盖住。 */
       '.dhb-cfmOverlay{position:fixed;inset:0;z-index:2000;display:flex;align-items:center;justify-content:center;background:var(--dsw-alias-bg-mask-1,rgba(0,0,0,.32))}',
       '.dhb-cfmCard{display:flex;flex-direction:column;gap:14px;width:min(360px,calc(100vw - 48px));padding:18px 20px 16px;border-radius:14px;border:1px solid var(--dsw-alias-border-l1,#d0d4dd);background:var(--dsw-alias-bg-base,#fff);box-shadow:0 16px 40px rgba(0,0,0,.22);font-size:13px;color:var(--dsw-alias-label-secondary,#3f4550)}',
       '.dhb-cfmText{margin:0;line-height:1.6;white-space:pre-wrap;word-break:break-word;color:var(--dsw-alias-label-primary,#222)}',
       '.dhb-cfmRow{display:flex;justify-content:flex-end;gap:8px}',
-      /* Pinned onto the header's bottom rule — the same line as the view
-         tabs (the tabs row is the header's last row; its text sits ~11px
-         above the border). bottom:2px puts the 28px button's vertical
-         center on the tab text's line; right:0 hugs the header's right
-         padding edge like a trailing tab.
+      /* 钉在会话头底边框上——与视图 tab 同一行（tab 行是头部最后一行，
+         文字距边框约 11px）。bottom:2px 让 28px 按钮的垂直中心对齐 tab
+         文字行；right:0 贴住头部右内边距，像末位 tab。
          z-index:7 — the SAME layer the harness gives the sticky composer
          seat (input box), and above markdown CodeBlock sticky banners (6).
          The wrap creates the stacking context for its dropdown menu, so a
@@ -769,21 +752,18 @@ window.__ModuleLoader__.load({
          CSS-module 哈希，不可用；data-variant="think" 是 ReasoningRow 的
          稳定输出）：上限 40vh、内部滚动，展开仍可读完全文。 */
       '[data-variant="think"] [class*="thinkBody"]{max-height:40vh;overflow-y:auto;overscroll-behavior:contain}',
-      /* ── conversation message rail ────────────────────────────────────────
-         NOTE: no custom scrollbar skin here — the harness ships its own
-         token-driven one (ui-theme styles/scrollbar.css, dark-mode aware,
-         --dsh-scrollbar-width: 8px). This plugin only adds the rail beside
-         it. */
-      /* The message rail: fixed beside (not over) the native scrollbar. The
-         container passes pointer events through; only ticks accept them, so
-         the strip never blocks selection near the right edge. Deliberately
-         NO track and NO viewport capsule — the native scrollbar right next
-         to it already communicates position, and a second capsule read as
-         a parallel scrollbar. Only the small message ticks float here. */
+      /* ── 会话消息刻度轨道 ────────────────────────────────────────────────
+         注意：此处不做自定义滚动条皮肤——harness 自带 token 驱动的皮肤
+         （ui-theme styles/scrollbar.css，暗色自适应，--dsh-scrollbar-width:
+         8px）。本插件只在其旁侧加刻度轨道。 */
+      /* 消息刻度轨道：固定在原生滚动条旁侧（非覆盖）。容器穿透指针事件、
+         只有刻度本身接收——条带不会挡住右缘的文本选择。刻意不画轨道、
+         不画视口胶囊：旁边原生滚动条已表达位置，再画一个胶囊会被看成
+         第二根滚动条。只有小刻度悬浮于此。 */
       '.dhb-rail{position:fixed;width:12px;z-index:500;pointer-events:none;display:none}',
       '.dhb-rail[data-on="1"]{display:block}',
-      /* While the ⋯ dropdown (or any dhb-smMenu) is open, the rail yields —
-         the menu lives in lower stacking contexts and would be covered. */
+      /* ⋯ 下拉菜单（任意 dhb-smMenu）打开期间轨道让位——菜单在更低的
+         层叠上下文里，会被轨道盖住。 */
       '.dhb-rail[data-menu-open="1"]{display:none}',
       '.dhb-railTick{position:absolute;left:2px;right:2px;height:4px;border-radius:2px;cursor:pointer;pointer-events:auto;transition:transform .12s ease,box-shadow .12s ease}',
       '.dhb-railTick[data-role="user"]{background:rgba(47,111,237,.75)}',
@@ -856,45 +836,41 @@ window.__ModuleLoader__.load({
          rules adapt THIS plugin's own surfaces). Touch-friendly targets,
          scrollable wide tables, full-width tool dock, scaled QR. ──────── */
       '@media (max-width: 760px){',
-      /* Touch targets: buttons grow, small icon buttons reach 32px. */
+      /* 触控目标：按钮变大，小图标按钮达到 32px。 */
       '.dhb-btn{padding:8px 14px;font-size:13px}',
       '.dhb-smBtn{width:32px;height:32px}',
-      /* The message rail is a pointer-precision affordance: 12px-wide
-         ticks beside a scrollbar the finger-drag already controls. On
-         touch/narrow viewports they only steal taps near the right edge
-         and add noise — hide the rail entirely (CSS gate; the observer
-         machinery stays dormant and cheap with nothing displayed). */
+      /* 消息刻度轨道是指针精度交互：12px 的小刻度贴着本就由手指拖拽
+         控制的滚动条。触屏/窄视口下它们只会截走右缘触摸、徒增噪音——
+         整体隐藏（CSS 关断；观察者机制因无元素显示而保持休眠、开销
+         极低）。 */
       '.dhb-rail{display:none !important}',
       '.dhb-tmX{width:20px;height:20px}',
       '.dhb-skillRow{padding:12px}',
-      /* Inputs share rows with labels: let them shrink instead of forcing
-         160px minimum inside a wrapping flex row. */
+      /* 输入框与标签同行：允许收缩，不在换行 flex 行里强撑 160px 最小宽。 */
       '.dhb-input{min-width:0}',
       '.dhb-textarea{min-height:72px;font-size:13px}',
-      /* Wide nowrap tables (usage stats, price editor) become their own
-         horizontal scrollers — the classic display:block trick. */
+      /* 宽表格（用量统计、价格编辑器）各自横向滚动——经典 display:block
+         技巧。 */
       '.dhb-usTable{display:block;overflow-x:auto;-webkit-overflow-scrolling:touch}',
-      /* Stat cards and charts give up their floor width so the row wraps
-         into fewer per line instead of overflowing. */
+      /* 统计卡与图表放弃最小宽，让每行换行收纳而非溢出。 */
       '.dhb-usStat{min-width:0}',
       '.dhb-usPriceIn{width:74px}',
-      /* Code blocks and diffs: keep more of the viewport for content. */
+      /* 代码块与 diff：把更多视口留给内容。 */
       '.dhb-pre{max-height:56vh}',
       '.dhb-diff{font-size:11px}',
-      /* Tighter diff gutters on narrow viewports. */
+      /* 窄视口下 diff 行号槽收紧。 */
       '.dhb-diffL{padding:0 8px}',
       '.dhb-diffN{padding-right:6px}',
-      /* QR pairing card scales with the viewport. */
+      /* 配对二维码卡随视口缩放。 */
       '.dhb-qrBox svg{width:min(240px,68vw);height:auto}',
-      /* The tool dock (file changes / terminal) is a desktop side column;
-         on a phone it becomes a full-width overlay. Inline width comes from
-         the JS drag state — left:0/right:0 pin it regardless. The resize
-         strip is meaningless on touch: hide it. */
+      /* 工具坞（文件变更/终端）在桌面是侧栏列；手机上变为全宽覆盖层。
+         行内宽度来自 JS 拖拽状态——left:0/right:0 无论如何都钉满。拖宽
+         条在触屏上无意义：隐藏。 */
       '.dhb-toolsDock{left:0;right:0;width:100vw !important;max-width:100vw;border-left:none}',
       '.dhb-toolsResize{display:none}',
       '.dhb-gtPage{padding:10px 10px}',
       '.dhb-tmOut{font-size:11.5px}',
-      /* Service status overlay card breathes on small screens. */
+      /* 服务状态卡片在小屏上留出呼吸空间。 */
       '.dhb-svcCard{max-width:88vw;padding:18px 16px}',
       /* ── Host settings panel (tagged by the DOM patch above; hashed
          module class names can't be targeted). Desktop: 800px modal,
@@ -919,7 +895,7 @@ window.__ModuleLoader__.load({
       '}',
     ]
 
-    /** Insert the stylesheet once; returns a disposer removing it on stop. */
+    /** 样式表只插入一次；返回 disposer，停止时移除。 */
     function injectStyles() {
       if (typeof document === 'undefined') return undefined
       if (document.getElementById('dsh-base-plugin/styles') !== null) return undefined
@@ -932,7 +908,7 @@ window.__ModuleLoader__.load({
       }
     }
 
-    // ── shared bits ───────────────────────────────────────────────────────
+    // ── 共享小件 ──────────────────────────────────────────────────────────
 
     function Banner(props) {
       return h('div', { className: 'dhb-banner', 'data-kind': props.kind }, props.text)
@@ -961,17 +937,15 @@ window.__ModuleLoader__.load({
       })
     }
 
-    // ── in-app confirm dialog (no native window.confirm) ─────────────────
+    // ── 应用内确认对话框（不用原生 window.confirm）─────────────────────
 
     /**
-     * Confirm dialog in DIRECT DOM (not React): the card must sit at
-     * document.body level to top the settings modal (body-level z-index
-     * 1000), while the shell.overlay slot lives inside the frame's stacking
-     * context where nothing can beat it. Moving a React-owned node to body
-     * breaks React's unmount bookkeeping (dead handlers, ghost nodes), so
-     * this drives a tiny imperative overlay instead: showConfirm() builds it
-     * lazily, buttons settle the pending promise and hide the DOM. One open
-     * dialog at a time; Esc and backdrop-click cancel.
+     * 确认对话框用直接 DOM（非 React）：卡片必须挂在 document.body 层
+     * 才能压过设置模态（body 层 z-index 1000），而 shell.overlay 槽位在
+     * 外壳框架的层叠上下文里、什么都赢不了它。把 React 节点搬去 body
+     * 会破坏 React 的卸载簿记（死处理器、幽灵节点），因此这里用一个极
+     * 小的命令式覆盖层：showConfirm() 惰性构建，按钮结算挂起的 Promise
+     * 并隐藏 DOM。同时只开一个对话框；Esc 与点背景取消。
      */
     var confirmDom = null
     var pendingConfirmResolve = null
@@ -1042,17 +1016,17 @@ window.__ModuleLoader__.load({
       if (pendingConfirmResolve !== null) pendingConfirmResolve(result)
     }
 
-    /** Registered into shell.overlay to keep the slot registration contract;
-     * the real card is direct DOM at body level. */
+    /** 注册进 shell.overlay 以维持槽位注册契约；真正的卡片是 body 层
+     * 的直接 DOM。 */
     function ConfirmDialog() {
       return null
     }
 
-    /** The locale-bound translate fn captured at apply time (fallback: navigator language). */
+    /** apply 时捕获的绑定 locale 的翻译函数（回退：浏览器语言）。 */
     var currentT = null
 
 
-    /** Subscribe the component to locale changes (shared store, stable identity). */
+    /** 让组件订阅语言变化（共享 store，引用稳定）。 */
     function useLocaleVersion() {
       if (localeStore.instance === null) {
         localeStore.instance = createStore(localeStore.initial)
@@ -1060,7 +1034,7 @@ window.__ModuleLoader__.load({
       return useStore(localeStore.instance)
     }
 
-    // ── market tab ────────────────────────────────────────────────────────
+    // ── 插件市场标签页 ────────────────────────────────────────────────────
 
     function MarketTab(props) {
       var t = props.t
@@ -1088,9 +1062,8 @@ window.__ModuleLoader__.load({
 
       var searchGen = React.useRef(0)
 
-      // Local ordering for stars/updated/name — the final word even against
-      // an older host half (which ignores the sort param and returns its
-      // default ranking). `default` keeps the host's ecosystem tier order.
+      // 星标/更新时间/名称的本地排序——即使旧宿主半忽略 sort 参数、
+      // 返回默认排序也以本地为准。`default` 保持宿主的生态层级序。
       function sortLocally(items, mode) {
         var copy = items.slice()
         if (mode === 'stars') copy.sort(function (a, b) { return b.stars - a.stars })
@@ -1279,7 +1252,7 @@ window.__ModuleLoader__.load({
       )
     }
 
-    // ── mcp section ───────────────────────────────────────────────────────
+    // ── MCP 设置节 ────────────────────────────────────────────────────────
 
     function McpSection(props) {
       var t = props.t
@@ -1388,7 +1361,7 @@ window.__ModuleLoader__.load({
       )
     }
 
-    // ── system prompt section ─────────────────────────────────────────────
+    // ── 系统提示词设置节 ───────────────────────────────────────────────────
 
     function PromptSection(props) {
       var t = props.t
@@ -1410,8 +1383,8 @@ window.__ModuleLoader__.load({
       var msg = msgState[0]
       var setMsg = msgState[1]
 
-      // Re-read state and re-seed the editor (never clobbers unsaved edits).
-      // The editor seeds with the custom persona only — the default is empty.
+      // 重读状态并重新填充编辑器（绝不覆盖未保存的编辑）。
+      // 编辑器只以自定义 persona 填充——默认态就是空。
       var refresh = React.useCallback(function (forceEditor) {
         api('/state').then(function (value) {
           var persona = typeof value.persona === 'string' ? value.persona : ''
@@ -1498,7 +1471,7 @@ window.__ModuleLoader__.load({
       )
     }
 
-    // ── skills section ────────────────────────────────────────────────────
+    // ── 技能设置节 ────────────────────────────────────────────────────────
 
     function SkillsSection(props) {
       var t = props.t
@@ -1741,22 +1714,21 @@ window.__ModuleLoader__.load({
       )
     }
 
-    // ── sessions section (inventory + destructive delete) ────────────────
+    // ── 会话设置节（清单 + 破坏性删除）──────────────────────────────────
 
-    /** Filter keys in display order; labels via t('sessFilter'+Key). */
+    /** 过滤键按显示顺序；文案经 t('sessFilter'+键名) 取。 */
     var SESS_FILTERS = ['all', 'live', 'archived', 'ghost']
 
-    /** A row's display name: the projected title, else the untitled label. */
+    /** 行的显示名：投影标题，否则用「未命名」文案。 */
     function sessionDisplayName(item, t) {
       if (typeof item.title === 'string' && item.title !== '') return item.title
       return t('sessUntitled')
     }
 
     /**
-     * The Sessions settings section: every persisted session (plus archive-set
-     * ghosts) with filter chips and a per-row destructive Delete. Live rows
-     * disable the button (the host refuses them anyway — close first); ghost
-     * rows (no log, not live) delete as a pure metadata sweep.
+     * 会话设置节：全部持久化会话（含归档集幽灵行）、过滤片与逐行的
+     * 破坏性删除。活跃行禁用删除按钮（宿主本就会拒绝——先关闭会话）；
+     * 幽灵行（无日志、非活跃）的删除是纯元数据清扫。
      */
     function SessionsSection(props) {
       var t = props.t
@@ -1831,8 +1803,8 @@ window.__ModuleLoader__.load({
       else if (filter === 'archived') visible = visible.filter(function (s) { return s.archived === true })
       else if (filter === 'ghost') visible = visible.filter(function (s) { return s.hasLog !== true && s.live !== true })
 
-      // Search narrows within the active filter chip: case-insensitive
-      // substring over title, id, and cwd (the fields a user can see).
+      // 搜索在当前过滤片内收窄：对标题、id、cwd（用户可见的三字段）
+      // 做不区分大小写的子串匹配。
       var needle = query.trim().toLowerCase()
       var searching = needle !== ''
       if (searching) {
@@ -1917,7 +1889,7 @@ window.__ModuleLoader__.load({
       )
     }
 
-    // ── mobile access section (pairing proxy control) ────────────────────
+    // ── 手机访问设置节（配对代理控制）────────────────────────────────────
 
     /** ISO epoch → locale short form; 0 → placeholder. */
     function mobileTime(ms, t) {
@@ -1931,10 +1903,9 @@ window.__ModuleLoader__.load({
     }
 
     /**
-     * The Mobile Access settings section: enable toggle + port, pairing QR
-     * (each open mints a fresh code), paired-device list with per-device
-     * revoke, and the rotate-key action. All through the host half's
-     * /mobile* control routes.
+     * 手机访问设置节：启用开关 + 端口、配对二维码（每次打开都铸新
+     * 码）、已配对设备列表（可逐个吊销）与轮换密钥操作。全部经宿主半
+     * 的 /mobile* 控制路由。
      */
     function MobileSection(props) {
       var t = props.t
@@ -2038,9 +2009,8 @@ window.__ModuleLoader__.load({
             h('span', { className: 'dhb-badge', 'data-phase': data.running ? 'active' : 'failed' }, data.running ? 'running' : 'stopped'),
           ),
         ),
-        // Current address card: the LAN IP is the thing that silently drifts
-        // (DHCP reassignment) and breaks every saved phone bookmark — show it
-        // prominently regardless of proxy state.
+        // 当前地址卡片：局域网 IP 是会无声漂移的东西（DHCP 重分配），
+        // 一漂移手机里存的全部书签就失效——无论代理状态如何都醒目展示。
         data.addresses !== undefined && data.addresses.length > 0
           ? h('div', { className: 'dhb-card' },
               h('div', { className: 'dhb-cardTitle' }, t('mobileCurrentAddress')),
@@ -2109,21 +2079,19 @@ window.__ModuleLoader__.load({
       )
     }
 
-    // ── File Changes panel (git, read-only) ───────────────────────────────
+    // ── 文件变更面板（git，只读）──────────────────────────────────────────
 
     /**
-     * Parse a unified diff into display rows carrying old/new line numbers.
+     * 把 unified diff 解析为带旧行/新行行号的显示行。
      *
-     * Numbering follows the unified-diff grammar: a `@@ -a,b +c,d @@` header
-     * resets both counters to its stated starts; `+` advances only the new
-     * side, `-` only the old side, context advances both. File headers
-     * (`diff `, `index `, `--- `, `+++ `), meta lines (`\ No newline`, mode /
-     * rename / Binary markers) carry no numbers. Header detection runs
-     * BEFORE the +/- branches so `+++ b/file` is not misclassified as an
-     * addition (the pre-line-numbers renderer had exactly that bug).
+     * 编号遵循 unified-diff 语法：`@@ -a,b +c,d @@` 头把两个计数器重置为
+     * 声明的起始值；`+` 只推进新侧，`-` 只推进旧侧，上下文行两侧都推进。
+     * 文件头（`diff `、`index `、`--- `、`+++ `）与元信息行（`\ No newline`、
+     * 权限/重命名/Binary 标记）不带行号。头行判断在 +/- 分支**之前**，
+     * 否则 `+++ b/file` 会被误判为新增行（加行号之前的渲染器正有此 bug）。
      *
-     * @returns array of { k, text, oldN, newN, pad } — oldN/newN null on
-     * non-content rows; pad is the shared gutter width in characters.
+     * @returns { k, text, oldN, newN, pad } 数组——非内容行的 oldN/newN 为
+     * null；pad 为两侧共用的行号槽宽（字符数）。
      */
     function buildDiffRows(diff) {
       var rows = []
@@ -2155,7 +2123,7 @@ window.__ModuleLoader__.load({
           rows.push({ k: '-', text: line, oldN: oldN, newN: null })
           oldN += 1
         } else {
-          // Context line (leading space) — both sides advance.
+          // 上下文行（行首空格）——两侧行号都前进。
           rows.push({ k: '', text: line, oldN: oldN, newN: newN })
           oldN += 1
           newN += 1
@@ -2169,20 +2137,18 @@ window.__ModuleLoader__.load({
     }
 
     /**
-     * The "File Changes" panel (opened from the header ⋯ menu's right-docked
-     * overlay, only when the host reports a git binary). Reads the session
-     * workspace's git status through the host API (which auto-inits a repo +
-     * baseline commit on first open when needed) and shows per-file diffs
-     * inline. Strictly read-only — viewing changes never touches the work
-     * tree. Consumes only `kit.sessionId` and `kit.useSessions` (cwd), so it
-     * runs equally well behind the overlay's synthetic kit.
+     * 「文件变更」面板（头部 ⋯ 菜单的右侧停靠覆盖层，仅当宿主报有 git
+     * 二进制时出现）。经宿主 API 读会话工作区的 git 状态（首次打开未初
+     * 始化时自动 init 仓库 + 打基线提交），内联展示逐文件 diff。严格只
+     * 读——查看变更绝不碰工作区。只消费 `kit.sessionId` 与
+     * `kit.useSessions`（cwd），因此在覆盖层的合成 kit 后同样可用。
      */
     function ChangesView(props) {
       var t = props.t
       var kit = props.kit
       useLocaleVersion()
 
-      // Session cwd via the standard sessions hook (session-scoped slot).
+      // 经标准 sessions 钩子取会话 cwd（会话作用域槽位）。
       var sessionId = kit !== undefined ? kit.sessionId : undefined
       var cwd = kit !== undefined && typeof kit.useSessions === 'function'
         ? kit.useSessions(function (s) {
@@ -2200,7 +2166,7 @@ window.__ModuleLoader__.load({
       var diffs = diffState[0]
       var setDiffs = diffState[1]
 
-      // File filter/sort controls (persist across reloads of the same list).
+      // 文件过滤/排序控件（同一列表多次重载间保持状态）。
       var queryState = React.useState('')
       var query = queryState[0]
       var setQuery = queryState[1]
@@ -2217,9 +2183,8 @@ window.__ModuleLoader__.load({
         setData(function (prev) { return Object.assign({}, prev, { status: 'loading', error: '' }) })
         api('/git/status?cwd=' + encodeURIComponent(dir))
           .then(function (value) {
-            // Fresh entries arrived — cached per-file diffs from the previous
-            // load are stale, drop them so an expanded row never shows an
-            // outdated diff after a refresh.
+            // 新的条目到了——上一轮缓存的逐文件 diff 已过期，丢弃它们，
+            // 免得展开的行在刷新后还显示旧 diff。
             setDiffs({})
             setData({
               status: 'ready',
@@ -2280,8 +2245,8 @@ window.__ModuleLoader__.load({
       var kindLabel = { new: 'gitKindNew', modified: 'gitKindModified', deleted: 'gitKindDeleted', renamed: 'gitKindRenamed' }
       var kindOrder = { new: 0, modified: 1, deleted: 2, renamed: 3 }
 
-      /** Churn = added+deleted lines (binary → -1 so it sorts last in
-       * descending churn but never first; mtime fallback for null churn). */
+      /** 变更量 = 增行+删行（二进制 → -1：降序时排最后、永不排第一；
+       * 空变更量回退按 mtime）。 */
       function entryChurn(entry) {
         if (entry.added === null || entry.deleted === null) return -1
         return (typeof entry.added === 'number' ? entry.added : 0)
@@ -2294,10 +2259,9 @@ window.__ModuleLoader__.load({
         return Number.isNaN(ms) ? 0 : ms
       }
 
-      // Filter → sort pipeline. Search narrows by path substring
-      // (case-insensitive); sort supports kind/path/time/churn, path and kind
-      // ascending by nature, time/churn default to descending (newest /
-      // biggest first) with a manual direction toggle.
+      // 过滤→排序流水线。搜索按路径子串收窄（不分大小写）；排序支持
+      // 类型/路径/时间/变更量，路径与类型自然升序，时间/变更量默认降序
+      // （最新/最大在前），方向按钮可手动切换。
       var needle = query.trim().toLowerCase()
       var searching = needle !== ''
       var filtered = searching
@@ -2334,7 +2298,7 @@ window.__ModuleLoader__.load({
         }
       }
 
-      /** Per-row time: "HH:MM" today, "MM-DD HH:MM" otherwise. */
+      /** 行内时间：今天显示 "HH:MM"，否则 "MM-DD HH:MM"。 */
       function rowTime(iso) {
         if (typeof iso !== 'string' || iso === '') return ''
         try {
@@ -2430,9 +2394,8 @@ window.__ModuleLoader__.load({
                       : slot.status === 'error' ? h('span', { className: 'dhb-diffL', 'data-k': 'h' }, slot.diff)
                       : slot.diff === '' ? h('span', { className: 'dhb-diffL', 'data-k': 'h' }, t('gitDiffEmpty'))
                       : buildDiffRows(slot.diff).map(function (row, idx) {
-                          // Gutters render on every row (blank on the absent
-                          // side and on headers) so the text column stays
-                          // fixed; numbers are visual guides, not selectable.
+                          // 行号槽每行都渲染（缺失侧与头行留空）使文本列
+                          // 对齐固定；行号是视觉导引，不可选中。
                           return h('span', { className: 'dhb-diffL', 'data-k': row.k, key: idx },
                             h('span', { className: 'dhb-diffN', style: { width: row.pad + 'ch' }, key: 'o' },
                               row.oldN === null ? '' : String(row.oldN)),
@@ -2450,13 +2413,12 @@ window.__ModuleLoader__.load({
       )
     }
 
-    // ── Terminal panel (PTY, multi) ────────────────────────────────────────
+    // ── 终端面板（PTY，多实例）─────────────────────────────────────────────
 
     /**
-     * One terminal pane: output stream + single-line input. The host maps
-     * the PTY send-operation model onto this UI: pressing Enter submits the
-     * line and settles the op; output is polled (read delta) while typing
-     * keeps one op open. Ctrl+C interrupts the foreground op.
+     * 单个终端窗格：输出流 + 单行输入。宿主把 PTY 的发送-操作模型映射
+     * 到此 UI：按回车提交该行并结算操作；输出按增量轮询，输入期间保持
+     * 一个操作打开。Ctrl+C 中断前台操作。
      */
     function TerminalPane(props) {
       var t = props.t
@@ -2477,8 +2439,8 @@ window.__ModuleLoader__.load({
       function submit() {
         if (input === '') return
         var sent = onInput(term.key, input, true)
-        // Clear the line only once the PTY accepted it; a rejection (e.g.
-        // "a command is still running") keeps the typed text for editing.
+        // 只有 PTY 接受了该行才清空输入；被拒（如「命令仍在运行」）时
+        // 保留已输入文本以便继续编辑。
         if (sent !== undefined && typeof sent.then === 'function') {
           sent.then(function () { setInput('') }, function () { /* keep input */ })
         } else {
@@ -2516,10 +2478,9 @@ window.__ModuleLoader__.load({
     }
 
     /**
-     * The Terminal panel: multiple PTYs in the session workspace, opened from
-     * the header ⋯ menu's right-docked panel. Terminals live host-side
-     * (owner-scoped to the session's agent), so the panel only restores the
-     * list and keeps per-terminal output state locally.
+     * 终端面板：会话工作区内的多个 PTY，从头部 ⋯ 菜单的右侧停靠面板
+     * 打开。终端存活在宿主侧（按会话代理做属主隔离），因此本面板只恢复
+     * 列表、逐终端的输出状态留在本地。
      */
     function TerminalView(props) {
       var t = props.t
@@ -2576,7 +2537,7 @@ window.__ModuleLoader__.load({
         })
       }
 
-      /** Poll one op until it settles; registered for unmount cleanup. */
+      /** 轮询一个操作直到结算；登记以便卸载时清理。 */
       var pollStoppers = []
       function pollLoop(key, opKey) {
         var stop = false
@@ -2591,8 +2552,8 @@ window.__ModuleLoader__.load({
               setTimeout(tick, 700)
             })
             .catch(function () {
-              // Back off; after sustained misses (host gone / plugin removed)
-              // the loop ends instead of polling forever.
+              // 退避；连续失败（宿主消失/插件被移除）后结束循环，
+              // 不再永久轮询。
               misses += 1
               if (misses >= 20) return
               setTimeout(tick, 1500)
@@ -2604,8 +2565,8 @@ window.__ModuleLoader__.load({
         return stopper
       }
 
-      // Stop every live poll when the tab unmounts (switching views must not
-      // leave orphan pollers POSTing for a dead component).
+      // 标签卸载时停掉所有在途轮询（切换视图不得留下孤儿轮询器给
+      // 已卸载组件发 POST）。
       React.useEffect(function () {
         return function () {
           for (var i = 0; i < pollStoppers.length; i += 1) pollStoppers[i]()
@@ -2613,7 +2574,7 @@ window.__ModuleLoader__.load({
         }
       }, [])
 
-      /** Restore host-side terminals for this session (tab remount). */
+      /** 恢复本会话在宿主侧的终端列表（标签重新挂载时）。 */
       React.useEffect(function () {
         if (sessionId === undefined) return
         post('/terminal/list', { sessionId: sessionId })
@@ -2627,9 +2588,8 @@ window.__ModuleLoader__.load({
 
       function onNew() {
         if (sessionId === undefined || sessionId === '') return
-        // Suffix with a clock token: after a tab remount the local counter
-        // resets, and a bare "term-1" would collide with a still-open host
-        // PTY of the same name (the registry rejects duplicate names).
+        // 加时钟后缀：标签重挂载后本地计数器归零，裸 "term-1" 会与仍
+        // 存活的同名宿主 PTY 冲突（注册表拒绝重名）。
         var name = 'term-' + String(++seq.current) + '-' + Date.now().toString(36).slice(-4)
         setMsg(null)
         post('/terminal/open', { sessionId: sessionId, name: name, cwd: cwd })
@@ -2661,7 +2621,7 @@ window.__ModuleLoader__.load({
           })
       }
 
-      /** Pure copy with one terminal's closing flag set or cleared. */
+      /** 纯拷贝：设置或清除某一个终端的关闭中标记。 */
       function markClosing(prev, key, value) {
         var next = Object.assign({}, prev)
         if (value) next[key] = true
@@ -2671,7 +2631,7 @@ window.__ModuleLoader__.load({
 
       function onInput(key, text, submit) {
         // one op per terminal: send (opens op) then poll its output.
-        // Returns the POST promise so the caller can clear input on success.
+        // 返回 POST 的 Promise，调用方在成功时清空输入。
         var opKey = key + '::' + String(++seq.current)
         latestOp.current[key] = opKey
         return post('/terminal/send', { sessionId: sessionId, terminalId: key, opKey: opKey, text: text, submit: submit })
@@ -2734,9 +2694,9 @@ window.__ModuleLoader__.load({
       )
     }
 
-    // ── model usage section ────────────────────────────────────────────────
+    // ── 模型用量设置节 ─────────────────────────────────────────────────────
 
-    /** Chart palette for per-model series (stable per model id). */
+    /** 每模型系列的图表配色（按模型 id 稳定映射）。 */
     var USAGE_COLORS = ['#2f6fed', '#1e7e34', '#c0392b', '#8e44ad', '#d68910', '#00838f', '#c2185b', '#5d4037']
     function usageColorOf(model, index) {
       var hash = 0
@@ -2745,9 +2705,8 @@ window.__ModuleLoader__.load({
     }
 
     /**
-     * Minimal donut chart: SVG conic segments via stroke-dasharray on a
-     * circle (no dependencies). Props: slices [{ value, color, label }],
-     * plus center totals.
+     * 极简环形图：SVG 圆 + stroke-dasharray 画弧段（零依赖）。Props：
+     * slices [{ value, color, label }]，外加中心总计。
      */
     function UsageDonut(props) {
       var slices = props.slices !== undefined ? props.slices : []
@@ -2772,9 +2731,8 @@ window.__ModuleLoader__.load({
       })
       return h('div', { style: { display: 'flex', alignItems: 'center', gap: 14, flex: 'none' } },
         (function () {
-          // Auto-fit: the inner hole spans ~2*(R - stroke/2) viewBox units;
-          // digit glyphs run ~0.6*fontSize wide. Shrink until the label fits,
-          // and drop the label entirely below a readable floor.
+          // 自适应：内孔约占 2*(R - 描边/2) 个 viewBox 单位；数字字形宽
+          // 约 0.6*字号。逐步缩小直到标签放下，低于可读下限则整块去掉。
           var thickness = props.thickness !== undefined ? props.thickness : 6
           var hole = 2 * (R - thickness / 2) - 2.4
           var top = props.centerTop !== undefined ? props.centerTop : ''
@@ -2801,9 +2759,8 @@ window.__ModuleLoader__.load({
     }
 
     /**
-     * The Usage settings section (right after Models): a date-range filter,
-     * per-model summary cards, a per-model stacked daily chart, the model
-     * table with editable prices, a tool-usage view, and top sessions.
+     * 用量设置节（紧跟模型节）：日期范围过滤、每模型摘要卡、每模型
+     * 按日堆叠图、可编辑价格的模型表、工具用量视图与 Top 会话。
      */
     function UsageSection(props) {
       var t = props.t
@@ -2861,7 +2818,7 @@ window.__ModuleLoader__.load({
 
       React.useEffect(function () { load(range, false) }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
-      /** Quick presets: 0=all, 'today', 'yesterday', 'month', or N days. */
+      /** 快捷区间：0=全部，'today'/'yesterday'/'month'，或 N=最近 N 天。 */
       function applyQuick(sel) {
         var next
         var today = new Date()
@@ -2879,7 +2836,7 @@ window.__ModuleLoader__.load({
         load(next, false)
       }
 
-      /** Set one boundary and query immediately (a picked date IS the query). */
+      /** 选定即查询（挑一个日期本身就是查询意图）。 */
       function onDateChange(field, value) {
         if (value === range[field]) return
         var next = Object.assign({}, range)
@@ -3133,14 +3090,12 @@ window.__ModuleLoader__.load({
       )
     }
 
-    // ── session header More menu (tool panels) ─────────────────────────────
+    // ── 会话头部 ⋯ 菜单（工具面板入口）───────────────────────────────────
 
     /**
-     * The ⋯ button at the end of the session header's action row: a small
-     * dropdown hosting the File Changes / Terminal panels (right-docked
-     * overlays, availability-gated). Hidden entirely while neither host
-     * capability has resolved, so hosts without git or the terminals service
-     * see no orphan button.
+     * 会话头部操作行末端的 ⋯ 按钮：小下拉菜单，承载文件变更/终端面板
+     * （右侧停靠覆盖层，按可用性门控）。两个宿主能力都未就绪时整体隐
+     * 藏——没有 git 或终端服务的宿主不会看到孤儿按钮。
      */
     function SessionHeaderMore(props) {
       var t = props.t
@@ -3170,11 +3125,10 @@ window.__ModuleLoader__.load({
       }, [open])
 
       var sessionId = kit !== undefined ? kit.sessionId : undefined
-      // The tools overlay is root-scoped, so the session context is captured
-      // HERE (session scope, real kit) and handed over at open time: cwd for
-      // the views, title for the sidebar breadcrumb. Two separate selectors
-      // (string returns only) — an object return would mint a fresh snapshot
-      // identity per getSnapshot call and loop useSyncExternalStore.
+      // 工具覆盖层是根作用域的，因此会话上下文在这里（会话作用域、真
+      // kit）捕获、打开时移交：视图用的 cwd、侧栏面包屑用的标题。两个
+      // 独立选择器（只返回字符串）——返回对象会让每次 getSnapshot 产生
+      // 新快照引用、令 useSyncExternalStore 死循环。
       var pickRow = function (pick) {
         if (kit === undefined || typeof kit.useSessions !== 'function') return ''
         return kit.useSessions(function (s) {
@@ -3194,8 +3148,8 @@ window.__ModuleLoader__.load({
         if (props.tools !== undefined) props.tools.open(panel, sessionId, title, cwd)
       }
 
-      // No panel available (no git binary, no terminals service): the ⋯
-      // button would open an empty menu — render nothing instead.
+      // 无可用面板（无 git 二进制、无终端服务）：⋯ 菜单会是空的——
+      // 干脆不渲染按钮。
       if (caps.changes !== true && caps.terminal !== true) return null
 
       return h('div', { className: 'dhb-smWrap' },
@@ -3224,13 +3178,12 @@ window.__ModuleLoader__.load({
       )
     }
 
-    // ── service lifecycle (stop / restart) ────────────────────────────────
+    // ── 服务生命周期（停止/重启）──────────────────────────────────────────
 
     /**
-     * Controller for the dsh process stop/restart actions. The host half's
-     * endpoints dispose the process after replying, so POST failures after a
-     * successful confirm are EXPECTED (connection dropped) and ignored.
-     * Restart polls until a new process answers, then reloads the shell.
+     * dsh 进程停止/重启动作的控制器。宿主半的端点在应答后即销毁进程，
+     * 因此确认成功后的 POST 失败是**预期内**的（连接被断开）、直接忽略。
+     * 重启后轮询直到新进程应答，然后刷新外壳。
      */
     function createServiceController() {
       var store = createStore({ phase: 'idle', available: undefined, sec: 0, cmd: '' })
@@ -3254,7 +3207,7 @@ window.__ModuleLoader__.load({
       function stop() {
         store.set({ phase: 'stopping', available: false, sec: 0, cmd: '' })
         post('/service/stop', {}).catch(function () { /* dropped = expected */ })
-        // No revival to wait for: after a grace window, show the stopped note.
+        // 没有复苏可等：宽限期后直接显示已停止提示。
         setTimeout(function () {
           var snap = store.getSnapshot()
           if (snap.phase === 'stopping') {
@@ -3293,17 +3246,16 @@ window.__ModuleLoader__.load({
     }
 
     /**
-     * Whether a keydown happened during IME composition (Chinese/Japanese
-     * input). Pressing Enter to CONFIRM a candidate fires an Enter keydown
-     * with isComposing=true — treating it as submit would run a half-typed
-     * command. keyCode 229 covers older engines that don't set isComposing.
+     * 按键是否发生在 IME 组合期间（中/日文输入）。按回车**确认候选词**
+     * 会触发 isComposing=true 的 Enter——当作提交就会执行打了一半的
+     * 命令。keyCode 229 兜底不设 isComposing 的旧引擎。
      */
     function isComposing(e) {
       var native = e.nativeEvent !== undefined ? e.nativeEvent : e
       return native.isComposing === true || native.keyCode === 229
     }
 
-    /** Line-icon glyphs matching the sidebar's 16/18px outline rhythm. */
+    /** 线性图标字形，与侧栏 16/18px 描边节奏一致。 */
     function PowerIcon(props) {
       return h('svg', {
         width: props.size, height: props.size, viewBox: '0 0 24 24',
@@ -3324,9 +3276,8 @@ window.__ModuleLoader__.load({
         h('path', { d: 'M21 3v6h-6' }))
     }
 
-    /** File glyph with diff markers (+ over −): the Changes panel is a
-     * read-only git diff view, so the file body carries add/remove markers —
-     * NOT a "new file" plus. */
+    /** 带增删标记的文件字形（+ 压 −）：变更面板是只读 git diff 视图，
+     * 文件体上的是增/删标记——不是「新文件」的加号。 */
     function FileDiffIcon(props) {
       var size = props.size === undefined ? 15 : props.size
       return h('svg', {
@@ -3341,7 +3292,7 @@ window.__ModuleLoader__.load({
         h('line', { x1: 9, y1: 17, x2: 15, y2: 17 }))
     }
 
-    /** Classic terminal glyph (>_). */
+    /** 经典终端字形（>_）。 */
     function TerminalIcon(props) {
       var size = props.size === undefined ? 15 : props.size
       return h('svg', {
@@ -3354,12 +3305,10 @@ window.__ModuleLoader__.load({
     }
 
     /**
-     * Opaque backdrop painted INSIDE footerActions: an absolutely-positioned
-     * sheet with fixed generous insets (down through the official settings
-     * row, up over the scroller's bottom edge). No measurement loop — pure
-     * CSS geometry relative to our own container. Every ancestor repaint
-     * over the footer becomes pixel-identical (solid color both sides of
-     * the subpixel edge), so the flickering lines cannot appear.
+     * 画在 footerActions 内部的不透明背垫：绝对定位垫层、固定宽裕的
+     * 上探下探（下盖过官方设置行、上盖过滚动容器底缘）。无测量循环
+     * ——相对自身容器的纯 CSS 几何。祖先对底部的每次重绘都变成逐像素
+     * 一致（子像素边两侧同为实色），闪烁线无从出现。
      */
     function FooterBackdrop() {
       var colorState = React.useState(null)
@@ -3368,9 +3317,8 @@ window.__ModuleLoader__.load({
       React.useEffect(function () {
         if (typeof document === 'undefined') return undefined
         var read = function () {
-          // The sidebar column's OWN background color — whatever theme/token
-          // it resolves to — read once from the live DOM so the sheet is
-          // pixel-identical to what paints around it.
+          // 侧栏列自己的背景色——无论主题/解析到哪个 token——从活动
+          // DOM 读一次，使垫层与周围绘制逐像素一致。
           var wrap = document.querySelector('.dhb-svcWrap')
           if (wrap === null) return
           var col = wrap
@@ -3393,10 +3341,9 @@ window.__ModuleLoader__.load({
     }
 
     /**
-     * Stop/restart controls beside Settings (sidebar.footer.action). Two
-     * shapes follow the sidebar's own rhythm: wide column = two 34px rows
-     * sharing the settings trigger's 12px radius + hover wash; 56px rail =
-     * stacked 36px circles like the rail settings trigger.
+     * 设置旁的停止/重启控件（sidebar.footer.action）。两种形态跟随侧栏
+     * 自身节奏：宽列 = 两枚 34px 连排行（共用设置触发器的 12px 圆角与
+     * 悬停底色）；56px 轨道 = 叠放的 36px 圆钮（与轨道设置钮同款）。
      */
     function ServiceFooterActions(props) {
       var t = props.t
@@ -3449,7 +3396,7 @@ window.__ModuleLoader__.load({
         : h('div', { className: 'dhb-svcRailWrap' }, stopBtn, restartBtn)
     }
 
-    /** Full-screen status card while a stop/restart is in flight. */
+    /** 停止/重启进行中的满屏状态卡。 */
     function ServiceOverlay(props) {
       var t = props.t
       var snap = useStore(props.controller.store)
@@ -3470,16 +3417,14 @@ window.__ModuleLoader__.load({
           h('div', null, text)))
     }
 
-    // ── tools overlay (File Changes / Terminal panels) ────────────────────
+    // ── 工具坞覆盖层（文件变更/终端面板）─────────────────────────────────
 
     /**
-     * Controller for the ⋯ menu's tool panels. The overlay lives at ROOT
-     * scope (shell.overlay) where no session kit exists, so the opening menu
-     * captures {sessionId, sessionTitle, cwd} at click time and the overlay
-     * feeds the embedded view a synthetic kit — both views only consume
-     * sessionId and useSessions(selector → row.cwd). The sessionTitle feeds
-     * the sidebar breadcrumb; switch() keeps the captured context while
-     * changing panels.
+     * ⋯ 菜单工具面板的控制器。覆盖层在根作用域（shell.overlay），那里
+     * 没有会话 kit，因此菜单在点击时捕获 {sessionId, sessionTitle, cwd}，
+     * 覆盖层给内嵌视图喂合成 kit——两个视图都只消费 sessionId 与
+     * useSessions(选择器 → row.cwd)。sessionTitle 供侧栏面包屑；switch()
+     * 换面板时保留已捕获的上下文。
      */
     function createToolsController() {
       var store = createStore({ panel: null, sessionId: undefined, sessionTitle: '', cwd: '' })
@@ -3505,24 +3450,17 @@ window.__ModuleLoader__.load({
     }
 
     /**
-     * Right-docked non-modal panel hosting File Changes or Terminal, opened
-     * from the session header ⋯ menu instead of the conversation tab ring
-     * (the tab bar stays free of plugin entries). TRUE DOCK, not a floating
-     * sheet: while open, the app frame (the shell's three-column grid) is
-     * squeezed by the panel width through an inline margin, so the chat
-     * column genuinely narrows and the fixed-position panel occupies the
-     * freed strip at the viewport's right edge — nothing overlaps. The
-     * frame is located through the shell's stable `[data-shell-overlay]`
-     * marker (its parent); if that anchor ever disappears the margin step
-     * is skipped and the panel merely floats again (graceful fallback).
-     * Layout: a drag handle on the dock's left edge (width 360–760px, the
-     * frame margin follows the drag), a TOP bar — breadcrumb (session
-     * title › current panel) with the close button — over a horizontal tool
-     * nav row (File Changes / Terminal, switching panels in place) — and
-     * the main area with the active view. Esc closes; unmounting stops the
-     * terminal pollers through the view's own cleanup. z-index 1500: above
-     * the service card (1000), below the confirm dialog (2000) so in-panel
-     * confirms stay visible.
+     * 右侧停靠的非模态面板，承载文件变更与终端，从会话头部 ⋯ 菜单打开
+     * 而非会话 tab 环（tab 栏不进插件项）。真停靠、非浮层：打开期间应用
+     * 框架（外壳三列网格）被面板宽度经行内 margin 挤窄，聊天列真正变窄、
+     * 固定定位的面板占据视口右缘腾出的条带——无任何重叠。框架经外壳
+     * 稳定的 `[data-shell-overlay]` 标记（其父级）定位；该锚点若消失则
+     * 跳过 margin 步骤、面板退回纯浮动（优雅降级）。
+     * 布局：左缘拖拽调宽柄（宽 360–760px，框架 margin 随拖动），顶栏
+     * ——面包屑（会话标题 › 当前面板）+ 关闭钮——之下是横向工具导航行
+     * （文件变更/终端，就地切换），再往下是活动视图主区。Esc 关闭；
+     * 卸载经视图自身的清理停掉终端轮询。z-index 1500：高于服务卡
+     * （1000）、低于确认框（2000），面板内确认不被盖住。
      */
     function ToolsOverlay(props) {
       var t = props.t
@@ -3544,12 +3482,11 @@ window.__ModuleLoader__.load({
         return undefined
       }, [snap.panel, props.controller])
 
-      // Dock squeeze: narrow the shell frame by the panel width so the chat
-      // reflows instead of being covered. The frame's own ResizeObserver
-      // re-solves its grid columns for the reduced width. Re-runs on every
-      // width change (drag); cleanup restores the previous inline margin.
-      // The margin mirrors the CSS max-width clamp (tiny viewports) so the
-      // freed strip always matches the rendered panel exactly.
+      // 停靠挤压：按面板宽度收窄外壳框架，聊天列真正重排而非被覆盖。
+      // 框架自己的 ResizeObserver 会对减小后的宽度重解网格列。每次宽度
+      // 变化（拖拽）都重跑；清理时恢复先前的行内 margin。margin 与 CSS
+      // 的 max-width 钳制（极小视口）保持一致，让腾出的条带与实际渲染
+      // 的面板严格同宽。
       React.useEffect(function () {
         if (snap.panel === null) return undefined
         if (typeof document === 'undefined') return undefined
@@ -3596,8 +3533,8 @@ window.__ModuleLoader__.load({
         },
       }
 
-      // Left-edge drag resize: pointer x → dock width (clamped 360–760).
-      // Listeners live on document for the drag's lifetime only.
+      // 左缘拖拽调宽：指针 x → 停靠宽度（钳制在 360–760）。监听器只在
+      // 拖拽期间挂在 document 上。
       function startResize(e) {
         if (typeof document === 'undefined') return
         e.preventDefault()
@@ -3640,11 +3577,11 @@ window.__ModuleLoader__.load({
       )
     }
 
-    // ── settings nav icons (DOM patch) ────────────────────────────────────
+    // ── 设置导航图标（DOM 补丁）───────────────────────────────────────────
 
     /**
-     * The settings shell (ui-settings-general SettingsRoot) draws nav icons
-     * from a HARDCODED id→icon map that covers only the core sections
+     * 设置外壳（ui-settings-general SettingsRoot）的导航图标来自硬编码的
+     * id→图标映射，只覆盖核心节
      * (models / agent-presets / plugins); every other row — including all
      * five of this plugin's sections — falls back to the same settings
      * gear, and the section slot contract carries no icon field. This patch
@@ -3667,7 +3604,7 @@ window.__ModuleLoader__.load({
       mobile: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="7" y="2" width="10" height="20" rx="2"/><line x1="11" y1="18" x2="13" y2="18"/></svg>',
     }
 
-    /** Section key → the i18n key whose CURRENT value is the nav label. */
+    /** 节键 → 导航标签当前取值所用的 i18n 键。 */
     var SECTION_NAV_LABEL_KEYS = {
       usage: 'sectionUsage',
       prompt: 'sectionPrompt',
@@ -3677,19 +3614,17 @@ window.__ModuleLoader__.load({
       mobile: 'sectionMobile',
     }
 
-    /** One scan pass: patch every matching nav button inside open dialogs.
-     * Idempotence is decided by SCANNING the button's svgs for our marker —
-     * NOT by "svg before the gear": after the first pass our icon IS the
-     * first svg, so a previousSibling probe would never match again and the
-     * observer (which fires on our own insertions) would re-patch every
-     * frame, leaking one hidden node per pass. */
+    /** 单趟扫描：为每个打开对话框里命中的导航按钮打补丁。幂等性以
+     * 「扫描按钮的 svg 是否已带我们的标记」判定——绝不能用「齿轮前的
+     * svg」：第一趟之后我们的图标就是第一个 svg，previousSibling 探测
+     * 永远不再命中，观察器（对我们自己的插入也触发）会每帧重打补丁，
+     * 每趟泄漏一个隐藏节点。 */
     function patchSettingsNavIcons(t) {
       var dialogs = document.querySelectorAll('div[role="dialog"]')
       for (var d = 0; d < dialogs.length; d += 1) {
-        // Mobile adaptation hooks: tag the settings panel + its nav/options
-        // so the plugin stylesheet can reflow them on phone widths without
-        // touching harness source (class names are CSS-module hashed; these
-        // structural tags are stable). Re-tagged every pass — idempotent.
+        // 移动端适配钩子：给设置面板及其导航/选项区打结构标签，插件
+        // 样式表据此在手机宽度重排——无需碰 harness 源码（类名是
+        // CSS-module 哈希；这些结构属性稳定）。每趟重复打标——幂等。
         var nav = dialogs[d].querySelector('nav')
         if (nav !== null) {
           dialogs[d].setAttribute('data-dhb-settings-panel', '1')
@@ -3698,10 +3633,9 @@ window.__ModuleLoader__.load({
           // content's element children are exactly [header, options] —
           // children (not querySelectorAll) avoids matching nested leaves.
           if (content !== null) {
-            // Column-flip fix: the shell sized .content with min-width:0
-            // only (row layout — height was never flex-distributed). In the
-            // mobile column layout min-height:auto floors it at content
-            // height, overflowing the panel and killing options scrolling.
+            // 纵向翻转修复：外壳给 .content 只设了 min-width:0（行布局
+            // ——高度从不参与 flex 分配）。手机纵向布局里 min-height:auto
+            // 把它钉在内容高度，溢出面板、杀死选项区滚动。
             content.setAttribute('data-dhb-settings-content', '1')
             if (content.children.length > 1) {
               content.children[content.children.length - 1].setAttribute('data-dhb-settings-options', '1')
@@ -3735,7 +3669,7 @@ window.__ModuleLoader__.load({
       }
     }
 
-    /** Install the settings-nav icon patcher; returns its disposer. */
+    /** 安装设置导航图标补丁器；返回其 disposer。 */
     function installSettingsNavIcons(t) {
       if (typeof document === 'undefined' || typeof MutationObserver === 'undefined') {
         return function () {}
@@ -3756,27 +3690,21 @@ window.__ModuleLoader__.load({
       return function () { observer.disconnect() }
     }
 
-    // ── conversation scrollbar message rail ───────────────────────────────
+    // ── 会话滚动条消息刻度轨道 ────────────────────────────────────────────
 
     /**
-     * The conversation message rail: a slim fixed strip beside the native
-     * (harness-themed) scrollbar of the active conversation column
-     * (`[data-conversation-scroll]`). One tick per user / steering / assistant
-     * message row (`[data-chat-flow-kind]`), positioned proportionally to the
-     * row's flow offset; blue = user, green = AI. Clicking a tick scrolls the
-     * message into view; hovering shows role + excerpt; the tick nearest the
-     * viewport center stays highlighted while scrolling. The rail draws NO
-     * track or viewport capsule of its own — the native scrollbar beside it
-     * already communicates position, and a second capsule would read as a
-     * parallel scrollbar.
+     * 会话消息刻度轨道：当前会话列（`[data-conversation-scroll]`）原生
+     * （harness 主题化）滚动条旁的细固定条。每条用户/打断/AI 消息行
+     * （`[data-chat-flow-kind]`）一枚刻度，按行的流内偏移等比例定位；
+     * 蓝 = 用户、绿 = AI。点击刻度滚动到该消息；悬停显示内容摘要；滚动
+     * 时最接近视口中心的刻度保持高亮。轨道自身不画轨道底、不画视口
+     * 胶囊——旁边原生滚动条已表达位置，再画一个会被看成第二根滚动条。
      *
-     * Mount tracking is a body-level MutationObserver (the column mounts and
-     * unmounts with the route); content tracking is a scroller-scoped observer
-     * debounced to ~250ms (full relayout is O(rows), and streaming mutates
-     * the subtree constantly); geometry also resyncs on scroller resize (the
-     * tools dock squeezes the frame) and window resize. Everything lives in
-     * document.body with position:fixed — no React subtree is touched, and
-     * the disposer removes every node and observer.
+     * 挂载跟踪用 body 级 MutationObserver（会话列随路由装卸）；内容跟踪
+     * 用滚动容器内的观察器、约 250ms 防抖（全量重排是 O(行数)，流式输出
+     * 不停改动子树）；几何还在滚动容器尺寸变化（工具坞挤压框架）与窗口
+     * 缩放时重同步。一切以 position:fixed 挂在 document.body——不碰任何
+     * React 子树，disposer 移除全部节点与观察器。
      */
     function installChatRail(t) {
       if (typeof document === 'undefined' || typeof MutationObserver === 'undefined') {
@@ -3801,12 +3729,12 @@ window.__ModuleLoader__.load({
       var scrollRaf = 0
       var tipTimer = 0
 
-      /** Flow offset of a row relative to the scrollport content origin. */
+      /** 行相对滚动容器内容原点的流内偏移。 */
       function flowTopOf(row) {
         return row.getBoundingClientRect().top - scrollport.getBoundingClientRect().top + scrollport.scrollTop
       }
 
-      /** Geometry sync: place the fixed rail against the scrollport rect. */
+      /** 几何同步：按滚动容器矩形摆放固定轨道。 */
       function place() {
         var rect = scrollport.getBoundingClientRect()
         rail.style.left = Math.round(rect.right - 12 - RAIL_RIGHT) + 'px'
@@ -3814,15 +3742,15 @@ window.__ModuleLoader__.load({
         rail.style.height = Math.round(rect.height - 12) + 'px'
       }
 
-      /** Active-tick highlight (cheap; scroll-driven). The rail itself draws
-       *  no viewport indicator — the native scrollbar beside it does. */
+      /** 活跃刻度高亮（开销小；由滚动驱动）。轨道自身不画视口指示器
+       *  ——旁边的原生滚动条已经承担。 */
       function syncView() {
         scrollRaf = 0
         if (scrollport === null || rail === null) return
         var span = scrollport.scrollHeight - scrollport.clientHeight
         rail.setAttribute('data-on', span > 4 ? '1' : '0')
         if (span <= 4) return
-        // Active tick: last row whose top passed the viewport's upper third.
+        // 活跃刻度：最后一个行顶已越过视口上三分点的行。
         var mark = scrollport.scrollTop + scrollport.clientHeight / 3
         var active = null
         for (var i = 0; i < ticks.length; i += 1) {
@@ -3839,7 +3767,7 @@ window.__ModuleLoader__.load({
         scrollRaf = requestAnimationFrame(syncView)
       }
 
-      /** Full relayout: rebuild ticks from the live message rows. */
+      /** 全量重排：从实时消息行重建刻度。 */
       function refresh() {
         refreshTimer = 0
         if (scrollport === null || rail === null) return
@@ -3860,9 +3788,8 @@ window.__ModuleLoader__.load({
           placed.push({ row: row, role: role, flowTop: flowTop })
         }
         if (placed.length === 0 || span <= 0) { syncView(); return }
-        // Display pass: proportional position with a minimum gap so dense
-        // stretches do not collapse into one pixel bar. Ratios are computed
-        // before mounting (rail height is only readable after append).
+        // 显示阶段：等比例定位 + 最小间距，密集区不塌缩成一条像素棒。
+        // 比例先于挂载计算（轨道高度只有 append 后才可读）。
         for (var p = 0; p < placed.length; p += 1) {
           placed[p].ratio = placed[p].flowTop / span
         }
@@ -3895,19 +3822,16 @@ window.__ModuleLoader__.load({
       }
 
       /**
-       * Structural excerpt of one message row: its text nodes minus the
-       * icon-actions chrome (clock, "Ran for", tok/s, copy/branch labels).
+       * 消息行的结构性摘录：其文本节点减去操作栏 chrome（时钟、
+       * "Ran for"、tok/s、复制/分支按钮文字）。
        *
-       * Chrome signature, read from the harness markup: a text node is
-       * chrome when, walking ancestors up to the row, it sits inside a
-       * BUTTON/SVG (copy/branch buttons, icons — labels never contribute),
-       * or its SPAN ancestor has a BUTTON sibling (the clock span lives in
-       * the actions row right beside the Tooltip buttons; content spans
-       * never have button siblings — a code fence's copy button is a
-       * sibling of <code>, not of a text span, and the bubble is plain
-       * divs). This survives CSS-module class hashing and works for user
-       * rows (MessageItem) and assistant turn-tails (TurnTailNodeView)
-       * alike.
+       * chrome 判定（读自 harness 标记）：沿祖先上溯到行根，文本节点若
+       * 位于 BUTTON/SVG 内（复制/分支按钮、图标——标签永不入摘录），或
+       * 其 SPAN 祖先拥有 BUTTON 兄弟（时钟 span 就在操作行里、紧挨
+       * Tooltip 按钮；正文 span 永无按钮兄弟——代码块的复制按钮是
+       * <code> 的兄弟而非文本 span 的，气泡又是纯 div），即为 chrome。
+       * 此判定抗 CSS-module 类名哈希，对用户行（MessageItem）与 AI 回合
+       * 尾（TurnTailNodeView）同样成立。
        */
       function hasButtonSibling(span) {
         var parent = span.parentNode
@@ -3944,8 +3868,8 @@ window.__ModuleLoader__.load({
 
       function showTip(el, entry) {
         if (tipTimer !== 0) { clearTimeout(tipTimer); tipTimer = 0 }
-        // Content only — the tick's color already carries the role, and the
-        // excerpt skips the actions chrome so no time/stat suffix leaks.
+        // 只显示内容——刻度颜色已表达角色；摘录跳过操作栏 chrome，
+        // 时间/统计后缀不会漏进来。
         var text = excerptOf(entry.row)
         if (text.length > 120) text = text.slice(0, 120) + '…'
         tip.textContent = text === '' ? '…' : text
@@ -3965,7 +3889,7 @@ window.__ModuleLoader__.load({
         refreshTimer = setTimeout(refresh, 250)
       }
 
-      /** Detach from the current scrollport (idempotent). */
+      /** 从当前滚动容器解绑（幂等）。 */
       function detach() {
         if (contentObserver !== null) { contentObserver.disconnect(); contentObserver = null }
         if (resizeObserver !== null) { resizeObserver.disconnect(); resizeObserver = null }
@@ -3977,15 +3901,13 @@ window.__ModuleLoader__.load({
         scrollport = null
       }
 
-      /** Scan for the conversation column and (re)bind when it changes. */
+      /** 扫描会话列，变化时（重新）绑定。 */
       /**
-       * Menu layering: our ⋯ dropdown (dhb-smMenu) is absolute INSIDE the
-       * conversation column's stacking contexts — it cannot out-stack a
-       * body-level fixed element, so the rail would cover its items while
-       * open. (Harness-owned portal menus sit at z-index 1100, already above
-       * the rail's 500 — only our menu needs this.) The body observer fires
-       * on the menu's mount/unmount, so scan() rechecks each pass and hides
-       * the rail while any dhb-smMenu is open.
+       * 菜单层级：我们的 ⋯ 下拉（dhb-smMenu）绝对定位在会话列的层叠
+       * 上下文之内——压不过 body 级固定元素，菜单打开时轨道会盖住菜单
+       * 项。（harness 自有的门户菜单纯 z-index 1100，本就在轨道的 500
+       * 之上——只有我们的菜单需要处理。）body 观察器对菜单装卸都会
+       * 触发，scan() 每趟复查，存在任意 dhb-smMenu 即隐藏轨道。
        */
       function syncMenuLayer() {
         if (rail === null) return
@@ -4009,10 +3931,10 @@ window.__ModuleLoader__.load({
         document.body.appendChild(rail)
         document.body.appendChild(tip)
         place()
-        // Content changes (streaming, new messages, compaction swaps).
+        // 内容变化（流式输出、新消息、压缩换页）。
         contentObserver = new MutationObserver(scheduleRefresh)
         contentObserver.observe(scrollport, { childList: true, subtree: true })
-        // Frame squeezes (tools dock), column resizes.
+        // 框架被挤压（工具坞）、列宽变化。
         if (typeof ResizeObserver === 'function') {
           resizeObserver = new ResizeObserver(function () { place(); scheduleRefresh() })
           resizeObserver.observe(scrollport)
@@ -4044,7 +3966,7 @@ window.__ModuleLoader__.load({
       }
     }
 
-    // ── plugin apply ──────────────────────────────────────────────────────
+    // ── 插件 apply ────────────────────────────────────────────────────────
 
     var inject = ['slots']
 
@@ -4070,17 +3992,17 @@ window.__ModuleLoader__.load({
       var serviceController = createServiceController()
       var toolsController = createToolsController()
 
-      // Settings nav icons: differentiate our five sections from the shell's
-      // gear fallback (label-matched DOM patch; see installSettingsNavIcons).
+      // 设置导航图标：把我们的节与外壳的齿轮兜底区分开（按标签匹配的
+      // DOM 补丁；见 installSettingsNavIcons）。
       var disposeNavIcons = installSettingsNavIcons(t)
 
-      // Conversation message rail: ticks per user/AI message beside the
-      // native scrollbar, click-to-jump (see installChatRail).
+      // 会话消息刻度轨道：原生滚动条旁按用户/AI 消息摆刻度，点击跳转
+      // （见 installChatRail）。
       var disposeChatRail = installChatRail(t)
 
-      // Availability of the ⋯ menu's tool panels, probed from the host half
-      // (git binary / mounted terminals service). A store, not apply-time
-      // consts: the probes resolve after the menu may already be mounted.
+      // ⋯ 菜单各工具面板的可用性，从宿主半探测（git 二进制/终端服务
+      // 是否挂载）。用 store 而非 apply 时常量：探测结果可能晚于菜单
+      // 挂载返回。
       var capabilities = createStore({ changes: false, terminal: false })
       api('/git/available')
         .then(function (value) { capabilities.set({ changes: value.available === true, terminal: capabilities.getSnapshot().terminal }) })
@@ -4089,11 +4011,9 @@ window.__ModuleLoader__.load({
         .then(function (value) { capabilities.set({ changes: capabilities.getSnapshot().changes, terminal: value.available === true }) })
         .catch(function () { /* terminals service not mounted: entry stays hidden */ })
 
-      // Session header ⋯ menu (tool panels + delete session) — the
-      // RIGHT-ALIGNED utilities row (titleRow's right end), not the
-      // title-adjacent actions group: visually the header's top-right corner,
-      // on the same line as the title rather than squeezed beside the
-      // breadcrumbs.
+      // 会话头部 ⋯ 菜单（工具面板入口）——用右对齐的 utilities 行
+      // （titleRow 右端），不用标题旁的 actions 组：视觉上是头部右上角、
+      // 与标题同线，而不是挤在面包屑边上。
       var disposeHeaderMore = slots.inject('conversation.session.header.utilities', function () {
         return slots.register(
           {
@@ -4109,9 +4029,9 @@ window.__ModuleLoader__.load({
         )
       })
 
-      // File Changes / Terminal panels ride the ⋯ menu + right-docked panel
-      // above (ToolsOverlay) — NOT the conversation.view tab ring, so the tab
-      // bar keeps only the shell's own tabs (chat / trajectory).
+      // 文件变更/终端面板经 ⋯ 菜单 + 上面的右侧停靠面板
+      // （ToolsOverlay）呈现——不进 conversation.view 的 tab 环，tab 栏
+      // 只保留外壳自己的标签（聊天/轨迹）。
       var disposeTools = slots.inject('shell.overlay', function () {
         return slots.register(
           {
@@ -4125,8 +4045,8 @@ window.__ModuleLoader__.load({
         )
       })
 
-      // Opaque footer backdrop (flicker fix): first footer action entry,
-      // an absolute sheet painted under the whole footer strip.
+      // 不透明底部背垫（防闪烁）：footer 首个动作项，整条底部区域下
+      // 方的绝对定位垫层。
       var disposeFooterBackdrop = slots.inject('sidebar.footer.action', function () {
         return slots.register(
           {
@@ -4140,9 +4060,9 @@ window.__ModuleLoader__.load({
         )
       })
 
-      // In-app confirm dialog (themable replacement for window.confirm),
-      // mounted above every page: the market tab, settings sections, and the
-      // sidebar footer buttons all await showConfirm through this card.
+      // 应用内确认对话框（可主题化的 window.confirm 替代），挂载在所有
+      // 页面之上：市场标签页、各设置节、侧栏底部按钮都经此卡等待
+      // showConfirm。
       var disposeConfirm = slots.inject('shell.overlay', function () {
         return slots.register(
           {
@@ -4156,8 +4076,8 @@ window.__ModuleLoader__.load({
         )
       })
 
-      // Stop/Restart buttons beside Settings at the sidebar foot. The owner
-      // passes `wide` (false = 56px rail), switching row vs circle shapes.
+      // 侧栏底部设置旁的停止/重启按钮。宿主传 `wide`（false = 56px 轨
+      // 道模式），切换连排与圆形两种形态。
       var disposeSvcActions = slots.inject('sidebar.footer.action', function () {
         return slots.register(
           {
@@ -4177,7 +4097,7 @@ window.__ModuleLoader__.load({
         )
       })
 
-      // Full-screen status card while stopping/restarting.
+      // 停止/重启期间的满屏状态卡。
       var disposeSvcOverlay = slots.inject('shell.overlay', function () {
         return slots.register(
           {
