@@ -272,6 +272,8 @@ window.__ModuleLoader__.load({
       mobileQrHint: '手机扫码打开 → 输入配对码 {code}。每次打开本页面都会生成新配对码（旧码立即失效，10 分钟未用自动过期）。',
       mobileCodeLabel: '配对码',
       mobileUrls: '地址',
+      mobileCurrentAddress: '当前地址',
+      mobileAddressHint: '手机请使用下面的地址访问。若 IP 变化（DHCP 重新分配），旧书签会失效——建议在路由器上为本机绑定静态 IP。',
       mobileNoLan: '未检测到局域网 IP（可在手机浏览器手动输入地址）',
       mobileDevices: '已配对设备',
       mobileNoDevices: '暂无已配对设备。',
@@ -511,6 +513,8 @@ window.__ModuleLoader__.load({
       mobileQrHint: 'Scan with the phone → enter code {code}. Opening this page mints a fresh code (previous ones die instantly; unused codes expire in 10 minutes).',
       mobileCodeLabel: 'Code',
       mobileUrls: 'Addresses',
+      mobileCurrentAddress: 'Current address',
+      mobileAddressHint: 'Open this address on the phone. If the IP changes (DHCP reassignment), old bookmarks break — consider a static IP binding for this machine on the router.',
       mobileNoLan: 'No LAN IP detected (type the address manually on the phone)',
       mobileDevices: 'Paired devices',
       mobileNoDevices: 'No paired devices yet.',
@@ -722,8 +726,13 @@ window.__ModuleLoader__.load({
          tabs (the tabs row is the header's last row; its text sits ~11px
          above the border). bottom:2px puts the 28px button's vertical
          center on the tab text's line; right:0 hugs the header's right
-         padding edge like a trailing tab. */
-      '.dhb-smWrap{position:absolute;bottom:2px;right:0;z-index:2;flex:none}',
+         padding edge like a trailing tab.
+         z-index:7 — the SAME layer the harness gives the sticky composer
+         seat (input box), and above markdown CodeBlock sticky banners (6).
+         The wrap creates the stacking context for its dropdown menu, so a
+         lower value here caps the whole subtree: scrolling content at z6/z7
+         painted over the button and even the open menu. */
+      '.dhb-smWrap{position:absolute;bottom:2px;right:0;z-index:7;flex:none}',
       '.dhb-smBtn{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border:none;border-radius:8px;background:transparent;color:var(--dsw-alias-label-caption,#8a919e);cursor:pointer}',
       '.dhb-smBtn:hover{box-shadow:inset 0 0 0 9999px var(--dsw-alias-interactive-bg-hover,rgba(127,127,127,.12));color:var(--dsw-alias-label-secondary,#3f4550)}',
       '.dhb-smMenu{position:absolute;top:calc(100% + 4px);right:12px;z-index:60;padding:4px;border-radius:10px;border:1px solid var(--dsw-alias-border-l1,#d0d4dd);background:var(--dsw-alias-bg-base,#fff);box-shadow:0 8px 24px rgba(0,0,0,.14);font-size:13px;white-space:nowrap}',
@@ -2021,6 +2030,35 @@ window.__ModuleLoader__.load({
             h('span', { className: 'dhb-badge', 'data-phase': data.running ? 'active' : 'failed' }, data.running ? 'running' : 'stopped'),
           ),
         ),
+        // Current address card: the LAN IP is the thing that silently drifts
+        // (DHCP reassignment) and breaks every saved phone bookmark — show it
+        // prominently regardless of proxy state.
+        data.addresses !== undefined && data.addresses.length > 0
+          ? h('div', { className: 'dhb-card' },
+              h('div', { className: 'dhb-cardTitle' }, t('mobileCurrentAddress')),
+              h('div', { className: 'dhb-list' },
+                data.addresses.map(function (addr, i) {
+                  var url = 'http://' + addr + ':' + data.port
+                  return h('div', { className: 'dhb-row', key: addr, style: { justifyContent: 'space-between' } },
+                    h('code', { style: { fontSize: 13, wordBreak: 'break-all' } }, url),
+                    h('button', {
+                      className: 'dhb-btn', type: 'button',
+                      onClick: function () {
+                        if (navigator.clipboard !== undefined && navigator.clipboard.writeText !== undefined) {
+                          navigator.clipboard.writeText(url)
+                          setMsg({ kind: 'ok', text: url + ' → ⧉' })
+                        }
+                      },
+                    }, '⧉'),
+                  )
+                }),
+              ),
+              h('p', { className: 'dhb-hint' }, t('mobileAddressHint')),
+            )
+          : h('div', { className: 'dhb-card' },
+              h('div', { className: 'dhb-cardTitle' }, t('mobileCurrentAddress')),
+              h('p', { className: 'dhb-desc' }, t('mobileNoLan')),
+            ),
         data.enabled && data.running && data.pair !== null
           ? h('div', { className: 'dhb-card' },
               h('div', { className: 'dhb-cardTitle' }, t('mobileQrTitle'),
