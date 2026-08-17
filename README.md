@@ -96,12 +96,29 @@ phone-width screens (see Mobile below).
     and dsh's client mints an RPC id with it on every call, so phones
     without the shim get a dead session list).
 
+    The Mobile Access settings page also shows a "Current address" card —
+    every reachable LAN URL for this machine (live `os.networkInterfaces()`,
+    never hardcoded) with a copy button. Virtual adapter placeholders a
+    phone can never reach are filtered (VPN TUN 198.18.0.0/15, link-local
+    169.254.0.0/16, CGNAT 100.64.0.0/10), so the pairing QR and the card
+    only ever show real candidates.
+
+11. **Message rail** — a slim rail of colored ticks beside the conversation
+    scrollbar (desktop only): blue = user messages (incl. steering), green =
+    AI replies, positioned proportionally to their flow offset. Click a tick
+    to jump to that message; hover for a content-only excerpt (clock, run
+    stats, and button labels are structurally skipped); the tick nearest the
+    viewport stays highlighted while scrolling; the rail hides while the
+    session More menu is open and on touch/narrow viewports (<760px).
+    The harness's own themed scrollbar skin is left untouched.
+
 ### Mobile (phone-width) adaptation
 
 All of this plugin's own surfaces reflow below 760px: touch-sized buttons,
 horizontally scrollable wide tables (usage/price), a full-screen tool dock
-(file changes / terminal) instead of the resizable side column, viewport-
-scaled QR, and the host Settings dialog itself — a fixed 800px desktop
+(file changes / terminal) instead of the resizable side column,
+viewport-scaled QR, the message rail hidden entirely (a pointer-precision
+affordance), and the host Settings dialog itself — a fixed 800px desktop
 modal with a 188px left nav — is re-tagged into a full-screen sheet with a
 top horizontally-scrolling nav strip (a DOM attribute patch, since the
 shell's class names are CSS-module hashed; harness source stays untouched).

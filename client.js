@@ -740,7 +740,7 @@ window.__ModuleLoader__.load({
       '.dhb-smItem:hover{background:var(--dsw-alias-interactive-bg-hover,rgba(127,127,127,.12))}',
       '.dhb-gtPage{display:flex;flex-direction:column;gap:10px;height:100%;padding:16px 20px;box-sizing:border-box;font-size:13px;color:var(--dsw-alias-label-secondary,#3f4550);overflow-y:auto}',
       '.dhb-gtHead{display:flex;align-items:center;gap:10px;flex-wrap:wrap;flex:none}',
-      '.dhb-gtTitle{margin:0;font-size:14px;font-weight:600;color:var(--dsw-alias-label-primary,#222)}',
+      '.dhb-gtSubTitle{margin:14px 0 6px;font-size:12.5px;font-weight:600;color:var(--dsw-alias-label-secondary,#3f4550)}',
       '.dhb-gtMeta{font-size:12px;color:var(--dsw-alias-label-caption,#8a919e);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}',
       '.dhb-gtRow{display:flex;flex-direction:column;gap:4px;border:1px solid var(--dsw-alias-border-l2,#e3e6ec);border-radius:10px;background:var(--dsw-alias-bg-base,#fff);overflow:hidden}',
       '.dhb-gtFileBtn{display:flex;align-items:center;gap:8px;width:100%;padding:8px 12px;border:none;background:transparent;cursor:pointer;text-align:left;font-size:12px;color:var(--dsw-alias-label-secondary,#3f4550)}',
@@ -835,9 +835,6 @@ window.__ModuleLoader__.load({
       '.dhb-toolsResize:hover{background:var(--dsw-alias-interactive-bg-hover,rgba(127,127,127,.18))}',
       '.dhb-toolsCrumb{flex:1;min-width:0;display:flex;align-items:center;gap:5px;overflow:hidden;font-size:12px;line-height:1.4}',
       '.dhb-toolsCrumbSess{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--dsw-alias-label-caption,#8a919e);direction:rtl;text-align:left}',
-      '.dhb-toolsCrumbSess:hover{direction:ltr}',
-      '.dhb-toolsCrumbSep{flex:none;color:var(--dsw-alias-label-caption,#8a919e)}',
-      '.dhb-toolsCrumbCur{flex:none;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--dsw-alias-label-primary,#222);font-weight:600}',
       '.dhb-toolsNav{flex:none;display:flex;align-items:center;gap:6px;padding:8px 14px;border-bottom:1px solid var(--dsw-alias-border-l2,#e3e6ec);overflow-x:auto;scrollbar-width:thin}',
       '.dhb-toolsNavItem{display:inline-flex;align-items:center;gap:7px;flex:none;padding:6px 12px;border:none;border-radius:8px;background:transparent;color:var(--dsw-alias-label-secondary,#3f4550);cursor:pointer;font-size:12.5px;font-family:inherit;line-height:1.4;white-space:nowrap}',
       '.dhb-toolsNavItem:hover{background:var(--dsw-alias-interactive-bg-hover,rgba(127,127,127,.12))}',
@@ -889,7 +886,6 @@ window.__ModuleLoader__.load({
          strip is meaningless on touch: hide it. */
       '.dhb-toolsDock{left:0;right:0;width:100vw !important;max-width:100vw;border-left:none}',
       '.dhb-toolsResize{display:none}',
-      '.dhb-toolsCrumbCur{max-width:38vw}',
       '.dhb-gtPage{padding:10px 10px}',
       '.dhb-tmOut{font-size:11.5px}',
       /* Service status overlay card breathes on small screens. */
@@ -2350,7 +2346,6 @@ window.__ModuleLoader__.load({
 
       return h('div', { className: 'dhb-gtPage' },
         h('div', { className: 'dhb-gtHead' },
-          h('h2', { className: 'dhb-gtTitle' }, t('tabChanges')),
           data.status === 'ready' && data.total > 0
             ? h('span', { className: 'dhb-gtMeta' },
                 t('gitSummaryFiles', { n: data.total }),
@@ -3595,8 +3590,6 @@ window.__ModuleLoader__.load({
         },
       }
 
-      var panelLabel = t(panel === 'terminal' ? 'tabTerminal' : 'tabChanges')
-
       // Left-edge drag resize: pointer x → dock width (clamped 360–760).
       // Listeners live on document for the drag's lifetime only.
       function startResize(e) {
@@ -3624,10 +3617,8 @@ window.__ModuleLoader__.load({
         }),
         h('div', { className: 'dhb-toolsMain' },
           h('div', { className: 'dhb-toolsHead' },
-            h('div', { className: 'dhb-toolsCrumb', title: sessionLabel + ' / ' + panelLabel },
-              h('span', { className: 'dhb-toolsCrumbSess' }, sessionLabel),
-              h('span', { className: 'dhb-toolsCrumbSep' }, '/'),
-              h('span', { className: 'dhb-toolsCrumbCur' }, panelLabel)),
+            h('div', { className: 'dhb-toolsCrumb', title: sessionLabel },
+              h('span', { className: 'dhb-toolsCrumbSess' }, sessionLabel)),
             h('button', { className: 'dhb-btn', type: 'button', onClick: props.controller.close }, t('toolsClose')),
           ),
           h('div', { className: 'dhb-toolsNav', role: 'tablist', 'aria-label': t('sessionMore') },
