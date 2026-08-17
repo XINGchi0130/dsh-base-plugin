@@ -767,6 +767,9 @@ window.__ModuleLoader__.load({
          a parallel scrollbar. Only the small message ticks float here. */
       '.dhb-rail{position:fixed;width:12px;z-index:500;pointer-events:none;display:none}',
       '.dhb-rail[data-on="1"]{display:block}',
+      /* While the ⋯ dropdown (or any dhb-smMenu) is open, the rail yields —
+         the menu lives in lower stacking contexts and would be covered. */
+      '.dhb-rail[data-menu-open="1"]{display:none}',
       '.dhb-railTick{position:absolute;left:2px;right:2px;height:4px;border-radius:2px;cursor:pointer;pointer-events:auto;transition:transform .12s ease,box-shadow .12s ease}',
       '.dhb-railTick[data-role="user"]{background:rgba(47,111,237,.75)}',
       '.dhb-railTick[data-role="assistant"]{background:rgba(30,126,52,.75)}',
@@ -3934,7 +3937,24 @@ window.__ModuleLoader__.load({
       }
 
       /** Scan for the conversation column and (re)bind when it changes. */
+      /**
+       * Menu layering: our ⋯ dropdown (dhb-smMenu) is absolute INSIDE the
+       * conversation column's stacking contexts — it cannot out-stack a
+       * body-level fixed element, so the rail would cover its items while
+       * open. (Harness-owned portal menus sit at z-index 1100, already above
+       * the rail's 500 — only our menu needs this.) The body observer fires
+       * on the menu's mount/unmount, so scan() rechecks each pass and hides
+       * the rail while any dhb-smMenu is open.
+       */
+      function syncMenuLayer() {
+        if (rail === null) return
+        var menuOpen = document.querySelector('.dhb-smMenu') !== null
+        rail.setAttribute('data-menu-open', menuOpen ? '1' : '0')
+        if (menuOpen) tip.style.display = 'none'
+      }
+
       function scan() {
+        syncMenuLayer()
         var found = document.querySelector('[data-conversation-scroll]')
         if (found === scrollport) return
         detach()
@@ -3958,6 +3978,7 @@ window.__ModuleLoader__.load({
         }
         scrollport.addEventListener('scroll', scheduleSyncView, { passive: true })
         refresh()
+        syncMenuLayer()
       }
 
       var scanScheduled = false
