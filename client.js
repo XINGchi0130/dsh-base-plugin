@@ -38,6 +38,17 @@
  *    sidebar — breadcrumb (session title › active panel) over the tool nav
  *    list — and switching panels in place.
  *
+ * 7. Conversation message rail (no slot — DOM-level): slim floating ticks
+ *    beside the chat column's native scrollbar (the harness's own themed
+ *    scrollbar skin stays untouched) — one per user (blue) / AI (green)
+ *    message, positioned proportionally; clicking a tick jumps to that
+ *    message, hovering shows a content-only excerpt (chrome-free: clock,
+ *    run stats, and button labels are structurally skipped), and the tick
+ *    nearest the viewport stays highlighted while scrolling. The rail draws
+ *    no track or viewport capsule of its own (the native scrollbar beside it
+ *    already shows position). Mount-tracked via a body observer; fully
+ *    disposable.
+ *
  * Single file BY PROTOCOL CONSTRAINT, not by choice: the web boot loader
  * materializes exactly one factory per package (no bundler, no relative
  * imports — `require` reaches only the platform module table), so this file
@@ -743,6 +754,26 @@ window.__ModuleLoader__.load({
       '.dhb-diffL[data-k="@"]{color:#2f6fed}',
       '.dhb-diffL[data-k="h"]{color:var(--dsw-alias-label-caption,#8a919e)}',
       '.dhb-diffN{display:inline-block;text-align:right;padding-right:8px;color:var(--dsw-alias-label-caption,#8a919e);opacity:.75;user-select:none;-webkit-user-select:none;vertical-align:baseline}',
+      /* ── conversation message rail ────────────────────────────────────────
+         NOTE: no custom scrollbar skin here — the harness ships its own
+         token-driven one (ui-theme styles/scrollbar.css, dark-mode aware,
+         --dsh-scrollbar-width: 8px). This plugin only adds the rail beside
+         it. */
+      /* The message rail: fixed beside (not over) the native scrollbar. The
+         container passes pointer events through; only ticks accept them, so
+         the strip never blocks selection near the right edge. Deliberately
+         NO track and NO viewport capsule — the native scrollbar right next
+         to it already communicates position, and a second capsule read as
+         a parallel scrollbar. Only the small message ticks float here. */
+      '.dhb-rail{position:fixed;width:12px;z-index:500;pointer-events:none;display:none}',
+      '.dhb-rail[data-on="1"]{display:block}',
+      '.dhb-railTick{position:absolute;left:2px;right:2px;height:4px;border-radius:2px;cursor:pointer;pointer-events:auto;transition:transform .12s ease,box-shadow .12s ease}',
+      '.dhb-railTick[data-role="user"]{background:rgba(47,111,237,.75)}',
+      '.dhb-railTick[data-role="assistant"]{background:rgba(30,126,52,.75)}',
+      '.dhb-railTick:hover,.dhb-railTick[data-active="1"]{transform:scaleX(1.6);box-shadow:0 0 0 1px rgba(127,127,127,.35)}',
+      '.dhb-railTick[data-role="user"]:hover,.dhb-railTick[data-role="user"][data-active="1"]{background:#2f6fed}',
+      '.dhb-railTick[data-role="assistant"]:hover,.dhb-railTick[data-role="assistant"][data-active="1"]{background:#1e7e34}',
+      '.dhb-railTip{position:fixed;z-index:510;max-width:280px;padding:6px 10px;border-radius:8px;border:1px solid var(--dsw-alias-border-l1,#d0d4dd);background:var(--dsw-alias-bg-base,#fff);box-shadow:0 6px 18px rgba(0,0,0,.16);font-size:12px;line-height:1.5;color:var(--dsw-alias-label-secondary,#3f4550);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;pointer-events:none}',
       '.dhb-tmPage{display:flex;flex-direction:column;height:100%;padding:12px 16px;box-sizing:border-box;gap:8px;font-size:13px;color:var(--dsw-alias-label-secondary,#3f4550)}',
       '.dhb-tmBar{display:flex;align-items:center;gap:6px;flex-wrap:wrap;flex:none}',
       '.dhb-tmTab{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border:none;border-radius:9px;background:transparent;color:var(--dsw-alias-label-caption,#8a919e);cursor:pointer;font-size:12px;font-family:inherit}',
@@ -3681,6 +3712,276 @@ window.__ModuleLoader__.load({
       return function () { observer.disconnect() }
     }
 
+    // ── conversation scrollbar message rail ───────────────────────────────
+
+    /**
+     * The conversation message rail: a slim fixed strip beside the native
+     * (harness-themed) scrollbar of the active conversation column
+     * (`[data-conversation-scroll]`). One tick per user / steering / assistant
+     * message row (`[data-chat-flow-kind]`), positioned proportionally to the
+     * row's flow offset; blue = user, green = AI. Clicking a tick scrolls the
+     * message into view; hovering shows role + excerpt; the tick nearest the
+     * viewport center stays highlighted while scrolling. The rail draws NO
+     * track or viewport capsule of its own — the native scrollbar beside it
+     * already communicates position, and a second capsule would read as a
+     * parallel scrollbar.
+     *
+     * Mount tracking is a body-level MutationObserver (the column mounts and
+     * unmounts with the route); content tracking is a scroller-scoped observer
+     * debounced to ~250ms (full relayout is O(rows), and streaming mutates
+     * the subtree constantly); geometry also resyncs on scroller resize (the
+     * tools dock squeezes the frame) and window resize. Everything lives in
+     * document.body with position:fixed — no React subtree is touched, and
+     * the disposer removes every node and observer.
+     */
+    function installChatRail(t) {
+      if (typeof document === 'undefined' || typeof MutationObserver === 'undefined') {
+        return function () {}
+      }
+
+      // 'assistant-step' is the assistant row's CHAT kind (register-node-
+      // renderers); 'assistant' kept for forward compatibility.
+      var RAIL_KINDS = { user: 'user', steering: 'user', assistant: 'assistant', 'assistant-step': 'assistant' }
+      var RAIL_RIGHT = 22 // native scrollbar (~8px) + gap, rail sits beside it
+      var TICK_MIN_GAP = 5
+      var HOVER_HIDE_MS = 200
+
+      var scrollport = null
+      var rail = null
+      var tip = null
+      var ticks = [] // { el, row, role, flowTop }
+      var bodyObserver = null
+      var contentObserver = null
+      var resizeObserver = null
+      var refreshTimer = 0
+      var scrollRaf = 0
+      var tipTimer = 0
+
+      /** Flow offset of a row relative to the scrollport content origin. */
+      function flowTopOf(row) {
+        return row.getBoundingClientRect().top - scrollport.getBoundingClientRect().top + scrollport.scrollTop
+      }
+
+      /** Geometry sync: place the fixed rail against the scrollport rect. */
+      function place() {
+        var rect = scrollport.getBoundingClientRect()
+        rail.style.left = Math.round(rect.right - 12 - RAIL_RIGHT) + 'px'
+        rail.style.top = Math.round(rect.top + 6) + 'px'
+        rail.style.height = Math.round(rect.height - 12) + 'px'
+      }
+
+      /** Active-tick highlight (cheap; scroll-driven). The rail itself draws
+       *  no viewport indicator — the native scrollbar beside it does. */
+      function syncView() {
+        scrollRaf = 0
+        if (scrollport === null || rail === null) return
+        var span = scrollport.scrollHeight - scrollport.clientHeight
+        rail.setAttribute('data-on', span > 4 ? '1' : '0')
+        if (span <= 4) return
+        // Active tick: last row whose top passed the viewport's upper third.
+        var mark = scrollport.scrollTop + scrollport.clientHeight / 3
+        var active = null
+        for (var i = 0; i < ticks.length; i += 1) {
+          if (ticks[i].flowTop <= mark) active = ticks[i]
+          else break
+        }
+        for (var j = 0; j < ticks.length; j += 1) {
+          ticks[j].el.setAttribute('data-active', ticks[j] === active ? '1' : '0')
+        }
+      }
+
+      function scheduleSyncView() {
+        if (scrollRaf !== 0) return
+        scrollRaf = requestAnimationFrame(syncView)
+      }
+
+      /** Full relayout: rebuild ticks from the live message rows. */
+      function refresh() {
+        refreshTimer = 0
+        if (scrollport === null || rail === null) return
+        for (var i = 0; i < ticks.length; i += 1) {
+          if (ticks[i].el.parentNode !== null) ticks[i].el.parentNode.removeChild(ticks[i].el)
+        }
+        ticks = []
+        var rows = scrollport.querySelectorAll('[data-chat-flow-kind]')
+        var height = 0
+        var span = scrollport.scrollHeight
+        var rect = scrollport.getBoundingClientRect()
+        var placed = []
+        for (var r = 0; r < rows.length; r += 1) {
+          var row = rows[r]
+          var role = RAIL_KINDS[row.getAttribute('data-chat-flow-kind')]
+          if (role === undefined) continue
+          var flowTop = row.getBoundingClientRect().top - rect.top + scrollport.scrollTop
+          placed.push({ row: row, role: role, flowTop: flowTop })
+        }
+        if (placed.length === 0 || span <= 0) { syncView(); return }
+        // Display pass: proportional position with a minimum gap so dense
+        // stretches do not collapse into one pixel bar. Ratios are computed
+        // before mounting (rail height is only readable after append).
+        for (var p = 0; p < placed.length; p += 1) {
+          placed[p].ratio = placed[p].flowTop / span
+        }
+        height = rail.clientHeight
+        var lastTop = -Infinity
+        for (var q = 0; q < placed.length; q += 1) {
+          var entry = placed[q]
+          var px = Math.round(entry.ratio * height)
+          if (px - lastTop < TICK_MIN_GAP) px = lastTop + TICK_MIN_GAP
+          if (px > height - 4) px = height - 4
+          lastTop = px
+          ticks.push(makeTick(entry, px))
+        }
+        syncView()
+      }
+
+      function makeTick(entry, px) {
+        var el = document.createElement('div')
+        el.className = 'dhb-railTick'
+        el.setAttribute('data-role', entry.role)
+        el.style.top = px + 'px'
+        el.addEventListener('click', function (event) {
+          event.stopPropagation()
+          scrollport.scrollTo({ top: Math.max(0, entry.flowTop - 8), behavior: 'smooth' })
+        })
+        el.addEventListener('mouseenter', function () { showTip(el, entry) })
+        el.addEventListener('mouseleave', hideTipSoon)
+        rail.appendChild(el)
+        return { el: el, row: entry.row, role: entry.role, flowTop: entry.flowTop }
+      }
+
+      /**
+       * Structural excerpt of one message row: its text nodes minus the
+       * icon-actions chrome (clock, "Ran for", tok/s, copy/branch labels).
+       *
+       * Chrome signature, read from the harness markup: a text node is
+       * chrome when, walking ancestors up to the row, it sits inside a
+       * BUTTON/SVG (copy/branch buttons, icons — labels never contribute),
+       * or its SPAN ancestor has a BUTTON sibling (the clock span lives in
+       * the actions row right beside the Tooltip buttons; content spans
+       * never have button siblings — a code fence's copy button is a
+       * sibling of <code>, not of a text span, and the bubble is plain
+       * divs). This survives CSS-module class hashing and works for user
+       * rows (MessageItem) and assistant turn-tails (TurnTailNodeView)
+       * alike.
+       */
+      function hasButtonSibling(span) {
+        var parent = span.parentNode
+        for (var s = parent.firstChild; s !== null; s = s.nextSibling) {
+          if (s !== span && s.nodeType === 1
+            && (s.tagName === 'BUTTON' || (s.querySelector('button') !== null && s.querySelector('button') !== undefined))) {
+            return true
+          }
+        }
+        return false
+      }
+      function isChromeText(node, row) {
+        for (var el = node.parentNode; el !== null && el !== row; el = el.parentNode) {
+          var tag = el.tagName
+          if (tag === 'BUTTON' || tag === 'SVG') return true
+          if (tag === 'SPAN' && hasButtonSibling(el)) return true
+        }
+        return false
+      }
+      function excerptOf(row) {
+        var parts = []
+        function visit(el) {
+          for (var node = el.firstChild; node !== null; node = node.nextSibling) {
+            if (node.nodeType === 3) {
+              if (node.textContent.trim() !== '' && !isChromeText(node, row)) parts.push(node.textContent)
+            } else if (node.nodeType === 1) {
+              visit(node)
+            }
+          }
+        }
+        visit(row)
+        return parts.join(' ').replace(/\s+/g, ' ').trim()
+      }
+
+      function showTip(el, entry) {
+        if (tipTimer !== 0) { clearTimeout(tipTimer); tipTimer = 0 }
+        // Content only — the tick's color already carries the role, and the
+        // excerpt skips the actions chrome so no time/stat suffix leaks.
+        var text = excerptOf(entry.row)
+        if (text.length > 120) text = text.slice(0, 120) + '…'
+        tip.textContent = text === '' ? '…' : text
+        tip.style.display = 'block'
+        var rect = el.getBoundingClientRect()
+        tip.style.top = Math.round(rect.top - 8) + 'px'
+        tip.style.left = Math.round(rect.left - tip.offsetWidth - 10) + 'px'
+      }
+
+      function hideTipSoon() {
+        if (tipTimer !== 0) clearTimeout(tipTimer)
+        tipTimer = setTimeout(function () { tip.style.display = 'none'; tipTimer = 0 }, HOVER_HIDE_MS)
+      }
+
+      function scheduleRefresh() {
+        if (refreshTimer !== 0) return
+        refreshTimer = setTimeout(refresh, 250)
+      }
+
+      /** Detach from the current scrollport (idempotent). */
+      function detach() {
+        if (contentObserver !== null) { contentObserver.disconnect(); contentObserver = null }
+        if (resizeObserver !== null) { resizeObserver.disconnect(); resizeObserver = null }
+        if (rail !== null && rail.parentNode !== null) rail.parentNode.removeChild(rail)
+        if (tip !== null && tip.parentNode !== null) tip.parentNode.removeChild(tip)
+        rail = null
+        tip = null
+        ticks = []
+        scrollport = null
+      }
+
+      /** Scan for the conversation column and (re)bind when it changes. */
+      function scan() {
+        var found = document.querySelector('[data-conversation-scroll]')
+        if (found === scrollport) return
+        detach()
+        if (found === null) return
+        scrollport = found
+        rail = document.createElement('div')
+        rail.className = 'dhb-rail'
+        tip = document.createElement('div')
+        tip.className = 'dhb-railTip'
+        tip.style.display = 'none'
+        document.body.appendChild(rail)
+        document.body.appendChild(tip)
+        place()
+        // Content changes (streaming, new messages, compaction swaps).
+        contentObserver = new MutationObserver(scheduleRefresh)
+        contentObserver.observe(scrollport, { childList: true, subtree: true })
+        // Frame squeezes (tools dock), column resizes.
+        if (typeof ResizeObserver === 'function') {
+          resizeObserver = new ResizeObserver(function () { place(); scheduleRefresh() })
+          resizeObserver.observe(scrollport)
+        }
+        scrollport.addEventListener('scroll', scheduleSyncView, { passive: true })
+        refresh()
+      }
+
+      var scanScheduled = false
+      function scheduleScan() {
+        if (scanScheduled) return
+        scanScheduled = true
+        requestAnimationFrame(function () { scanScheduled = false; scan() })
+      }
+
+      bodyObserver = new MutationObserver(scheduleScan)
+      bodyObserver.observe(document.body, { childList: true, subtree: true })
+      window.addEventListener('resize', scheduleScan)
+      scan()
+
+      return function () {
+        bodyObserver.disconnect()
+        detach()
+        window.removeEventListener('resize', scheduleScan)
+        if (refreshTimer !== 0) clearTimeout(refreshTimer)
+        if (scrollRaf !== 0) cancelAnimationFrame(scrollRaf)
+        if (tipTimer !== 0) clearTimeout(tipTimer)
+      }
+    }
+
     // ── plugin apply ──────────────────────────────────────────────────────
 
     var inject = ['slots']
@@ -3710,6 +4011,10 @@ window.__ModuleLoader__.load({
       // Settings nav icons: differentiate our five sections from the shell's
       // gear fallback (label-matched DOM patch; see installSettingsNavIcons).
       var disposeNavIcons = installSettingsNavIcons(t)
+
+      // Conversation message rail: ticks per user/AI message beside the
+      // native scrollbar, click-to-jump (see installChatRail).
+      var disposeChatRail = installChatRail(t)
 
       // Availability of the ⋯ menu's tool panels, probed from the host half
       // (git binary / mounted terminals service). A store, not apply-time
@@ -3930,6 +4235,7 @@ window.__ModuleLoader__.load({
           disposeMcp()
           disposeSkills()
           disposeNavIcons()
+          disposeChatRail()
           disposeSessions()
           disposeMobile()
           for (var j = 0; j < localeDisposers.length; j += 1) {
