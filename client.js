@@ -763,6 +763,12 @@ window.__ModuleLoader__.load({
       '.dhb-diffL[data-k="@"]{color:#2f6fed}',
       '.dhb-diffL[data-k="h"]{color:var(--dsw-alias-label-caption,#8a919e)}',
       '.dhb-diffN{display:inline-block;text-align:right;padding-right:8px;color:var(--dsw-alias-label-caption,#8a919e);opacity:.75;user-select:none;-webkit-user-select:none;vertical-align:baseline}',
+      /* ── Think 折叠展开区高度上限 ─────────────────────────────────────────
+         harness 的 ReasoningRow 把整段推理渲染进 .thinkBody，无高度限制，
+         展开长推理会把会话流撑开数屏。此处用稳定结构锚点覆盖（类名是
+         CSS-module 哈希，不可用；data-variant="think" 是 ReasoningRow 的
+         稳定输出）：上限 40vh、内部滚动，展开仍可读完全文。 */
+      '[data-variant="think"] [class*="thinkBody"]{max-height:40vh;overflow-y:auto;overscroll-behavior:contain}',
       /* ── conversation message rail ────────────────────────────────────────
          NOTE: no custom scrollbar skin here — the harness ships its own
          token-driven one (ui-theme styles/scrollbar.css, dark-mode aware,
