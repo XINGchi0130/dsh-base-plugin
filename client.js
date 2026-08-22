@@ -51,6 +51,7 @@
  * 用分区横幅代替模块切分。分区顺序：i18n 词典 → store/api/styles
  * 辅助 → MarketTab → McpSection → SkillsSection → plugin apply。
  */
+// GENERATED from src/* by scripts/build-client.mjs — edit src/, then rebuild. stamp:0fdb9c884588
 window.__ModuleLoader__.load({
   id: 'dsh-base-plugin',
   factory: function (require) {
@@ -58,7 +59,6 @@ window.__ModuleLoader__.load({
     var exports = module.exports
     var React = require('react')
     var h = React.createElement
-
     // ── i18n 词典 ─────────────────────────────────────────────────────────
 
     var ZH = {

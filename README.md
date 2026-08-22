@@ -141,6 +141,19 @@ shell's class names are CSS-module hashed; harness source stays untouched).
   handshake gap — a phone radio reset mid-upgrade can never surface an
   uncaught `'error'` event (which would take the whole dsh host down).
 
+## Development: split sources
+
+The browser half is PROTOCOL-CONSTRAINED to a single file (one bundle, one
+factory per package), but its content is authored split: `src/*.js` (22
+modules, each with a doc header) are concatenated in a fixed order by
+`scripts/build-client.mjs` into `client.js` (which carries a GENERATED stamp).
+Edit `src/`, then rebuild:
+
+```bash
+pnpm build:client     # regenerate client.js (also syntax-checked)
+pnpm check:client     # verify sync (a pre-commit hook auto-rebuilds anyway)
+```
+
 ## How it works
 
 - The **node half** (`index.js` entry + `lib/` feature modules: `routes`, `market`, `installer`,

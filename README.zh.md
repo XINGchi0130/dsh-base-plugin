@@ -98,6 +98,18 @@ DeepSeek Harness（DSH）基础插件：插件市场、MCP 服务器管理与技
 - WebSocket 升级 socket 的 error/close 处理器在握手空窗期之前就位——手机射频
   在升级中途重置连接，也不会以未捕获的 `'error'` 事件形式击穿整个 dsh 宿主进程。
 
+## 开发说明：源码拆分
+
+浏览器半受协议约束必须是单文件（每包一个 bundle、一个工厂），但其内容
+以拆分形式编写：`src/*.js`（22 个模块，各带文档头）由
+`scripts/build-client.mjs` 按固定顺序拼接成 `client.js`（产物带 GENERATED
+戳）。编辑 `src/` 后重建：
+
+```bash
+pnpm build:client     # 重新生成 client.js（含语法检查）
+pnpm check:client     # 校验同步（pre-commit 钩子也会自动重建）
+```
+
 ## 工作原理
 
 - **宿主半边**（入口 `index.js` + `lib/` 功能模块：`routes`、`market`、`installer`、

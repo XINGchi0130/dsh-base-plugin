@@ -18,7 +18,9 @@
     "client.js",
     "cordis.patch.yml",
     "README.md",
-    "README.zh.md"
+    "README.zh.md",
+    "src/**/*.js",
+    "scripts/build-client.mjs"
   ],
   "keywords": [
     "dsh",
@@ -36,5 +38,9 @@
       "platform": "web",
       "inject": []
     }
+  },
+  "scripts": {
+    "build:client": "node scripts/build-client.mjs",
+    "check:client": "node scripts/build-client.mjs --check"
   }
 }
