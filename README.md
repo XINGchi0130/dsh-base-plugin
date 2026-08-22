@@ -43,12 +43,20 @@ phone-width screens (see Mobile below).
    default browser by default, which turned every restart into a duplicate tab; the already
    open page polls and reloads itself) once the old pid is gone.
 6. **File Changes panel** — an entry in the session header's top-right ⋯ menu
-   opening a right-docked panel with the session workspace's git changes
+   opening a right-docked panel with two tabs. **Workspace Changes** shows the
+   session workspace's git changes
    (new/modified/deleted/renamed with per-file colored diffs, strictly
    read-only). The menu entry appears only when a git binary exists; a
    workspace without a repo is auto-initialized with a baseline commit
    (inline identity, never touches global git config), so changes are always
-   relative to a baseline.
+   relative to a baseline. **Edit History** is the AI's own write/edit
+   operation timeline folded from the session log: every write/edit
+   `tool/result` carries the official structured diff in its `meta` payload
+   (`{ diffs: [{path, oldText, newText}] }`), so the tab groups operations
+   by file (newest first, per-op time/tool/turn/±lines, expandable mini
+   diff, failed attempts marked) — what the AI changed and when, distinct
+   from git's "what is on disk now" (bash-made changes surface only in the
+   git tab). Incremental fold with per-session cursors; refreshes every 10s.
 
 7. **Terminal panel** — an entry in the session header's top-right ⋯ menu
    opening a right-docked panel with multiple PTY terminals in the session

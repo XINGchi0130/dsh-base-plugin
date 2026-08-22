@@ -1,4 +1,4 @@
-// ══ changes ══ 文件变更面板：unified diff 解析器（带行号）+ ChangesView（git 只读视图）。
+// ══ changes ══ 文件变更面板：双 tab（工作区变更=git 基线差异 / 编辑记录=AI write/edit 操作时间线）+ unified diff 解析器。
     // ── 文件变更面板（git，只读）──────────────────────────────────────────
 
     /**
@@ -63,7 +63,139 @@
      * 读——查看变更绝不碰工作区。只消费 `kit.sessionId` 与
      * `kit.useSessions`（cwd），因此在覆盖层的合成 kit 后同样可用。
      */
+    /** 编辑记录 tab：按文件分组的 write/edit 操作时间线（最新在前，
+     * 每行可展开迷你 diff；数据来自宿主对 tool/result meta.diffs 的折叠）。
+     * 与「工作区变更」互补：本 tab 是 AI 经写工具的动作历史，git tab 是
+     * 磁盘当前状态对基线的差异（经 bash 的改动只出现在 git tab）。 */
+    function EditHistoryView(props) {
+      var t = props.t
+      var kit = props.kit
+      useLocaleVersion()
+      var sessionId = kit !== undefined ? kit.sessionId : undefined
+
+      var dataState = React.useState({ status: 'idle', files: [] })
+      var data = dataState[0]
+      var setData = dataState[1]
+
+      // 展开的操作：`<fileIdx>:<opIdx>` → true
+      var expandedState = React.useState({})
+      var expanded = expandedState[0]
+      var setExpanded = expandedState[1]
+
+      var load = React.useCallback(function (sid) {
+        if (sid === undefined || sid === '') return
+        api('/fileops?sessionId=' + encodeURIComponent(sid))
+          .then(function (value) { setData({ status: 'ready', files: value.files ?? [] }) })
+          .catch(function (error) { setData({ status: 'error', error: String(error.message || error) }) })
+      }, [])
+
+      React.useEffect(function () {
+        load(sessionId)
+        if (sessionId === undefined || sessionId === '') return undefined
+        var timer = setInterval(function () { load(sessionId) }, 10000)
+        return function () { clearInterval(timer) }
+      }, [sessionId, load])
+
+      if (sessionId === undefined || sessionId === '') {
+        return h('p', { className: 'dhb-desc' }, t('foNoSession'))
+      }
+      if (data.status === 'error') return h(Banner, { kind: 'err', text: data.error })
+
+      var timeOf = function (ms) {
+        try { var d = new Date(ms); var two = function (v) { return (v < 10 ? '0' : '') + v }
+          return two(d.getHours()) + ':' + two(d.getMinutes()) + ':' + two(d.getSeconds()) } catch (err) { return '—' }
+      }
+      // 迷你 diff：旧侧行加 − 前缀（红），新侧 + 前缀（绿）
+      var miniDiff = function (diff) {
+        if (diff === null) return null
+        var rows = []
+        if (diff.oldText !== '') diff.oldText.split('\n').forEach(function (l) { rows.push({ k: '-', text: l }) })
+        if (diff.newText !== '') diff.newText.split('\n').forEach(function (l) { rows.push({ k: '+', text: l }) })
+        return h('pre', { className: 'dhb-pre', style: { margin: '4px 0 0', maxHeight: 220, overflow: 'auto', fontSize: 11 } },
+          rows.map(function (r, i) {
+            return h('div', {
+              key: i,
+              style: { color: r.k === '+' ? '#1e7e34' : '#c0392b', whiteSpace: 'pre-wrap', wordBreak: 'break-all' },
+            }, r.k + ' ' + r.text)
+          }))
+      }
+
+      return h('div', { className: 'dhb-page' },
+        h('div', { className: 'dhb-row', style: { justifyContent: 'space-between' } },
+          h('span', { className: 'dhb-hint' }, t('foIntro')),
+          h('button', { className: 'dhb-btn', type: 'button', onClick: function () { load(sessionId) } }, t('refresh')),
+        ),
+        data.status !== 'ready' ? h('p', { className: 'dhb-desc' }, t('loading'))
+        : data.files.length === 0 ? h('p', { className: 'dhb-desc' }, t('foEmpty'))
+        : h('div', { className: 'dhb-list' },
+            data.files.map(function (file, fi) {
+              return h('div', { className: 'dhb-card', key: file.path },
+                h('div', { className: 'dhb-cardTitle', title: file.path }, file.path),
+                h('div', { className: 'dhb-cardMeta' },
+                  h('span', { style: { color: '#1e7e34' } }, '+' + file.totalAdded),
+                  h('span', { style: { color: '#c0392b' } }, '−' + file.totalDeleted),
+                  h('span', { className: 'dhb-hint' }, file.ops.length + ' ' + t('foOpsCount'))),
+                file.ops.map(function (op, oi) {
+                  var key = fi + ':' + oi
+                  var open = expanded[key] === true
+                  return h('div', { key: key, style: { marginTop: 2 } },
+                    h('button', {
+                      className: 'dhb-skillRow', type: 'button',
+                      style: { display: 'flex', gap: 8, width: '100%', textAlign: 'left', border: 'none', background: 'transparent', padding: '2px 0', cursor: 'pointer', fontSize: 12 },
+                      onClick: function () {
+                        var next = Object.assign({}, expanded)
+                        if (next[key] === true) delete next[key]; else next[key] = true
+                        setExpanded(next)
+                      },
+                    },
+                      h('span', { className: 'dhb-hint', style: { flex: 'none' } }, timeOf(op.time)),
+                      h('span', { className: 'dhb-badge' }, op.tool),
+                      op.turn !== null ? h('span', { className: 'dhb-hint', style: { flex: 'none' } }, '#' + op.turn) : null,
+                      h('span', { style: { flex: 'none', color: '#1e7e34' } }, '+' + op.added),
+                      h('span', { style: { flex: 'none', color: '#c0392b' } }, '−' + op.deleted),
+                      op.failed === true ? h('span', { className: 'dhb-hint', style: { color: '#c0392b' } }, '⚠') : null,
+                      h('span', { className: 'dhb-hint', style: { marginLeft: 'auto', flex: 'none' } }, open ? '▾' : '▸')),
+                    open ? miniDiff(op.diff) : null,
+                  )
+                }),
+              )
+            }),
+          ),
+      )
+    }
+
+    /** 文件变更面板顶层：双 tab——「工作区变更」（git 基线差异）与
+     * 「编辑记录」（AI 经 write/edit 工具的操作时间线）。 */
     function ChangesView(props) {
+      var t = props.t
+      var kit = props.kit
+      useLocaleVersion()
+
+      var tabState = React.useState('git')
+      var tab = tabState[0]
+      var setTab = tabState[1]
+
+      if (tab === 'history') return h(EditHistoryView, { t: t, kit: kit })
+
+      var tabItem = function (key, label) {
+        return h('button', {
+          className: 'dhb-toolsNavItem', type: 'button',
+          'data-active': tab === key ? '1' : '0',
+          onClick: function () { setTab(key) },
+        }, h('span', { style: { minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, label))
+      }
+
+      return h('div', { className: 'dhb-page' },
+        h('div', { className: 'dhb-toolsNav', role: 'tablist', 'aria-label': t('foTabsLabel') },
+          tabItem('git', t('foTabGit')),
+          tabItem('history', t('foTabHistory')),
+        ),
+        h(GitChangesView, { t: t, kit: kit }),
+      )
+    }
+
+    /** 原 ChangesView 的 git 视图（重命名保主体逻辑不动）。 */
+    function GitChangesView(props) {
       var t = props.t
       var kit = props.kit
       useLocaleVersion()
