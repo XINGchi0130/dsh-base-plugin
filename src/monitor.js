@@ -117,6 +117,65 @@
                   ? h('span', { className: 'dhb-hint' }, t('monReasoning') + ' ' + monTokens(tok.reasoning))
                   : null,
               ),
+              // 后台作业（宿主 jobs 注册表；载荷缺席 = 旧宿主半，隐藏卡片）
+              p !== null && Array.isArray(p.jobs)
+                ? h(MonCard, { title: t('monJobsTitle') },
+                    h('span', { className: 'dhb-hint' },
+                      t('monJobsRunning', { n: p.jobs.filter(function (j) { return j.status === 'running' || j.status === 'stopping' }).length })
+                      + ' · ' + t('monJobsDone', { n: p.jobs.filter(function (j) { return j.status !== 'running' && j.status !== 'stopping' }).length })),
+                    p.jobs.length === 0
+                      ? h('span', { className: 'dhb-hint' }, t('monNoJobs'))
+                      : p.jobs.map(function (j) {
+                          var running = j.status === 'running' || j.status === 'stopping'
+                          var dur = running
+                            ? monDuration(Date.now() - (j.startedAt || 0))
+                            : monDuration(typeof j.finishedAt === 'number' && j.startedAt ? j.finishedAt - j.startedAt : null)
+                          return h('div', {
+                            key: j.id,
+                            className: 'dhb-row',
+                            style: { justifyContent: 'space-between', alignItems: 'baseline', paddingLeft: 2 },
+                            title: j.detail !== undefined ? j.detail : j.id,
+                          },
+                            h('span', { style: { minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 } },
+                              h('span', { className: 'dhb-badge' }, j.kind),
+                              ' ' + (j.label !== '' ? j.label : j.id)),
+                            h('span', { className: 'dhb-hint', style: { flex: 'none' } },
+                              (running ? t('monJobRunning') : t('monJobStatus', { status: j.status })) + ' · ' + dur),
+                          )
+                        }),
+                    p.live !== true ? h('span', { className: 'dhb-hint' }, t('monJobsColdNote')) : null,
+                  )
+                : null,
+              // 子代理树（宿主 subagents 注册表；null = 服务缺席，隐藏卡片）
+              p !== null && p.subagents !== null
+                ? h(MonCard, { title: t('monSubagentsTitle') },
+                    h('span', { className: 'dhb-hint' },
+                      t('monSubTotal', { n: p.subagents.length })
+                      + ' · ' + t('monSubRunning', { n: p.subagents.filter(function (s) { return s.kind === 'child' && s.activity === 'running' }).length })),
+                    p.subagents.length === 0
+                      ? h('span', { className: 'dhb-hint' }, t('monNoSubagents'))
+                      : p.subagents.map(function (s) {
+                          if (s.kind === 'diagnostic') {
+                            return h('div', { key: s.id, className: 'dhb-hint', style: { paddingLeft: (s.depth - 1) * 16 + 2 } },
+                              '⚠ ' + t('monSubUnreadable'))
+                          }
+                          return h('div', {
+                            key: s.id,
+                            className: 'dhb-row',
+                            style: { justifyContent: 'space-between', alignItems: 'baseline', paddingLeft: (s.depth - 1) * 16 + 2 },
+                            title: s.id,
+                          },
+                            h('span', { style: { minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 } },
+                              (s.label !== '' ? s.label : s.id.slice(0, 8))
+                              + ' · ' + (s.mode === 'continuable' ? t('monSubContinuable') : t('monSubOneShot'))),
+                            h('span', { className: 'dhb-hint', style: { flex: 'none' } },
+                              (s.activity === 'running' ? t('monSubRunning') : t('monSubInactive'))
+                              + ' · ' + (s.turns !== null ? s.turns + t('monTurns') + '·' + s.steps + t('monSteps') : '—')
+                              + ' · ' + t('monOutput') + ' ' + monTokens(s.output)),
+                          )
+                        }),
+                  )
+                : null,
             ),
         h('p', { className: 'dhb-hint' }, t('monIntro')),
       )

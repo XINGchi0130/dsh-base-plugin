@@ -51,7 +51,7 @@
  * 用分区横幅代替模块切分。分区顺序：i18n 词典 → store/api/styles
  * 辅助 → MarketTab → McpSection → SkillsSection → plugin apply。
  */
-// GENERATED from src/* by scripts/build-client.mjs — edit src/, then rebuild. stamp:57cd06b48be8
+// GENERATED from src/* by scripts/build-client.mjs — edit src/, then rebuild. stamp:3ed3d51871ab
 window.__ModuleLoader__.load({
   id: 'dsh-base-plugin',
   factory: function (require) {
@@ -181,6 +181,22 @@ window.__ModuleLoader__.load({
       monCacheWrite: '缓存写入',
       monReasoning: '思考',
       monIntro: '统计来自官方整日志投影与 token 折叠，每 5 秒自动刷新；点击刷新立即更新。',
+      monJobsTitle: '任务',
+      monJobsRunning: '运行中 {n}',
+      monJobsDone: '已结束 {n}',
+      monNoJobs: '无后台任务。',
+      monJobRunning: '运行中',
+      monJobStatus: '{status}',
+      monJobsColdNote: '任务是进程内的——会话未在当前进程打开时不显示。',
+      monSubagentsTitle: '子代理',
+      monSubTotal: '共 {n} 个',
+      monSubRunning: '运行中 {n}',
+      monNoSubagents: '无子代理。',
+      monSubUnreadable: '子会话日志不可读',
+      monSubContinuable: '可续聊',
+      monSubOneShot: '一次性',
+      monSubRunning: '运行中',
+      monSubInactive: '已结束',
       gitNoChanges: '工作区没有文件变更。',
       gitSearchPlaceholder: '搜索文件路径…',
       gitNoMatch: '没有匹配的文件。',
@@ -442,6 +458,22 @@ window.__ModuleLoader__.load({
       monCacheWrite: 'cache write',
       monReasoning: 'reasoning',
       monIntro: 'Figures come from the official whole-log projection plus a token fold; auto-refreshes every 5s — click refresh for an immediate update.',
+      monJobsTitle: 'Jobs',
+      monJobsRunning: '{n} running',
+      monJobsDone: '{n} settled',
+      monNoJobs: 'No background jobs.',
+      monJobRunning: 'running',
+      monJobStatus: '{status}',
+      monJobsColdNote: 'Jobs live in-process — hidden while the session is not open here.',
+      monSubagentsTitle: 'Subagents',
+      monSubTotal: '{n} total',
+      monSubRunning: '{n} running',
+      monNoSubagents: 'No subagents.',
+      monSubUnreadable: 'child log unreadable',
+      monSubContinuable: 'continuable',
+      monSubOneShot: 'one-shot',
+      monSubRunning: 'running',
+      monSubInactive: 'done',
       gitNoChanges: 'No file changes in the workspace.',
       gitSearchPlaceholder: 'Search file paths…',
       gitNoMatch: 'No matching files.',
@@ -2852,6 +2884,65 @@ window.__ModuleLoader__.load({
                   ? h('span', { className: 'dhb-hint' }, t('monReasoning') + ' ' + monTokens(tok.reasoning))
                   : null,
               ),
+              // 后台作业（宿主 jobs 注册表；载荷缺席 = 旧宿主半，隐藏卡片）
+              p !== null && Array.isArray(p.jobs)
+                ? h(MonCard, { title: t('monJobsTitle') },
+                    h('span', { className: 'dhb-hint' },
+                      t('monJobsRunning', { n: p.jobs.filter(function (j) { return j.status === 'running' || j.status === 'stopping' }).length })
+                      + ' · ' + t('monJobsDone', { n: p.jobs.filter(function (j) { return j.status !== 'running' && j.status !== 'stopping' }).length })),
+                    p.jobs.length === 0
+                      ? h('span', { className: 'dhb-hint' }, t('monNoJobs'))
+                      : p.jobs.map(function (j) {
+                          var running = j.status === 'running' || j.status === 'stopping'
+                          var dur = running
+                            ? monDuration(Date.now() - (j.startedAt || 0))
+                            : monDuration(typeof j.finishedAt === 'number' && j.startedAt ? j.finishedAt - j.startedAt : null)
+                          return h('div', {
+                            key: j.id,
+                            className: 'dhb-row',
+                            style: { justifyContent: 'space-between', alignItems: 'baseline', paddingLeft: 2 },
+                            title: j.detail !== undefined ? j.detail : j.id,
+                          },
+                            h('span', { style: { minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 } },
+                              h('span', { className: 'dhb-badge' }, j.kind),
+                              ' ' + (j.label !== '' ? j.label : j.id)),
+                            h('span', { className: 'dhb-hint', style: { flex: 'none' } },
+                              (running ? t('monJobRunning') : t('monJobStatus', { status: j.status })) + ' · ' + dur),
+                          )
+                        }),
+                    p.live !== true ? h('span', { className: 'dhb-hint' }, t('monJobsColdNote')) : null,
+                  )
+                : null,
+              // 子代理树（宿主 subagents 注册表；null = 服务缺席，隐藏卡片）
+              p !== null && p.subagents !== null
+                ? h(MonCard, { title: t('monSubagentsTitle') },
+                    h('span', { className: 'dhb-hint' },
+                      t('monSubTotal', { n: p.subagents.length })
+                      + ' · ' + t('monSubRunning', { n: p.subagents.filter(function (s) { return s.kind === 'child' && s.activity === 'running' }).length })),
+                    p.subagents.length === 0
+                      ? h('span', { className: 'dhb-hint' }, t('monNoSubagents'))
+                      : p.subagents.map(function (s) {
+                          if (s.kind === 'diagnostic') {
+                            return h('div', { key: s.id, className: 'dhb-hint', style: { paddingLeft: (s.depth - 1) * 16 + 2 } },
+                              '⚠ ' + t('monSubUnreadable'))
+                          }
+                          return h('div', {
+                            key: s.id,
+                            className: 'dhb-row',
+                            style: { justifyContent: 'space-between', alignItems: 'baseline', paddingLeft: (s.depth - 1) * 16 + 2 },
+                            title: s.id,
+                          },
+                            h('span', { style: { minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 } },
+                              (s.label !== '' ? s.label : s.id.slice(0, 8))
+                              + ' · ' + (s.mode === 'continuable' ? t('monSubContinuable') : t('monSubOneShot'))),
+                            h('span', { className: 'dhb-hint', style: { flex: 'none' } },
+                              (s.activity === 'running' ? t('monSubRunning') : t('monSubInactive'))
+                              + ' · ' + (s.turns !== null ? s.turns + t('monTurns') + '·' + s.steps + t('monSteps') : '—')
+                              + ' · ' + t('monOutput') + ' ' + monTokens(s.output)),
+                          )
+                        }),
+                  )
+                : null,
             ),
         h('p', { className: 'dhb-hint' }, t('monIntro')),
       )

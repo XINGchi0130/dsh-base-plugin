@@ -68,8 +68,15 @@ phone-width screens (see Mobile below).
    registry, cold ones via the projection cache), so figures match the
    composer stats line exactly and survive paging/compaction; token totals
    fold incrementally from the durable log (a per-session seq cursor makes
-   the 5-second auto-refresh cheap). The entry appears when both data
-   sources are mounted.
+   the 5-second auto-refresh cheap). Two more cards: **Jobs** (the official
+   `jobs` registry, agent-scoped like the session/jobs frames — live
+   sessions only, since the registry is process-local) and **Subagents**
+   (the official `subagents` registry's durable descendant tree, indented
+   by depth, each row showing mode, running state, and mini figures —
+   turns·steps plus output tokens — folded incrementally through the same
+   cursor machinery; unreadable child logs show as gray rows). The entry
+   appears when the core data sources are mounted; a missing optional
+   service hides its card only.
 
 8. **Usage** — a Settings section right after Models (order 11): aggregated token usage over
    every session log (input / cache-read / cache-write / output / reasoning — exact
