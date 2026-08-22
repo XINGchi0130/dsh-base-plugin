@@ -59,8 +59,8 @@ phone-width screens (see Mobile below).
    switching between File Changes, Terminal, and Monitor in place. Esc or
    the close button dismisses it.
 
-   **Monitor** is the third panel in the same dock: the session's vital
-   figures at a glance — turns & steps, LLM vs tool wall time, average
+   **Monitor** is the third panel in the same dock, split into two tabs —
+   **Overview** (the session's vital figures at a glance) — turns & steps, LLM vs tool wall time, average
    first-token latency, decode throughput (tok/s), cache-hit rate, and
    input/output token totals (reasoning tokens too when present). Stats
    come from the official `sessionStats` whole-log projection
@@ -76,7 +76,8 @@ phone-width screens (see Mobile below).
    turns·steps plus output tokens — folded incrementally through the same
    cursor machinery; unreadable child logs show as gray rows). The entry
    appears when the core data sources are mounted; a missing optional
-   service hides its card only.
+   service hides its card only. The tab strip reuses the dock's tool-nav
+   button style.
 
 8. **Usage** — a Settings section right after Models (order 11): aggregated token usage over
    every session log (input / cache-read / cache-write / output / reasoning — exact

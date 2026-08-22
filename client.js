@@ -51,7 +51,7 @@
  * 用分区横幅代替模块切分。分区顺序：i18n 词典 → store/api/styles
  * 辅助 → MarketTab → McpSection → SkillsSection → plugin apply。
  */
-// GENERATED from src/* by scripts/build-client.mjs — edit src/, then rebuild. stamp:3ed3d51871ab
+// GENERATED from src/* by scripts/build-client.mjs — edit src/, then rebuild. stamp:18d784182143
 window.__ModuleLoader__.load({
   id: 'dsh-base-plugin',
   factory: function (require) {
@@ -181,6 +181,10 @@ window.__ModuleLoader__.load({
       monCacheWrite: '缓存写入',
       monReasoning: '思考',
       monIntro: '统计来自官方整日志投影与 token 折叠，每 5 秒自动刷新；点击刷新立即更新。',
+      monPanelTitle: '监控标签页',
+      monTabOverview: '概览',
+      monTabTasks: '任务',
+      monTasksUnavailable: '任务与子代理服务均未挂载。',
       monJobsTitle: '任务',
       monJobsRunning: '运行中 {n}',
       monJobsDone: '已结束 {n}',
@@ -458,6 +462,10 @@ window.__ModuleLoader__.load({
       monCacheWrite: 'cache write',
       monReasoning: 'reasoning',
       monIntro: 'Figures come from the official whole-log projection plus a token fold; auto-refreshes every 5s — click refresh for an immediate update.',
+      monPanelTitle: 'Monitor tabs',
+      monTabOverview: 'Overview',
+      monTabTasks: 'Tasks',
+      monTasksUnavailable: 'Neither the jobs nor the subagents service is mounted.',
       monJobsTitle: 'Jobs',
       monJobsRunning: '{n} running',
       monJobsDone: '{n} settled',
@@ -2798,11 +2806,126 @@ window.__ModuleLoader__.load({
       )
     }
 
+    /** 概览 tab：轮次与步骤 / 耗时 / token 用量（整日志统计）。 */
+    function MonOverviewTab(props) {
+      var t = props.t
+      var p = props.payload
+      var s = p !== null && p.stats !== null ? p.stats : null
+      var tok = p !== null ? p.tokens : null
+
+      // 派生速率：首 token 平均 = ttftMs/ttftSteps；解码 = decodeTokens/(decodeMs/1000)。
+      var ttftAvg = s !== null && s.ttftSteps > 0 ? s.ttftMs / s.ttftSteps : null
+      var tokPerSec = s !== null && s.decodeMs > 0 ? s.decodeTokens / (s.decodeMs / 1000) : null
+      // 缓存命中 = cacheRead / (cacheRead + input)（不含 cacheWrite 写入侧）。
+      var cacheHit = null
+      if (tok !== null && (tok.cacheRead + tok.input) > 0) {
+        cacheHit = Math.round(tok.cacheRead / (tok.cacheRead + tok.input) * 100)
+      }
+
+      if (p !== null && p.available !== true && p.requests === 0) {
+        return h('p', { className: 'dhb-desc' }, t('monUnavailable'))
+      }
+
+      return h('div', { className: 'dhb-list' },
+        // 轮次与步骤
+        h(MonCard, { title: t('monRounds') },
+          h('span', { style: { fontSize: 15 } },
+            (s !== null ? s.turns : '—') + ' ' + t('monTurns') + ' · ' + (s !== null ? s.steps : '—') + ' ' + t('monSteps')),
+          h('span', { className: 'dhb-hint' }, t('monRequests', { n: p !== null ? p.requests : 0 })),
+        ),
+        // 耗时
+        h(MonCard, { title: t('monTimes') },
+          h('span', null, t('monLlmLabel') + ' ' + monDuration(s !== null ? s.llmMs : null)
+            + ' · ' + t('monToolLabel') + ' ' + monDuration(s !== null ? s.toolMs : null)),
+          h('span', { className: 'dhb-hint' }, t('monTtftLabel') + ' ' + (ttftAvg !== null ? monDuration(ttftAvg) : '—')
+            + (tokPerSec !== null ? ' · ' + (Math.round(tokPerSec * 10) / 10) + ' tok/s' : '')),
+        ),
+        // token 用量
+        h(MonCard, { title: t('monTokenTitle') },
+          h('span', null, t('monInput') + ' ' + (tok !== null ? monTokens(tok.input) : '—')
+            + ' · ' + t('monOutput') + ' ' + (tok !== null ? monTokens(tok.output) : '—')),
+          h('span', { className: 'dhb-hint' },
+            t('monCacheHit') + ' ' + (cacheHit !== null ? cacheHit + '%' : '—')
+            + ' · ' + t('monCacheWrite') + ' ' + (tok !== null ? monTokens(tok.cacheWrite) : '—')),
+          tok !== null && tok.reasoning > 0
+            ? h('span', { className: 'dhb-hint' }, t('monReasoning') + ' ' + monTokens(tok.reasoning))
+            : null,
+        ),
+      )
+    }
+
+    /** 任务 tab：后台作业 + 子代理树（正在干活的单元）。 */
+    function MonTasksTab(props) {
+      var t = props.t
+      var p = props.payload
+      var jobsCard = p !== null && Array.isArray(p.jobs)
+        ? h(MonCard, { title: t('monJobsTitle') },
+            h('span', { className: 'dhb-hint' },
+              t('monJobsRunning', { n: p.jobs.filter(function (j) { return j.status === 'running' || j.status === 'stopping' }).length })
+              + ' · ' + t('monJobsDone', { n: p.jobs.filter(function (j) { return j.status !== 'running' && j.status !== 'stopping' }).length })),
+            p.jobs.length === 0
+              ? h('span', { className: 'dhb-hint' }, t('monNoJobs'))
+              : p.jobs.map(function (j) {
+                  var running = j.status === 'running' || j.status === 'stopping'
+                  var dur = running
+                    ? monDuration(Date.now() - (j.startedAt || 0))
+                    : monDuration(typeof j.finishedAt === 'number' && j.startedAt ? j.finishedAt - j.startedAt : null)
+                  return h('div', {
+                    key: j.id,
+                    className: 'dhb-row',
+                    style: { justifyContent: 'space-between', alignItems: 'baseline', paddingLeft: 2 },
+                    title: j.detail !== undefined ? j.detail : j.id,
+                  },
+                    h('span', { style: { minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 } },
+                      h('span', { className: 'dhb-badge' }, j.kind),
+                      ' ' + (j.label !== '' ? j.label : j.id)),
+                    h('span', { className: 'dhb-hint', style: { flex: 'none' } },
+                      (running ? t('monJobRunning') : t('monJobStatus', { status: j.status })) + ' · ' + dur),
+                  )
+                }),
+            p.live !== true ? h('span', { className: 'dhb-hint' }, t('monJobsColdNote')) : null,
+          )
+        : null
+      var subCard = p !== null && p.subagents !== null
+        ? h(MonCard, { title: t('monSubagentsTitle') },
+            h('span', { className: 'dhb-hint' },
+              t('monSubTotal', { n: p.subagents.length })
+              + ' · ' + t('monSubRunning', { n: p.subagents.filter(function (s) { return s.kind === 'child' && s.activity === 'running' }).length })),
+            p.subagents.length === 0
+              ? h('span', { className: 'dhb-hint' }, t('monNoSubagents'))
+              : p.subagents.map(function (s) {
+                  if (s.kind === 'diagnostic') {
+                    return h('div', { key: s.id, className: 'dhb-hint', style: { paddingLeft: (s.depth - 1) * 16 + 2 } },
+                      '⚠ ' + t('monSubUnreadable'))
+                  }
+                  return h('div', {
+                    key: s.id,
+                    className: 'dhb-row',
+                    style: { justifyContent: 'space-between', alignItems: 'baseline', paddingLeft: (s.depth - 1) * 16 + 2 },
+                    title: s.id,
+                  },
+                    h('span', { style: { minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 } },
+                      (s.label !== '' ? s.label : s.id.slice(0, 8))
+                      + ' · ' + (s.mode === 'continuable' ? t('monSubContinuable') : t('monSubOneShot'))),
+                    h('span', { className: 'dhb-hint', style: { flex: 'none' } },
+                      (s.activity === 'running' ? t('monSubRunning') : t('monSubInactive'))
+                      + ' · ' + (s.turns !== null ? s.turns + t('monTurns') + '·' + s.steps + t('monSteps') : '—')
+                      + ' · ' + t('monOutput') + ' ' + monTokens(s.output)),
+                  )
+                }),
+          )
+        : null
+      if (jobsCard === null && subCard === null) {
+        return h('p', { className: 'dhb-desc' }, t('monTasksUnavailable'))
+      }
+      return h('div', { className: 'dhb-list' }, jobsCard, subCard)
+    }
+
     /**
-     * 监控面板：经宿主 /monitor 读官方 sessionStats 投影（轮/步、LLM/
-     * 工具墙钟、首 token、解码吞吐）+ token 折叠（输入/输出/缓存命中）。
-     * 打开期间每 5s 自动刷新（token 折叠是增量游标，轮询很轻）；手动
-     * 刷新按钮随时可用。会话切换（sessionId 变化）自动重载。
+     * 监控面板：两个标签页——「概览」（整日志统计 + token）与「任务」
+     * （后台作业 + 子代理树）。经宿主 /monitor 单请求轮询（5s 自动刷新，
+     * token 折叠走宿主增量游标）；会话切换（sessionId 变化）自动重载；
+     * 切换会话不保留 tab 选择之外的任何状态。
      */
     function MonitorView(props) {
       var t = props.t
@@ -2814,6 +2937,10 @@ window.__ModuleLoader__.load({
       var dataState = React.useState({ status: 'idle', payload: null })
       var data = dataState[0]
       var setData = dataState[1]
+
+      var tabState = React.useState('overview')
+      var tab = tabState[0]
+      var setTab = tabState[1]
 
       var load = React.useCallback(function (sid) {
         if (sid === undefined || sid === '') return
@@ -2837,16 +2964,14 @@ window.__ModuleLoader__.load({
       }
 
       var p = data.payload
-      var s = p !== null && p.stats !== null ? p.stats : null
-      var tok = p !== null ? p.tokens : null
 
-      // 派生速率：首 token 平均 = ttftMs/ttftSteps；解码 = decodeTokens/(decodeMs/1000)。
-      var ttftAvg = s !== null && s.ttftSteps > 0 ? s.ttftMs / s.ttftSteps : null
-      var tokPerSec = s !== null && s.decodeMs > 0 ? s.decodeTokens / (s.decodeMs / 1000) : null
-      // 缓存命中 = cacheRead / (cacheRead + input)（不含 cacheWrite 写入侧）。
-      var cacheHit = null
-      if (tok !== null && (tok.cacheRead + tok.input) > 0) {
-        cacheHit = Math.round(tok.cacheRead / (tok.cacheRead + tok.input) * 100)
+      // tab 导航：与面板顶部工具导航行同款按钮形态（data-active 高亮）。
+      var tabItem = function (key, label) {
+        return h('button', {
+          className: 'dhb-toolsNavItem', type: 'button',
+          'data-active': tab === key ? '1' : '0',
+          onClick: function () { setTab(key) },
+        }, h('span', { style: { minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, label))
       }
 
       return h('div', { className: 'dhb-page' },
@@ -2855,95 +2980,15 @@ window.__ModuleLoader__.load({
             p !== null ? (p.live === true ? t('monLive') : t('monCold')) : ''),
           h('button', { className: 'dhb-btn', type: 'button', onClick: function () { load(sessionId) } }, t('refresh')),
         ),
+        h('div', { className: 'dhb-toolsNav', role: 'tablist', 'aria-label': t('monPanelTitle') },
+          tabItem('overview', t('monTabOverview')),
+          tabItem('tasks', t('monTabTasks')),
+        ),
         data.status === 'loading' ? h('p', { className: 'dhb-desc' }, t('loading'))
         : data.status === 'error' ? h(Banner, { kind: 'err', text: data.error })
-        : p !== null && p.available !== true && p.requests === 0
-          ? h('p', { className: 'dhb-desc' }, t('monUnavailable'))
-          : h('div', { className: 'dhb-list' },
-              // 轮次与步骤
-              h(MonCard, { title: t('monRounds') },
-                h('span', { style: { fontSize: 15 } },
-                  (s !== null ? s.turns : '—') + ' ' + t('monTurns') + ' · ' + (s !== null ? s.steps : '—') + ' ' + t('monSteps')),
-                h('span', { className: 'dhb-hint' }, t('monRequests', { n: p !== null ? p.requests : 0 })),
-              ),
-              // 耗时
-              h(MonCard, { title: t('monTimes') },
-                h('span', null, t('monLlmLabel') + ' ' + monDuration(s !== null ? s.llmMs : null)
-                  + ' · ' + t('monToolLabel') + ' ' + monDuration(s !== null ? s.toolMs : null)),
-                h('span', { className: 'dhb-hint' }, t('monTtftLabel') + ' ' + (ttftAvg !== null ? monDuration(ttftAvg) : '—')
-                  + (tokPerSec !== null ? ' · ' + (Math.round(tokPerSec * 10) / 10) + ' tok/s' : '')),
-              ),
-              // token 用量
-              h(MonCard, { title: t('monTokenTitle') },
-                h('span', null, t('monInput') + ' ' + (tok !== null ? monTokens(tok.input) : '—')
-                  + ' · ' + t('monOutput') + ' ' + (tok !== null ? monTokens(tok.output) : '—')),
-                h('span', { className: 'dhb-hint' },
-                  t('monCacheHit') + ' ' + (cacheHit !== null ? cacheHit + '%' : '—')
-                  + ' · ' + t('monCacheWrite') + ' ' + (tok !== null ? monTokens(tok.cacheWrite) : '—')),
-                tok !== null && tok.reasoning > 0
-                  ? h('span', { className: 'dhb-hint' }, t('monReasoning') + ' ' + monTokens(tok.reasoning))
-                  : null,
-              ),
-              // 后台作业（宿主 jobs 注册表；载荷缺席 = 旧宿主半，隐藏卡片）
-              p !== null && Array.isArray(p.jobs)
-                ? h(MonCard, { title: t('monJobsTitle') },
-                    h('span', { className: 'dhb-hint' },
-                      t('monJobsRunning', { n: p.jobs.filter(function (j) { return j.status === 'running' || j.status === 'stopping' }).length })
-                      + ' · ' + t('monJobsDone', { n: p.jobs.filter(function (j) { return j.status !== 'running' && j.status !== 'stopping' }).length })),
-                    p.jobs.length === 0
-                      ? h('span', { className: 'dhb-hint' }, t('monNoJobs'))
-                      : p.jobs.map(function (j) {
-                          var running = j.status === 'running' || j.status === 'stopping'
-                          var dur = running
-                            ? monDuration(Date.now() - (j.startedAt || 0))
-                            : monDuration(typeof j.finishedAt === 'number' && j.startedAt ? j.finishedAt - j.startedAt : null)
-                          return h('div', {
-                            key: j.id,
-                            className: 'dhb-row',
-                            style: { justifyContent: 'space-between', alignItems: 'baseline', paddingLeft: 2 },
-                            title: j.detail !== undefined ? j.detail : j.id,
-                          },
-                            h('span', { style: { minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 } },
-                              h('span', { className: 'dhb-badge' }, j.kind),
-                              ' ' + (j.label !== '' ? j.label : j.id)),
-                            h('span', { className: 'dhb-hint', style: { flex: 'none' } },
-                              (running ? t('monJobRunning') : t('monJobStatus', { status: j.status })) + ' · ' + dur),
-                          )
-                        }),
-                    p.live !== true ? h('span', { className: 'dhb-hint' }, t('monJobsColdNote')) : null,
-                  )
-                : null,
-              // 子代理树（宿主 subagents 注册表；null = 服务缺席，隐藏卡片）
-              p !== null && p.subagents !== null
-                ? h(MonCard, { title: t('monSubagentsTitle') },
-                    h('span', { className: 'dhb-hint' },
-                      t('monSubTotal', { n: p.subagents.length })
-                      + ' · ' + t('monSubRunning', { n: p.subagents.filter(function (s) { return s.kind === 'child' && s.activity === 'running' }).length })),
-                    p.subagents.length === 0
-                      ? h('span', { className: 'dhb-hint' }, t('monNoSubagents'))
-                      : p.subagents.map(function (s) {
-                          if (s.kind === 'diagnostic') {
-                            return h('div', { key: s.id, className: 'dhb-hint', style: { paddingLeft: (s.depth - 1) * 16 + 2 } },
-                              '⚠ ' + t('monSubUnreadable'))
-                          }
-                          return h('div', {
-                            key: s.id,
-                            className: 'dhb-row',
-                            style: { justifyContent: 'space-between', alignItems: 'baseline', paddingLeft: (s.depth - 1) * 16 + 2 },
-                            title: s.id,
-                          },
-                            h('span', { style: { minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 } },
-                              (s.label !== '' ? s.label : s.id.slice(0, 8))
-                              + ' · ' + (s.mode === 'continuable' ? t('monSubContinuable') : t('monSubOneShot'))),
-                            h('span', { className: 'dhb-hint', style: { flex: 'none' } },
-                              (s.activity === 'running' ? t('monSubRunning') : t('monSubInactive'))
-                              + ' · ' + (s.turns !== null ? s.turns + t('monTurns') + '·' + s.steps + t('monSteps') : '—')
-                              + ' · ' + t('monOutput') + ' ' + monTokens(s.output)),
-                          )
-                        }),
-                  )
-                : null,
-            ),
+        : tab === 'tasks'
+          ? h(MonTasksTab, { t: t, payload: p })
+          : h(MonOverviewTab, { t: t, payload: p }),
         h('p', { className: 'dhb-hint' }, t('monIntro')),
       )
     }
