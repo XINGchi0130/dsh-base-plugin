@@ -156,38 +156,153 @@
           )
         : null
       var subCard = p !== null && Array.isArray(p.subagents)
-        ? h(MonCard, { title: t('monSubagentsTitle') },
-            h('span', { className: 'dhb-hint' },
-              t('monSubTotal', { n: p.subagents.length })
-              + ' · ' + t('monSubRunning', { n: p.subagents.filter(function (s) { return s.kind === 'child' && s.activity === 'running' }).length })),
-            p.subagents.length === 0
-              ? h('span', { className: 'dhb-hint' }, t('monNoSubagents'))
-              : p.subagents.map(function (s) {
-                  if (s.kind === 'diagnostic') {
-                    return h('div', { key: s.id, className: 'dhb-hint', style: { paddingLeft: (s.depth - 1) * 16 + 2 } },
-                      '⚠ ' + t('monSubUnreadable'))
-                  }
-                  return h('div', {
-                    key: s.id,
-                    className: 'dhb-row',
-                    style: { justifyContent: 'space-between', alignItems: 'baseline', paddingLeft: (s.depth - 1) * 16 + 2 },
-                    title: s.id,
-                  },
-                    h('span', { style: { minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 } },
-                      (s.label !== '' ? s.label : s.id.slice(0, 8))
-                      + ' · ' + (s.mode === 'continuable' ? t('monSubContinuable') : t('monSubOneShot'))),
-                    h('span', { className: 'dhb-hint', style: { flex: 'none' } },
-                      (s.activity === 'running' ? t('monSubStateRunning') : t('monSubInactive'))
-                      + ' · ' + (s.turns !== null ? s.turns + t('monTurns') + '·' + s.steps + t('monSteps') : '—')
-                      + ' · ' + t('monOutput') + ' ' + monTokens(s.output)),
-                  )
-                }),
-          )
+        ? h(SubagentsCard, { t: t, subagents: p.subagents })
         : null
       if (jobsCard === null && subCard === null) {
         return h('p', { className: 'dhb-desc' }, t('monTasksUnavailable'))
       }
       return h('div', { className: 'dhb-list' }, jobsCard, subCard)
+    }
+
+
+    /** 子代理列表卡（重构版设计）：
+     * - 状态圆点为第一锚点（运行中实心呼吸/已结束空心灰），扫读先色后字
+     * - 指标组右对齐固定列（N轮·M步  输出  时间）可纵向比较
+     * - 运行中置顶（轮次降序），已结束按输出降序，默认折 5 条
+     * - depth>1 缩进 + 连接线呈现谱系；诊断行独立成组置底
+     * - 筛选片 [全部|运行中]；可续聊入口在第二行（仅 continuable）
+     */
+    function SubagentsCard(props) {
+      var t = props.t
+      var subs = props.subagents
+
+      var filterState = React.useState('all')
+      var filter = filterState[0]
+      var setFilter = filterState[1]
+      var expandedState = React.useState(false)
+      var expanded = expandedState[0]
+      var setExpanded = expandedState[1]
+
+      var children = subs.filter(function (s) { return s.kind === 'child' })
+      var diagnostics = subs.filter(function (s) { return s.kind === 'diagnostic' })
+      var running = children.filter(function (s) { return s.activity === 'running' })
+        .sort(function (a, b) { return (b.turns ?? 0) - (a.turns ?? 0) })
+      var done = children.filter(function (s) { return s.activity !== 'running' })
+        .sort(function (a, b) { return (b.output ?? 0) - (a.output ?? 0) })
+
+      var visibleDone = expanded || filter === 'running' ? done : done.slice(0, 5)
+      var hiddenCount = done.length - Math.min(done.length, expanded ? done.length : 5)
+      // 筛选运行中时已结束整组隐藏
+      if (filter === 'running') { visibleDone = []; hiddenCount = 0 }
+
+      var timeOf = function (ms) {
+        if (typeof ms !== 'number' || ms <= 0) return ''
+        try { var d = new Date(ms); var two = function (v) { return (v < 10 ? '0' : '') + v }
+          return two(d.getHours()) + ':' + two(d.getMinutes()) } catch (err) { return '' }
+      }
+      var elapsedOf = function (s) {
+        if (typeof s.firstTime !== 'number' || s.firstTime <= 0) return null
+        var end = s.activity === 'running' ? Date.now() : (typeof s.lastTime === 'number' && s.lastTime > 0 ? s.lastTime : Date.now())
+        return end - s.firstTime
+      }
+
+      // 单行（结束态）：圆点 名字 | 指标 输出 时间
+      var rowDone = function (s) {
+        return h('div', {
+          key: s.id,
+          style: { display: 'flex', alignItems: 'baseline', gap: 6, padding: '2px 0', fontSize: 12, paddingLeft: (s.depth - 1) * 14 },
+          title: s.id,
+        },
+          h('span', { style: { flex: 'none', color: 'var(--dsw-alias-border-l2,#8a919e)', fontSize: 10, lineHeight: '16px' } }, s.depth > 1 ? '└○' : '○'),
+          h('span', { style: { minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 } },
+            (s.label !== '' ? s.label : s.id.slice(0, 8))),
+          h('span', { className: 'dhb-hint', style: { flex: 'none', whiteSpace: 'nowrap' } },
+            (s.turns !== null ? s.turns + t('monTurns') + '·' + s.steps + t('monSteps') : '—')
+            + '  ' + monTokens(s.output)
+            + (timeOf(s.lastTime) !== '' ? '  ' + timeOf(s.lastTime) : '')),
+        )
+      }
+
+      // 双行（运行态）：第一行同上但实心呼吸点；第二行 续聊入口 + 实时耗时
+      var rowRunning = function (s) {
+        var el = elapsedOf(s)
+        return h('div', { key: s.id, style: { padding: '2px 0' }, title: s.id },
+          h('div', {
+            style: { display: 'flex', alignItems: 'baseline', gap: 6, fontSize: 12, paddingLeft: (s.depth - 1) * 14 },
+          },
+            h('span', { style: { flex: 'none', color: '#1e7e34', fontSize: 10, lineHeight: '16px', animation: 'dhbSubPulse 1.6s ease-in-out infinite' } }, '●'),
+            h('span', { style: { minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, fontWeight: 600 } },
+              (s.label !== '' ? s.label : s.id.slice(0, 8))),
+            h('span', { className: 'dhb-hint', style: { flex: 'none', whiteSpace: 'nowrap' } },
+              (s.turns !== null ? s.turns + t('monTurns') + '·' + s.steps + t('monSteps') : '—')
+              + '  ' + monTokens(s.output))),
+          h('div', { style: { display: 'flex', alignItems: 'baseline', gap: 6, fontSize: 11, paddingLeft: (s.depth - 1) * 14 + 16 } },
+            s.mode === 'continuable'
+              ? h('button', {
+                  className: 'dhb-btn', type: 'button',
+                  style: { padding: '0 8px', fontSize: 11, height: 20 },
+                  onClick: function () {
+                    if (navigator.clipboard !== undefined && navigator.clipboard.writeText !== undefined) {
+                      void navigator.clipboard.writeText(s.id)
+                    }
+                  },
+                  title: t('monSubResumeHint'),
+                }, '▸ ' + t('monSubContinuable'))
+              : null,
+            el !== null
+              ? h('span', { className: 'dhb-hint' }, t('monSubElapsed') + ' ' + monDuration(el))
+              : null,
+          ),
+        )
+      }
+
+      return h(MonCard, { title: t('monSubagentsTitle') },
+        // 汇总栏 + 筛选片
+        h('div', { style: { display: 'flex', alignItems: 'center', gap: 8, width: '100%' } },
+          h('span', { className: 'dhb-hint' },
+            h('span', { style: { color: running.length > 0 ? '#1e7e34' : undefined } }, '● ' + running.length),
+            '  ',
+            h('span', {}, '○ ' + done.length)),
+          h('div', { style: { marginLeft: 'auto', display: 'flex', gap: 2 } },
+            ['all', 'running'].map(function (f) {
+              return h('button', {
+                key: f, type: 'button',
+                className: 'dhb-btn',
+                style: { padding: '0 8px', fontSize: 11, height: 20, fontWeight: filter === f ? 600 : 400, opacity: filter === f ? 1 : 0.65 },
+                onClick: function () { setFilter(f) },
+              }, t(f === 'all' ? 'monSubFilterAll' : 'monSubFilterRunning'))
+            })),
+        ),
+        children.length === 0 && diagnostics.length === 0
+          ? h('span', { className: 'dhb-hint' }, t('monNoSubagents'))
+          : null,
+        // 运行组（无分割线，焦点组）
+        running.map(rowRunning),
+        // 已结束分组线
+        visibleDone.length > 0
+          ? h('div', { className: 'dhb-hint', style: { width: '100%', borderTop: '1px solid var(--dsw-alias-border-l2,#e3e6ec)', paddingTop: 4, marginTop: 4 } },
+              '── ' + t('monSubDoneGroup') + '（' + done.length + '）')
+          : null,
+        visibleDone.map(rowDone),
+        hiddenCount > 0
+          ? h('div', { style: { textAlign: 'center', padding: 4 } },
+              h('button', { className: 'dhb-btn', type: 'button', style: { fontSize: 11, height: 20, padding: '0 10px' }, onClick: function () { setExpanded(true) } },
+                t('monSubMore', { n: hiddenCount }) + ' ▾'))
+          : null,
+        expanded && done.length > 5
+          ? h('div', { style: { textAlign: 'center', padding: 4 } },
+              h('button', { className: 'dhb-btn', type: 'button', style: { fontSize: 11, height: 20, padding: '0 10px' }, onClick: function () { setExpanded(false) } },
+                t('monSubCollapse')))
+          : null,
+        // 诊断组（数据异常非任务——置底独立）
+        diagnostics.length > 0
+          ? h('div', { style: { marginTop: 4 } },
+              h('div', { className: 'dhb-hint', style: { color: '#d68910' } }, '⚠ ' + t('monSubUnreadableGroup', { n: diagnostics.length })),
+              diagnostics.map(function (d) {
+                return h('div', { key: d.id, className: 'dhb-hint', style: { paddingLeft: 2 }, title: d.id + ' · ' + d.reason }, '⚠ ' + t('monSubUnreadable'))
+              }))
+          : null,
+      )
     }
 
     /** 字节数 → "22.5G" / "531M" / "412K"。1024 进制（内存语境的惯用

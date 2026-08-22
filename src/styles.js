@@ -212,6 +212,7 @@
       '.dhb-svcCard{display:flex;flex-direction:column;gap:8px;align-items:center;padding:22px 30px;border-radius:14px;border:1px solid var(--dsw-alias-border-l1,#d0d4dd);background:var(--dsw-alias-bg-base,#fff);box-shadow:0 16px 40px rgba(0,0,0,.22);font-size:13px;color:var(--dsw-alias-label-secondary,#3f4550);max-width:420px;text-align:center}',
       '.dhb-svcSpin{width:22px;height:22px;border-radius:50%;border:2.5px solid var(--dsw-alias-border-l2,#e3e6ec);border-top-color:#2f6fed;animation:dhbSpin 0.9s linear infinite}',
       '@keyframes dhbSpin{to{transform:rotate(360deg)}}',
+      '@keyframes dhbSubPulse{0%,100%{opacity:1}50%{opacity:.35}}',
       /* ── Mobile adaptation (phones reach these pages through the mobile
          proxy; the DSH shell itself auto-collapses below 1024px, these
          rules adapt THIS plugin's own surfaces). Touch-friendly targets,
