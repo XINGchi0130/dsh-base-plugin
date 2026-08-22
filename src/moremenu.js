@@ -38,19 +38,17 @@
       // kit）捕获、打开时移交：视图用的 cwd、侧栏面包屑用的标题。两个
       // 独立选择器（只返回字符串）——返回对象会让每次 getSnapshot 产生
       // 新快照引用、令 useSyncExternalStore 死循环。
-      var pickRow = function (pick) {
-        if (kit === undefined || typeof kit.useSessions !== 'function') return ''
-        return kit.useSessions(function (s) {
-          var row = sessionId !== undefined && s.byId !== undefined ? s.byId[sessionId] : undefined
-          return pick(row)
-        })
-      }
-      var cwd = pickRow(function (row) { return row !== undefined && typeof row.cwd === 'string' ? row.cwd : '' })
-      var title = pickRow(function (row) {
-        return row !== undefined && typeof row.title === 'string' && row.title !== ''
-          ? row.title
-          : (sessionId !== undefined ? sessionId.slice(0, 8) : '')
+      // hook 无条件调用一次（kit 形状恒定取值，不恒定 hook 数——条件调用
+      // 曾是工具坞崩溃的同族潜伏雷：任一 kit 来源中途补上/丢失
+      // useSessions，hook 数即变，直接"Rendered fewer hooks"级崩溃）。
+      var useSessionsHook = kit !== undefined && typeof kit.useSessions === 'function' ? kit.useSessions : function () { return '' }
+      var rowRef = useSessionsHook(function (s) {
+        return sessionId !== undefined && s.byId !== undefined ? s.byId[sessionId] : undefined
       })
+      var cwd = rowRef !== undefined && typeof rowRef.cwd === 'string' ? rowRef.cwd : ''
+      var title = rowRef !== undefined && typeof rowRef.title === 'string' && rowRef.title !== ''
+        ? rowRef.title
+        : (sessionId !== undefined ? sessionId.slice(0, 8) : '')
 
       function onOpenTool(panel) {
         setOpen(false)

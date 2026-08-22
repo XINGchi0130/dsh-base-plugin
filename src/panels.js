@@ -79,7 +79,14 @@
 
       React.useEffect(function () {
         if (snap.panel === null) return undefined
-        var onKey = function (e) { if (e.key === 'Escape') props.controller.close() }
+        var onKey = function (e) {
+          if (e.key !== 'Escape') return
+          // 确认框打开时让给它（shared.js 的 Esc 处理取消对话框）——
+          // 两边都挂 document，曾连工具坞一起关掉。
+          var overlay = typeof document !== 'undefined' ? document.querySelector('.dhb-cfmOverlay') : null
+          if (overlay !== null && overlay.style.display !== 'none') return
+          props.controller.close()
+        }
         if (typeof document !== 'undefined') {
           document.addEventListener('keydown', onKey)
           return function () { document.removeEventListener('keydown', onKey) }

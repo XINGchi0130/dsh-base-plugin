@@ -125,21 +125,21 @@
           needs('url')
             ? h('div', { className: 'dhb-field' },
                 h('span', { className: 'dhb-label' }, t('ntfUrlLabel')),
-                h('input', { className: 'dhb-input', value: cfg.url, placeholder: t('ntfUrlPlaceholder'), spellCheck: false, onChange: function (e) { patch({ url: e.target.value }) } }),
+                h('input', { className: 'dhb-input', value: cfg.url ?? '', placeholder: t('ntfUrlPlaceholder'), spellCheck: false, onChange: function (e) { patch({ url: e.target.value }) } }),
                 h('span', { className: 'dhb-hint' }, t('ntfUrlHint')),
               )
             : null,
           needs('barkKey')
             ? h('div', { className: 'dhb-field' },
                 h('span', { className: 'dhb-label' }, t('ntfBarkKeyLabel')),
-                h('input', { className: 'dhb-input', value: cfg.barkKey, placeholder: 'xxxxxxxx', spellCheck: false, onChange: function (e) { patch({ barkKey: e.target.value }) } }),
+                h('input', { className: 'dhb-input', value: cfg.barkKey ?? '', placeholder: 'xxxxxxxx', spellCheck: false, onChange: function (e) { patch({ barkKey: e.target.value }) } }),
                 h('span', { className: 'dhb-hint' }, t('ntfBarkKeyHint')),
               )
             : null,
           needs('ntfyTopic')
             ? h('div', { className: 'dhb-field' },
                 h('span', { className: 'dhb-label' }, t('ntfTopicLabel')),
-                h('input', { className: 'dhb-input', value: cfg.ntfyTopic, placeholder: 'my-dsh', spellCheck: false, onChange: function (e) { patch({ ntfyTopic: e.target.value }) } }),
+                h('input', { className: 'dhb-input', value: cfg.ntfyTopic ?? '', placeholder: 'my-dsh', spellCheck: false, onChange: function (e) { patch({ ntfyTopic: e.target.value }) } }),
                 h('span', { className: 'dhb-hint' }, t('ntfTopicHint')),
               )
             : null,

@@ -227,6 +227,7 @@
       }
 
       function scan() {
+        if (disposed) return // dispose 后挂起的 rAF 不得复活轨道（无人再清理）
         syncMenuLayer()
         var found = document.querySelector('[data-conversation-scroll]')
         if (found === scrollport) return
@@ -255,10 +256,12 @@
       }
 
       var scanScheduled = false
+      var scanRafPending = 0
+      var disposed = false
       function scheduleScan() {
-        if (scanScheduled) return
+        if (scanScheduled || disposed) return
         scanScheduled = true
-        requestAnimationFrame(function () { scanScheduled = false; scan() })
+        scanRafPending = requestAnimationFrame(function () { scanRafPending = 0; scanScheduled = false; scan() })
       }
 
       bodyObserver = new MutationObserver(scheduleScan)
@@ -267,6 +270,8 @@
       scan()
 
       return function () {
+        disposed = true
+        if (scanRafPending !== 0) cancelAnimationFrame(scanRafPending)
         bodyObserver.disconnect()
         detach()
         window.removeEventListener('resize', scheduleScan)

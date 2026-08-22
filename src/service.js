@@ -8,6 +8,7 @@
      */
     function createServiceController() {
       var store = createStore({ phase: 'idle', available: undefined, sec: 0, cmd: '' })
+      var timers = [] // 本控制器排下的所有定时器（dispose 一并清）
 
       function checkAvailable() {
         api('/service/info')
@@ -29,12 +30,12 @@
         store.set({ phase: 'stopping', available: false, sec: 0, cmd: '' })
         post('/service/stop', {}).catch(function () { /* dropped = expected */ })
         // 没有复苏可等：宽限期后直接显示已停止提示。
-        setTimeout(function () {
+        timers.push(setTimeout(function () {
           var snap = store.getSnapshot()
           if (snap.phase === 'stopping') {
             store.set({ phase: 'stopped', available: false, sec: 0, cmd: '' })
           }
-        }, 5000)
+        }, 5000))
       }
 
       function restart() {
@@ -57,13 +58,20 @@
             })
             .catch(function () {
               store.set({ phase: 'restarting', available: false, sec: sec, cmd: cmd })
-              setTimeout(tick, 1500)
+              timers.push(setTimeout(tick, 1500))
             })
         }
-        setTimeout(tick, 1500)
+        timers.push(setTimeout(tick, 1500))
       }
 
-      return { store: store, checkAvailable: checkAvailable, stop: stop, restart: restart }
+      /** 停止/重启链的定时器全部清除（插件停止时由 apply 清理调用——
+       * 轮询链曾最长残留 90s）。 */
+      function dispose() {
+        for (var i = 0; i < timers.length; i += 1) clearTimeout(timers[i])
+        timers.length = 0
+      }
+
+      return { store: store, checkAvailable: checkAvailable, stop: stop, restart: restart, dispose: dispose }
     }
 
     /**

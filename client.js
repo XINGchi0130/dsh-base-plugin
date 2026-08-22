@@ -51,7 +51,7 @@
  * 用分区横幅代替模块切分。分区顺序：i18n 词典 → store/api/styles
  * 辅助 → MarketTab → McpSection → SkillsSection → plugin apply。
  */
-// GENERATED from src/* by scripts/build-client.mjs — edit src/, then rebuild. stamp:7119d3d7147a
+// GENERATED from src/* by scripts/build-client.mjs — edit src/, then rebuild. stamp:cd0a8efa1636
 window.__ModuleLoader__.load({
   id: 'dsh-base-plugin',
   factory: function (require) {
@@ -815,14 +815,11 @@ window.__ModuleLoader__.load({
     }
 
     function useStore(store) {
-      if (React.useSyncExternalStore !== undefined) {
-        return React.useSyncExternalStore(store.subscribe, store.getSnapshot, store.getSnapshot)
-      }
-      var state = React.useState(store.getSnapshot())
-      React.useEffect(function () {
-        return store.subscribe(function () { state[1](store.getSnapshot()) })
-      }, [store])
-      return state[0]
+      // 无条件走 useSyncExternalStore：本插件的 client bundle 恒带
+      // React ≥18（dsh web 平台要求），旧版 useState 回退分支只是
+      // 历史包袱且本身是条件 hook（崩溃潜伏雷）——删除。
+      var value = React.useSyncExternalStore(store.subscribe, store.getSnapshot, store.getSnapshot)
+      return value
     }
 
     // ── api 辅助 ──────────────────────────────────────────────────────────
@@ -2566,21 +2563,21 @@ window.__ModuleLoader__.load({
           needs('url')
             ? h('div', { className: 'dhb-field' },
                 h('span', { className: 'dhb-label' }, t('ntfUrlLabel')),
-                h('input', { className: 'dhb-input', value: cfg.url, placeholder: t('ntfUrlPlaceholder'), spellCheck: false, onChange: function (e) { patch({ url: e.target.value }) } }),
+                h('input', { className: 'dhb-input', value: cfg.url ?? '', placeholder: t('ntfUrlPlaceholder'), spellCheck: false, onChange: function (e) { patch({ url: e.target.value }) } }),
                 h('span', { className: 'dhb-hint' }, t('ntfUrlHint')),
               )
             : null,
           needs('barkKey')
             ? h('div', { className: 'dhb-field' },
                 h('span', { className: 'dhb-label' }, t('ntfBarkKeyLabel')),
-                h('input', { className: 'dhb-input', value: cfg.barkKey, placeholder: 'xxxxxxxx', spellCheck: false, onChange: function (e) { patch({ barkKey: e.target.value }) } }),
+                h('input', { className: 'dhb-input', value: cfg.barkKey ?? '', placeholder: 'xxxxxxxx', spellCheck: false, onChange: function (e) { patch({ barkKey: e.target.value }) } }),
                 h('span', { className: 'dhb-hint' }, t('ntfBarkKeyHint')),
               )
             : null,
           needs('ntfyTopic')
             ? h('div', { className: 'dhb-field' },
                 h('span', { className: 'dhb-label' }, t('ntfTopicLabel')),
-                h('input', { className: 'dhb-input', value: cfg.ntfyTopic, placeholder: 'my-dsh', spellCheck: false, onChange: function (e) { patch({ ntfyTopic: e.target.value }) } }),
+                h('input', { className: 'dhb-input', value: cfg.ntfyTopic ?? '', placeholder: 'my-dsh', spellCheck: false, onChange: function (e) { patch({ ntfyTopic: e.target.value }) } }),
                 h('span', { className: 'dhb-hint' }, t('ntfTopicHint')),
               )
             : null,
@@ -2824,12 +2821,12 @@ window.__ModuleLoader__.load({
 
       // 经标准 sessions 钩子取会话 cwd（会话作用域槽位）。
       var sessionId = kit !== undefined ? kit.sessionId : undefined
-      var cwd = kit !== undefined && typeof kit.useSessions === 'function'
-        ? kit.useSessions(function (s) {
-            var row = sessionId !== undefined && s.byId !== undefined ? s.byId[sessionId] : undefined
-            return row !== undefined && typeof row.cwd === 'string' ? row.cwd : ''
-          })
-        : ''
+      // hook 无条件调用（同 moremenu.js 的教训：条件 hook 是崩溃潜伏雷）
+      var useSessionsHook = kit !== undefined && typeof kit.useSessions === 'function' ? kit.useSessions : function () { return '' }
+      var row0 = useSessionsHook(function (s) {
+        return sessionId !== undefined && s.byId !== undefined ? s.byId[sessionId] : undefined
+      })
+      var cwd = row0 !== undefined && typeof row0.cwd === 'string' ? row0.cwd : ''
 
       var dataState = React.useState({ status: 'idle', entries: [], stats: null, lines: null, total: 0, lastCommitAt: '', root: '', baselineNote: false, error: '' })
       var data = dataState[0]
@@ -3162,12 +3159,12 @@ window.__ModuleLoader__.load({
       useLocaleVersion()
 
       var sessionId = kit !== undefined ? kit.sessionId : undefined
-      var cwd = kit !== undefined && typeof kit.useSessions === 'function'
-        ? kit.useSessions(function (s) {
-            var row = sessionId !== undefined && s.byId !== undefined ? s.byId[sessionId] : undefined
-            return row !== undefined && typeof row.cwd === 'string' ? row.cwd : ''
-          })
-        : ''
+      // hook 无条件调用（同 moremenu.js 的教训：条件 hook 是崩溃潜伏雷）
+      var useSessionsHook = kit !== undefined && typeof kit.useSessions === 'function' ? kit.useSessions : function () { return '' }
+      var row0 = useSessionsHook(function (s) {
+        return sessionId !== undefined && s.byId !== undefined ? s.byId[sessionId] : undefined
+      })
+      var cwd = row0 !== undefined && typeof row0.cwd === 'string' ? row0.cwd : ''
 
       // terms: [{ key, terminalId, name, output }]
       var termsState = React.useState([])
@@ -3237,6 +3234,7 @@ window.__ModuleLoader__.load({
         }
         tick()
         var stopper = function () { stop = true }
+        stopper.key = key
         pollStoppersRef.current.push(stopper)
         return stopper
       }
@@ -3249,6 +3247,17 @@ window.__ModuleLoader__.load({
           pollStoppersRef.current.length = 0
         }
       }, [])
+
+      /** 按终端键停止其在途轮询（kill/关闭时调用——卸载清理之外的路径）。 */
+      function stopPollsFor(terminalKey) {
+        var arr = pollStoppersRef.current
+        for (var i = arr.length - 1; i >= 0; i -= 1) {
+          if (arr[i].key === terminalKey) {
+            arr[i].stop()
+            arr.splice(i, 1)
+          }
+        }
+      }
 
       /** 恢复本会话在宿主侧的终端列表（标签重新挂载时）。 */
       React.useEffect(function () {
@@ -3287,6 +3296,7 @@ window.__ModuleLoader__.load({
             setClosing(function (prev) { return markClosing(prev, term.key, true) })
             post('/terminal/kill', { sessionId: sessionId, terminalId: term.terminalId })
               .then(function () {
+                stopPollsFor(term.key) // 停掉该终端在途轮询（曾继续 POST ~30s）
                 setTerms(function (prev) { return prev.filter(function (tm) { return tm.key !== term.key }) })
                 if (activeKey === term.key) setActiveKey(null)
               })
@@ -3832,7 +3842,9 @@ window.__ModuleLoader__.load({
         return d.getFullYear() + '-' + two(d.getMonth() + 1) + '-' + two(d.getDate())
       }
 
+      var loadGen = React.useRef(0)
       var load = React.useCallback(function (nextRange, force) {
+        var gen = loadGen.current = loadGen.current + 1
         setData(function (prev) {
           return prev.status === 'ready'
             ? { status: 'refreshing', report: prev.report, error: '' }
@@ -3843,8 +3855,8 @@ window.__ModuleLoader__.load({
         if (nextRange.end !== '') qs += (qs === '' ? '?' : '&') + 'end=' + encodeURIComponent(nextRange.end)
         if (force === true) qs += (qs === '' ? '?' : '&') + 'force=1'
         api('/usage' + qs)
-          .then(function (report) { setData({ status: 'ready', report: report, error: '' }) })
-          .catch(function (error) { setData(function (prev) { return Object.assign({}, prev, { status: 'error', error: String(error.message || error) }) }) })
+          .then(function (report) { if (gen !== loadGen.current) return; setData({ status: 'ready', report: report, error: '' }) })
+          .catch(function (error) { if (gen !== loadGen.current) return; setData(function (prev) { return Object.assign({}, prev, { status: 'error', error: String(error.message || error) }) }) })
       }, [])
 
       React.useEffect(function () { load(range, false) }, []) // eslint-disable-line react-hooks/exhaustive-deps
@@ -4160,19 +4172,17 @@ window.__ModuleLoader__.load({
       // kit）捕获、打开时移交：视图用的 cwd、侧栏面包屑用的标题。两个
       // 独立选择器（只返回字符串）——返回对象会让每次 getSnapshot 产生
       // 新快照引用、令 useSyncExternalStore 死循环。
-      var pickRow = function (pick) {
-        if (kit === undefined || typeof kit.useSessions !== 'function') return ''
-        return kit.useSessions(function (s) {
-          var row = sessionId !== undefined && s.byId !== undefined ? s.byId[sessionId] : undefined
-          return pick(row)
-        })
-      }
-      var cwd = pickRow(function (row) { return row !== undefined && typeof row.cwd === 'string' ? row.cwd : '' })
-      var title = pickRow(function (row) {
-        return row !== undefined && typeof row.title === 'string' && row.title !== ''
-          ? row.title
-          : (sessionId !== undefined ? sessionId.slice(0, 8) : '')
+      // hook 无条件调用一次（kit 形状恒定取值，不恒定 hook 数——条件调用
+      // 曾是工具坞崩溃的同族潜伏雷：任一 kit 来源中途补上/丢失
+      // useSessions，hook 数即变，直接"Rendered fewer hooks"级崩溃）。
+      var useSessionsHook = kit !== undefined && typeof kit.useSessions === 'function' ? kit.useSessions : function () { return '' }
+      var rowRef = useSessionsHook(function (s) {
+        return sessionId !== undefined && s.byId !== undefined ? s.byId[sessionId] : undefined
       })
+      var cwd = rowRef !== undefined && typeof rowRef.cwd === 'string' ? rowRef.cwd : ''
+      var title = rowRef !== undefined && typeof rowRef.title === 'string' && rowRef.title !== ''
+        ? rowRef.title
+        : (sessionId !== undefined ? sessionId.slice(0, 8) : '')
 
       function onOpenTool(panel) {
         setOpen(false)
@@ -4222,6 +4232,7 @@ window.__ModuleLoader__.load({
      */
     function createServiceController() {
       var store = createStore({ phase: 'idle', available: undefined, sec: 0, cmd: '' })
+      var timers = [] // 本控制器排下的所有定时器（dispose 一并清）
 
       function checkAvailable() {
         api('/service/info')
@@ -4243,12 +4254,12 @@ window.__ModuleLoader__.load({
         store.set({ phase: 'stopping', available: false, sec: 0, cmd: '' })
         post('/service/stop', {}).catch(function () { /* dropped = expected */ })
         // 没有复苏可等：宽限期后直接显示已停止提示。
-        setTimeout(function () {
+        timers.push(setTimeout(function () {
           var snap = store.getSnapshot()
           if (snap.phase === 'stopping') {
             store.set({ phase: 'stopped', available: false, sec: 0, cmd: '' })
           }
-        }, 5000)
+        }, 5000))
       }
 
       function restart() {
@@ -4271,13 +4282,20 @@ window.__ModuleLoader__.load({
             })
             .catch(function () {
               store.set({ phase: 'restarting', available: false, sec: sec, cmd: cmd })
-              setTimeout(tick, 1500)
+              timers.push(setTimeout(tick, 1500))
             })
         }
-        setTimeout(tick, 1500)
+        timers.push(setTimeout(tick, 1500))
       }
 
-      return { store: store, checkAvailable: checkAvailable, stop: stop, restart: restart }
+      /** 停止/重启链的定时器全部清除（插件停止时由 apply 清理调用——
+       * 轮询链曾最长残留 90s）。 */
+      function dispose() {
+        for (var i = 0; i < timers.length; i += 1) clearTimeout(timers[i])
+        timers.length = 0
+      }
+
+      return { store: store, checkAvailable: checkAvailable, stop: stop, restart: restart, dispose: dispose }
     }
 
     /**
@@ -4543,7 +4561,14 @@ window.__ModuleLoader__.load({
 
       React.useEffect(function () {
         if (snap.panel === null) return undefined
-        var onKey = function (e) { if (e.key === 'Escape') props.controller.close() }
+        var onKey = function (e) {
+          if (e.key !== 'Escape') return
+          // 确认框打开时让给它（shared.js 的 Esc 处理取消对话框）——
+          // 两边都挂 document，曾连工具坞一起关掉。
+          var overlay = typeof document !== 'undefined' ? document.querySelector('.dhb-cfmOverlay') : null
+          if (overlay !== null && overlay.style.display !== 'none') return
+          props.controller.close()
+        }
         if (typeof document !== 'undefined') {
           document.addEventListener('keydown', onKey)
           return function () { document.removeEventListener('keydown', onKey) }
@@ -4981,6 +5006,7 @@ window.__ModuleLoader__.load({
       }
 
       function scan() {
+        if (disposed) return // dispose 后挂起的 rAF 不得复活轨道（无人再清理）
         syncMenuLayer()
         var found = document.querySelector('[data-conversation-scroll]')
         if (found === scrollport) return
@@ -5009,10 +5035,12 @@ window.__ModuleLoader__.load({
       }
 
       var scanScheduled = false
+      var scanRafPending = 0
+      var disposed = false
       function scheduleScan() {
-        if (scanScheduled) return
+        if (scanScheduled || disposed) return
         scanScheduled = true
-        requestAnimationFrame(function () { scanScheduled = false; scan() })
+        scanRafPending = requestAnimationFrame(function () { scanRafPending = 0; scanScheduled = false; scan() })
       }
 
       bodyObserver = new MutationObserver(scheduleScan)
@@ -5021,6 +5049,8 @@ window.__ModuleLoader__.load({
       scan()
 
       return function () {
+        disposed = true
+        if (scanRafPending !== 0) cancelAnimationFrame(scanRafPending)
         bodyObserver.disconnect()
         detach()
         window.removeEventListener('resize', scheduleScan)
@@ -5291,6 +5321,7 @@ window.__ModuleLoader__.load({
         return function () {
           if (disposeStyles !== undefined) disposeStyles()
           disposeConfirm() // body 级对话框 DOM 拆除（shared.js）
+          serviceController.dispose()
           disposeSvcActions()
           disposeSvcOverlay()
           disposeFooterBackdrop()

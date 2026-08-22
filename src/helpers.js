@@ -18,14 +18,11 @@
     }
 
     function useStore(store) {
-      if (React.useSyncExternalStore !== undefined) {
-        return React.useSyncExternalStore(store.subscribe, store.getSnapshot, store.getSnapshot)
-      }
-      var state = React.useState(store.getSnapshot())
-      React.useEffect(function () {
-        return store.subscribe(function () { state[1](store.getSnapshot()) })
-      }, [store])
-      return state[0]
+      // 无条件走 useSyncExternalStore：本插件的 client bundle 恒带
+      // React ≥18（dsh web 平台要求），旧版 useState 回退分支只是
+      // 历史包袱且本身是条件 hook（崩溃潜伏雷）——删除。
+      var value = React.useSyncExternalStore(store.subscribe, store.getSnapshot, store.getSnapshot)
+      return value
     }
 
     // ── api 辅助 ──────────────────────────────────────────────────────────

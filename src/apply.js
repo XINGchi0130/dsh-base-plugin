@@ -260,6 +260,7 @@
         return function () {
           if (disposeStyles !== undefined) disposeStyles()
           disposeConfirm() // body 级对话框 DOM 拆除（shared.js）
+          serviceController.dispose()
           disposeSvcActions()
           disposeSvcOverlay()
           disposeFooterBackdrop()

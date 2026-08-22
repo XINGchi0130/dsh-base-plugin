@@ -106,7 +106,9 @@
         return d.getFullYear() + '-' + two(d.getMonth() + 1) + '-' + two(d.getDate())
       }
 
+      var loadGen = React.useRef(0)
       var load = React.useCallback(function (nextRange, force) {
+        var gen = loadGen.current = loadGen.current + 1
         setData(function (prev) {
           return prev.status === 'ready'
             ? { status: 'refreshing', report: prev.report, error: '' }
@@ -117,8 +119,8 @@
         if (nextRange.end !== '') qs += (qs === '' ? '?' : '&') + 'end=' + encodeURIComponent(nextRange.end)
         if (force === true) qs += (qs === '' ? '?' : '&') + 'force=1'
         api('/usage' + qs)
-          .then(function (report) { setData({ status: 'ready', report: report, error: '' }) })
-          .catch(function (error) { setData(function (prev) { return Object.assign({}, prev, { status: 'error', error: String(error.message || error) }) }) })
+          .then(function (report) { if (gen !== loadGen.current) return; setData({ status: 'ready', report: report, error: '' }) })
+          .catch(function (error) { if (gen !== loadGen.current) return; setData(function (prev) { return Object.assign({}, prev, { status: 'error', error: String(error.message || error) }) }) })
       }, [])
 
       React.useEffect(function () { load(range, false) }, []) // eslint-disable-line react-hooks/exhaustive-deps

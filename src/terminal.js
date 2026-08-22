@@ -74,12 +74,12 @@
       useLocaleVersion()
 
       var sessionId = kit !== undefined ? kit.sessionId : undefined
-      var cwd = kit !== undefined && typeof kit.useSessions === 'function'
-        ? kit.useSessions(function (s) {
-            var row = sessionId !== undefined && s.byId !== undefined ? s.byId[sessionId] : undefined
-            return row !== undefined && typeof row.cwd === 'string' ? row.cwd : ''
-          })
-        : ''
+      // hook 无条件调用（同 moremenu.js 的教训：条件 hook 是崩溃潜伏雷）
+      var useSessionsHook = kit !== undefined && typeof kit.useSessions === 'function' ? kit.useSessions : function () { return '' }
+      var row0 = useSessionsHook(function (s) {
+        return sessionId !== undefined && s.byId !== undefined ? s.byId[sessionId] : undefined
+      })
+      var cwd = row0 !== undefined && typeof row0.cwd === 'string' ? row0.cwd : ''
 
       // terms: [{ key, terminalId, name, output }]
       var termsState = React.useState([])
@@ -149,6 +149,7 @@
         }
         tick()
         var stopper = function () { stop = true }
+        stopper.key = key
         pollStoppersRef.current.push(stopper)
         return stopper
       }
@@ -161,6 +162,17 @@
           pollStoppersRef.current.length = 0
         }
       }, [])
+
+      /** 按终端键停止其在途轮询（kill/关闭时调用——卸载清理之外的路径）。 */
+      function stopPollsFor(terminalKey) {
+        var arr = pollStoppersRef.current
+        for (var i = arr.length - 1; i >= 0; i -= 1) {
+          if (arr[i].key === terminalKey) {
+            arr[i].stop()
+            arr.splice(i, 1)
+          }
+        }
+      }
 
       /** 恢复本会话在宿主侧的终端列表（标签重新挂载时）。 */
       React.useEffect(function () {
@@ -199,6 +211,7 @@
             setClosing(function (prev) { return markClosing(prev, term.key, true) })
             post('/terminal/kill', { sessionId: sessionId, terminalId: term.terminalId })
               .then(function () {
+                stopPollsFor(term.key) // 停掉该终端在途轮询（曾继续 POST ~30s）
                 setTerms(function (prev) { return prev.filter(function (tm) { return tm.key !== term.key }) })
                 if (activeKey === term.key) setActiveKey(null)
               })

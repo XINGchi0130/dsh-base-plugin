@@ -207,12 +207,12 @@
 
       // 经标准 sessions 钩子取会话 cwd（会话作用域槽位）。
       var sessionId = kit !== undefined ? kit.sessionId : undefined
-      var cwd = kit !== undefined && typeof kit.useSessions === 'function'
-        ? kit.useSessions(function (s) {
-            var row = sessionId !== undefined && s.byId !== undefined ? s.byId[sessionId] : undefined
-            return row !== undefined && typeof row.cwd === 'string' ? row.cwd : ''
-          })
-        : ''
+      // hook 无条件调用（同 moremenu.js 的教训：条件 hook 是崩溃潜伏雷）
+      var useSessionsHook = kit !== undefined && typeof kit.useSessions === 'function' ? kit.useSessions : function () { return '' }
+      var row0 = useSessionsHook(function (s) {
+        return sessionId !== undefined && s.byId !== undefined ? s.byId[sessionId] : undefined
+      })
+      var cwd = row0 !== undefined && typeof row0.cwd === 'string' ? row0.cwd : ''
 
       var dataState = React.useState({ status: 'idle', entries: [], stats: null, lines: null, total: 0, lastCommitAt: '', root: '', baselineNote: false, error: '' })
       var data = dataState[0]
