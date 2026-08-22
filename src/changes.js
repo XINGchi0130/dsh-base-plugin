@@ -95,9 +95,8 @@
         if (sid === undefined || sid === '') return
         api('/fileops?sessionId=' + encodeURIComponent(sid))
           .then(function (value) {
-            // 新数据落地：清展开态与 diff 缓存（保留窗口外的 opId 已失效）
-            setExpanded({})
-            setDiffCache({})
+            // 键为稳定 opId，展开态跨刷新指向正确——不再清空（曾令 15s
+            // 轮询周期性折叠全部展开行）；diffCache 由 fetchDiff 侧限容。
             setData({ status: 'ready', files: value.files ?? [] })
           })
           .catch(function (error) { setData({ status: 'error', error: String(error.message || error) }) })
@@ -123,6 +122,16 @@
       // 按需取（轮询载荷只有摘要——见 lib/file-ops.js 的性能注记）。
       var fetchDiff = function (op) {
         if (diffCache[op.opId] !== undefined) return
+        // LRU 限容：长会话不无界（每次新取时裁到最近 50 条）。
+        var keys = Object.keys(diffCache)
+        if (keys.length >= 50) {
+          setDiffCache(function (prev) {
+            var next = {}
+            var keep = Object.keys(prev).slice(-49)
+            for (var k = 0; k < keep.length; k += 1) next[keep[k]] = prev[keep[k]]
+            return next
+          })
+        }
         api('/fileops/diff?sessionId=' + encodeURIComponent(sessionId) + '&opId=' + encodeURIComponent(op.opId))
           .then(function (value) {
             setDiffCache(function (prev) {

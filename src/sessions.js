@@ -61,25 +61,28 @@
       var setTm = tmState[1]
 
       function onTimeMachine(item) {
-        setTm({ item: item, status: 'loading', turns: [], error: '' })
+        setTm({ item: item, status: 'loading', turns: [], error: '', forkError: '' })
         api('/timemachine?sessionId=' + encodeURIComponent(item.id))
           .then(function (value) {
-            setTm({ item: item, status: 'ready', turns: value.turns ?? [], error: value.live === true ? '' : 'cold' })
+            setTm(function (prev) { return prev === null ? prev : { item: item, status: 'ready', turns: value.turns ?? [], error: value.live === true ? '' : 'cold' } })
           })
           .catch(function (error) {
-            setTm({ item: item, status: 'error', turns: [], error: String(error.message || error) })
+            setTm(function (prev) { return prev === null ? prev : { item: item, status: 'error', turns: [], error: String(error.message || error) } })
           })
       }
 
       function onFork(turn) {
         if (tm === null || tm.busyTurn !== undefined) return
-        setTm(function (prev) { return Object.assign({}, prev, { busyTurn: turn.endSeq }) })
+        setTm(function (prev) { return prev === null ? prev : Object.assign({}, prev, { busyTurn: turn.endSeq, forkError: '' }) })
         post('/timemachine/fork', { sessionId: tm.item.id, boundary: turn.endSeq })
           .then(function (value) {
-            setTm(function (prev) { return Object.assign({}, prev, { forked: value.childId }) })
+            // 对话框在途关闭（prev 为 null）时丢弃响应——曾因
+            // Object.assign({}, null, patch) 造出 {forked:…} 令 tm.item
+            // 变 undefined、渲染树崩溃。
+            setTm(function (prev) { return prev === null ? prev : Object.assign({}, prev, { forked: value.childId, busyTurn: undefined }) })
           })
           .catch(function (error) {
-            setTm(function (prev) { return Object.assign({}, prev, { error: String(error.message || error) }) })
+            setTm(function (prev) { return prev === null ? prev : Object.assign({}, prev, { forkError: String(error.message || error), busyTurn: undefined }) })
           })
       }
 
@@ -117,12 +120,13 @@
           h('h2', { className: 'dhb-title' }, t('tmTitle')),
           h('p', { className: 'dhb-desc' }, t('tmIntro', { name: sessionDisplayName(tm.item, t) })),
           h('div', { className: 'dhb-row' },
-            h('button', { className: 'dhb-btn', type: 'button', onClick: function () { setTm(null) } }, t('back')),
+            h('button', { className: 'dhb-btn', type: 'button', onClick: function () { setTm(null); refresh() } }, t('back')),
             h('button', { className: 'dhb-btn', type: 'button', onClick: function () { onTimeMachine(tm.item) } }, t('refresh')),
           ),
           tm.error === 'cold' ? h(Banner, { kind: 'warn', text: t('tmCold') }) : null,
           tm.status === 'error' && tm.error !== 'cold' ? h(Banner, { kind: 'err', text: tm.error }) : null,
           tm.forked !== undefined ? h(Banner, { kind: 'ok', text: t('tmForked', { id: tm.forked.slice(0, 12) }) }) : null,
+          tm.forkError !== undefined && tm.forkError !== '' ? h(Banner, { kind: 'err', text: tm.forkError }) : null,
           h('div', { className: 'dhb-list' },
             tm.status === 'loading' ? h('p', { className: 'dhb-desc' }, t('loading'))
             : tm.turns.length === 0 ? h('p', { className: 'dhb-desc' }, t('tmNoTurns'))

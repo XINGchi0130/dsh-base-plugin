@@ -177,7 +177,7 @@
                       (s.label !== '' ? s.label : s.id.slice(0, 8))
                       + ' · ' + (s.mode === 'continuable' ? t('monSubContinuable') : t('monSubOneShot'))),
                     h('span', { className: 'dhb-hint', style: { flex: 'none' } },
-                      (s.activity === 'running' ? t('monSubRunning') : t('monSubInactive'))
+                      (s.activity === 'running' ? t('monSubStateRunning') : t('monSubInactive'))
                       + ' · ' + (s.turns !== null ? s.turns + t('monTurns') + '·' + s.steps + t('monSteps') : '—')
                       + ' · ' + t('monOutput') + ' ' + monTokens(s.output)),
                   )
@@ -298,13 +298,14 @@
       var tab = tabState[0]
       var setTab = tabState[1]
 
+      var loadGen = React.useRef(0)
       var load = React.useCallback(function (sid) {
         if (sid === undefined || sid === '') return
-        // 代计数：会话切换/快速刷新时，晚到的旧响应不得覆盖新数据。
+        var gen = loadGen.current = loadGen.current + 1
         setData(function (prev) { return { status: prev.payload === null ? 'loading' : 'refreshing', payload: prev.payload } })
         api('/monitor?sessionId=' + encodeURIComponent(sid))
-          .then(function (value) { setData({ status: 'ready', payload: value }) })
-          .catch(function (error) { setData({ status: 'error', payload: null, error: String(error.message || error) }) })
+          .then(function (value) { if (gen !== loadGen.current) return; setData({ status: 'ready', payload: value }) })
+          .catch(function (error) { if (gen !== loadGen.current) return; setData({ status: 'error', payload: null, error: String(error.message || error) }) })
       }, [])
 
       React.useEffect(function () {
@@ -316,9 +317,8 @@
       }, [sessionId, load])
 
       var noSession = sessionId === undefined || sessionId === ''
-      if (noSession && tab !== 'system') {
-        return h('div', { className: 'dhb-page' }, h('p', { className: 'dhb-desc' }, t('monNoSession')))
-      }
+      // tab 行常驻（提前 return 曾令 system 标签不可达/被困——changes.js
+      // 同款模式）；无会话时概览/任务 tab 内容显示提示文案。
 
       var p = data.payload
 
@@ -344,6 +344,7 @@
         ),
         tab === 'system'
           ? h(MonSystemTab, { t: t })
+          : noSession ? h('p', { className: 'dhb-desc' }, t('monNoSession'))
           : data.status === 'loading' ? h('p', { className: 'dhb-desc' }, t('loading'))
           : data.status === 'error' ? h(Banner, { kind: 'err', text: data.error })
           : tab === 'tasks'

@@ -103,7 +103,7 @@
       // 应用内确认对话框（可主题化的 window.confirm 替代），挂载在所有
       // 页面之上：市场标签页、各设置节、侧栏底部按钮都经此卡等待
       // showConfirm。
-      var disposeConfirm = slots.inject('shell.overlay', function () {
+      var disposeConfirmSlot = slots.inject('shell.overlay', function () { // 改名避开 shared.js 的 disposeConfirm()（同名曾使其被遮蔽成死代码）
         return slots.register(
           {
             name: 'shell.overlay',
@@ -259,11 +259,11 @@
       ctx.effect(function () {
         return function () {
           if (disposeStyles !== undefined) disposeStyles()
-          disposeConfirm()
+          disposeConfirm() // body 级对话框 DOM 拆除（shared.js）
           disposeSvcActions()
           disposeSvcOverlay()
           disposeFooterBackdrop()
-          disposeConfirm()
+          disposeConfirmSlot()
           disposeHeaderMore()
           disposeTools()
           disposeUsage()

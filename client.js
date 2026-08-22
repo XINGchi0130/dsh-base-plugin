@@ -51,7 +51,7 @@
  * 用分区横幅代替模块切分。分区顺序：i18n 词典 → store/api/styles
  * 辅助 → MarketTab → McpSection → SkillsSection → plugin apply。
  */
-// GENERATED from src/* by scripts/build-client.mjs — edit src/, then rebuild. stamp:8cc766725441
+// GENERATED from src/* by scripts/build-client.mjs — edit src/, then rebuild. stamp:dacea2146d84
 window.__ModuleLoader__.load({
   id: 'dsh-base-plugin',
   factory: function (require) {
@@ -226,7 +226,7 @@ window.__ModuleLoader__.load({
       monSubUnreadable: '子会话日志不可读',
       monSubContinuable: '可续聊',
       monSubOneShot: '一次性',
-      monSubRunning: '运行中',
+      monSubStateRunning: '运行中',
       monSubInactive: '已结束',
       sectionNotify: '通知',
       ntfIntro: '把 dsh 的事件推到手机：回合结束、后台任务完结、审批等待。支持 Bark（iOS）、ntfy（跨平台）与通用 webhook（飞书/钉钉/企业微信自定义机器人等）。',
@@ -588,7 +588,7 @@ window.__ModuleLoader__.load({
       monSubUnreadable: 'child log unreadable',
       monSubContinuable: 'continuable',
       monSubOneShot: 'one-shot',
-      monSubRunning: 'running',
+      monSubStateRunning: 'running',
       monSubInactive: 'done',
       sectionNotify: 'Notifications',
       ntfIntro: 'Push dsh events to your phone: turn finished, background job settled, approval waiting. Channels: Bark (iOS), ntfy (cross-platform), and a generic webhook (Feishu/DingTalk/WeCom custom bots and friends).',
@@ -2064,25 +2064,28 @@ window.__ModuleLoader__.load({
       var setTm = tmState[1]
 
       function onTimeMachine(item) {
-        setTm({ item: item, status: 'loading', turns: [], error: '' })
+        setTm({ item: item, status: 'loading', turns: [], error: '', forkError: '' })
         api('/timemachine?sessionId=' + encodeURIComponent(item.id))
           .then(function (value) {
-            setTm({ item: item, status: 'ready', turns: value.turns ?? [], error: value.live === true ? '' : 'cold' })
+            setTm(function (prev) { return prev === null ? prev : { item: item, status: 'ready', turns: value.turns ?? [], error: value.live === true ? '' : 'cold' } })
           })
           .catch(function (error) {
-            setTm({ item: item, status: 'error', turns: [], error: String(error.message || error) })
+            setTm(function (prev) { return prev === null ? prev : { item: item, status: 'error', turns: [], error: String(error.message || error) } })
           })
       }
 
       function onFork(turn) {
         if (tm === null || tm.busyTurn !== undefined) return
-        setTm(function (prev) { return Object.assign({}, prev, { busyTurn: turn.endSeq }) })
+        setTm(function (prev) { return prev === null ? prev : Object.assign({}, prev, { busyTurn: turn.endSeq, forkError: '' }) })
         post('/timemachine/fork', { sessionId: tm.item.id, boundary: turn.endSeq })
           .then(function (value) {
-            setTm(function (prev) { return Object.assign({}, prev, { forked: value.childId }) })
+            // 对话框在途关闭（prev 为 null）时丢弃响应——曾因
+            // Object.assign({}, null, patch) 造出 {forked:…} 令 tm.item
+            // 变 undefined、渲染树崩溃。
+            setTm(function (prev) { return prev === null ? prev : Object.assign({}, prev, { forked: value.childId, busyTurn: undefined }) })
           })
           .catch(function (error) {
-            setTm(function (prev) { return Object.assign({}, prev, { error: String(error.message || error) }) })
+            setTm(function (prev) { return prev === null ? prev : Object.assign({}, prev, { forkError: String(error.message || error), busyTurn: undefined }) })
           })
       }
 
@@ -2120,12 +2123,13 @@ window.__ModuleLoader__.load({
           h('h2', { className: 'dhb-title' }, t('tmTitle')),
           h('p', { className: 'dhb-desc' }, t('tmIntro', { name: sessionDisplayName(tm.item, t) })),
           h('div', { className: 'dhb-row' },
-            h('button', { className: 'dhb-btn', type: 'button', onClick: function () { setTm(null) } }, t('back')),
+            h('button', { className: 'dhb-btn', type: 'button', onClick: function () { setTm(null); refresh() } }, t('back')),
             h('button', { className: 'dhb-btn', type: 'button', onClick: function () { onTimeMachine(tm.item) } }, t('refresh')),
           ),
           tm.error === 'cold' ? h(Banner, { kind: 'warn', text: t('tmCold') }) : null,
           tm.status === 'error' && tm.error !== 'cold' ? h(Banner, { kind: 'err', text: tm.error }) : null,
           tm.forked !== undefined ? h(Banner, { kind: 'ok', text: t('tmForked', { id: tm.forked.slice(0, 12) }) }) : null,
+          tm.forkError !== undefined && tm.forkError !== '' ? h(Banner, { kind: 'err', text: tm.forkError }) : null,
           h('div', { className: 'dhb-list' },
             tm.status === 'loading' ? h('p', { className: 'dhb-desc' }, t('loading'))
             : tm.turns.length === 0 ? h('p', { className: 'dhb-desc' }, t('tmNoTurns'))
@@ -2718,9 +2722,8 @@ window.__ModuleLoader__.load({
         if (sid === undefined || sid === '') return
         api('/fileops?sessionId=' + encodeURIComponent(sid))
           .then(function (value) {
-            // 新数据落地：清展开态与 diff 缓存（保留窗口外的 opId 已失效）
-            setExpanded({})
-            setDiffCache({})
+            // 键为稳定 opId，展开态跨刷新指向正确——不再清空（曾令 15s
+            // 轮询周期性折叠全部展开行）；diffCache 由 fetchDiff 侧限容。
             setData({ status: 'ready', files: value.files ?? [] })
           })
           .catch(function (error) { setData({ status: 'error', error: String(error.message || error) }) })
@@ -2746,6 +2749,16 @@ window.__ModuleLoader__.load({
       // 按需取（轮询载荷只有摘要——见 lib/file-ops.js 的性能注记）。
       var fetchDiff = function (op) {
         if (diffCache[op.opId] !== undefined) return
+        // LRU 限容：长会话不无界（每次新取时裁到最近 50 条）。
+        var keys = Object.keys(diffCache)
+        if (keys.length >= 50) {
+          setDiffCache(function (prev) {
+            var next = {}
+            var keep = Object.keys(prev).slice(-49)
+            for (var k = 0; k < keep.length; k += 1) next[keep[k]] = prev[keep[k]]
+            return next
+          })
+        }
         api('/fileops/diff?sessionId=' + encodeURIComponent(sessionId) + '&opId=' + encodeURIComponent(op.opId))
           .then(function (value) {
             setDiffCache(function (prev) {
@@ -3621,7 +3634,7 @@ window.__ModuleLoader__.load({
                       (s.label !== '' ? s.label : s.id.slice(0, 8))
                       + ' · ' + (s.mode === 'continuable' ? t('monSubContinuable') : t('monSubOneShot'))),
                     h('span', { className: 'dhb-hint', style: { flex: 'none' } },
-                      (s.activity === 'running' ? t('monSubRunning') : t('monSubInactive'))
+                      (s.activity === 'running' ? t('monSubStateRunning') : t('monSubInactive'))
                       + ' · ' + (s.turns !== null ? s.turns + t('monTurns') + '·' + s.steps + t('monSteps') : '—')
                       + ' · ' + t('monOutput') + ' ' + monTokens(s.output)),
                   )
@@ -3742,13 +3755,14 @@ window.__ModuleLoader__.load({
       var tab = tabState[0]
       var setTab = tabState[1]
 
+      var loadGen = React.useRef(0)
       var load = React.useCallback(function (sid) {
         if (sid === undefined || sid === '') return
-        // 代计数：会话切换/快速刷新时，晚到的旧响应不得覆盖新数据。
+        var gen = loadGen.current = loadGen.current + 1
         setData(function (prev) { return { status: prev.payload === null ? 'loading' : 'refreshing', payload: prev.payload } })
         api('/monitor?sessionId=' + encodeURIComponent(sid))
-          .then(function (value) { setData({ status: 'ready', payload: value }) })
-          .catch(function (error) { setData({ status: 'error', payload: null, error: String(error.message || error) }) })
+          .then(function (value) { if (gen !== loadGen.current) return; setData({ status: 'ready', payload: value }) })
+          .catch(function (error) { if (gen !== loadGen.current) return; setData({ status: 'error', payload: null, error: String(error.message || error) }) })
       }, [])
 
       React.useEffect(function () {
@@ -3760,9 +3774,8 @@ window.__ModuleLoader__.load({
       }, [sessionId, load])
 
       var noSession = sessionId === undefined || sessionId === ''
-      if (noSession && tab !== 'system') {
-        return h('div', { className: 'dhb-page' }, h('p', { className: 'dhb-desc' }, t('monNoSession')))
-      }
+      // tab 行常驻（提前 return 曾令 system 标签不可达/被困——changes.js
+      // 同款模式）；无会话时概览/任务 tab 内容显示提示文案。
 
       var p = data.payload
 
@@ -3788,6 +3801,7 @@ window.__ModuleLoader__.load({
         ),
         tab === 'system'
           ? h(MonSystemTab, { t: t })
+          : noSession ? h('p', { className: 'dhb-desc' }, t('monNoSession'))
           : data.status === 'loading' ? h('p', { className: 'dhb-desc' }, t('loading'))
           : data.status === 'error' ? h(Banner, { kind: 'err', text: data.error })
           : tab === 'tasks'
@@ -5196,7 +5210,7 @@ window.__ModuleLoader__.load({
       // 应用内确认对话框（可主题化的 window.confirm 替代），挂载在所有
       // 页面之上：市场标签页、各设置节、侧栏底部按钮都经此卡等待
       // showConfirm。
-      var disposeConfirm = slots.inject('shell.overlay', function () {
+      var disposeConfirmSlot = slots.inject('shell.overlay', function () { // 改名避开 shared.js 的 disposeConfirm()（同名曾使其被遮蔽成死代码）
         return slots.register(
           {
             name: 'shell.overlay',
@@ -5352,11 +5366,11 @@ window.__ModuleLoader__.load({
       ctx.effect(function () {
         return function () {
           if (disposeStyles !== undefined) disposeStyles()
-          disposeConfirm()
+          disposeConfirm() // body 级对话框 DOM 拆除（shared.js）
           disposeSvcActions()
           disposeSvcOverlay()
           disposeFooterBackdrop()
-          disposeConfirm()
+          disposeConfirmSlot()
           disposeHeaderMore()
           disposeTools()
           disposeUsage()
