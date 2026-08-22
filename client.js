@@ -51,7 +51,7 @@
  * 用分区横幅代替模块切分。分区顺序：i18n 词典 → store/api/styles
  * 辅助 → MarketTab → McpSection → SkillsSection → plugin apply。
  */
-// GENERATED from src/* by scripts/build-client.mjs — edit src/, then rebuild. stamp:eff5d07efbc7
+// GENERATED from src/* by scripts/build-client.mjs — edit src/, then rebuild. stamp:03bd77510dce
 window.__ModuleLoader__.load({
   id: 'dsh-base-plugin',
   factory: function (require) {
@@ -107,6 +107,14 @@ window.__ModuleLoader__.load({
       revert: '放弃更改',
       unsaved: '有未保存的更改',
       mcpSaved: '已保存 {n} 个服务器，热加载生效中。',
+      mcpHealthTitle: '健康面板',
+      mcpHealthEmpty: '尚无 MCP 工具调用记录——配好多服务器后，通过它们的调用会在这里累积统计。',
+      mcpHealthUnavailable: '健康数据不可用（宿主半为旧版本或日志服务缺席）。',
+      mcpHealthNote: '统计自全部会话日志（tool 流量按 mcp__服务器__ 前缀聚合，增量扫描）——回答「这台到底值不值得留」。',
+      mcpCalls: '{n} 次调用',
+      mcpErrorRate: '失败率',
+      mcpAvgLatency: '平均延迟',
+      mcpLastUsed: '最近使用',
       needRestart: '宿主半边为旧版本：重启 dsh 一次后即可直接编辑 MCP 配置。',
       toolsCount: '{n} 个工具',
       noServers: '暂无 MCP 服务器。',
@@ -436,6 +444,14 @@ window.__ModuleLoader__.load({
       revert: 'Revert edits',
       unsaved: 'Unsaved edits',
       mcpSaved: 'Saved {n} servers; hot-loading.',
+      mcpHealthTitle: 'Health',
+      mcpHealthEmpty: 'No MCP tool calls recorded yet — once servers are configured, calls through them accumulate here.',
+      mcpHealthUnavailable: 'Health data unavailable (older host half or the log service is absent).',
+      mcpHealthNote: 'Aggregated from every session log (tool traffic grouped by the mcp__server__ prefix, incremental scan) — answers "is this server worth keeping".',
+      mcpCalls: '{n} calls',
+      mcpErrorRate: 'Error rate',
+      mcpAvgLatency: 'Avg latency',
+      mcpLastUsed: 'Last used',
       needRestart: 'Host half is an older version: restart dsh once to enable direct MCP config editing.',
       toolsCount: '{n} tools',
       noServers: 'No MCP servers yet.',
@@ -1450,7 +1466,15 @@ window.__ModuleLoader__.load({
       var msg = msgState[0]
       var setMsg = msgState[1]
 
+      // 健康面板：每服务器 调用/失败率/平均延迟/最近使用 + 工具明细
+      var healthState = React.useState({ status: 'idle', servers: [] })
+      var health = healthState[0]
+      var setHealth = healthState[1]
+
       var refresh = React.useCallback(function () {
+        api('/mcp/health')
+          .then(function (value) { setHealth({ status: 'ready', servers: value.servers ?? [] }) })
+          .catch(function () { setHealth({ status: 'error', servers: [] }) })
         api('/state').then(function (value) {
           var yamlText = typeof value.mcpYaml === 'string' ? value.mcpYaml : null
           setData(function (prev) { return { status: 'ready', servers: value.mcpServers, mcpYaml: yamlText } })
@@ -1514,6 +1538,30 @@ window.__ModuleLoader__.load({
               ),
             )
           }),
+        ),
+        // 健康面板：全部会话日志按服务器聚合的用量/失败/延迟
+        h('div', { className: 'dhb-list' },
+          h('h3', { className: 'dhb-sectTitle' }, t('mcpHealthTitle')),
+          health.status === 'error' ? h(Banner, { kind: 'warn', text: t('mcpHealthUnavailable') }) : null,
+          health.status !== 'error' && health.servers.length === 0
+            ? h('p', { className: 'dhb-hint' }, t('mcpHealthEmpty'))
+            : health.servers.map(function (row) {
+                var failColor = row.errorRate >= 30 ? '#c0392b' : row.errorRate >= 10 ? '#d68910' : null
+                return h('div', { className: 'dhb-card', key: row.server },
+                  h('div', { className: 'dhb-cardTitle' }, row.server,
+                    h('span', { className: 'dhb-badge', 'data-kind': 'managed' }, t('mcpCalls', { n: row.calls }))),
+                  h('div', { className: 'dhb-cardMeta' },
+                    h('span', null, t('mcpErrorRate') + ' ',
+                      h('span', { style: failColor !== null ? { color: failColor, fontWeight: 600 } : undefined }, row.errorRate + '%')),
+                    h('span', null, t('mcpAvgLatency') + ' ' + (row.avgLatencyMs !== null ? row.avgLatencyMs + 'ms' : '—')),
+                    row.lastUsedAt > 0 ? h('span', null, t('mcpLastUsed') + ' ' + new Date(row.lastUsedAt).toLocaleString()) : null),
+                  row.tools.length > 0
+                    ? h('p', { className: 'dhb-hint', style: { margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } },
+                        row.tools.map(function (tool) { return tool.tool + '×' + tool.calls }).join(' · '))
+                    : null,
+                )
+              }),
+          h('p', { className: 'dhb-hint' }, t('mcpHealthNote')),
         ),
         canEdit
           ? h('div', { className: 'dhb-form' },

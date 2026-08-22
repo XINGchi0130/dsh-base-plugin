@@ -21,7 +21,13 @@ phone-width screens (see Mobile below).
 2. **MCP** — a new Settings page. Edit the MCP server list directly as YAML (stdio or Streamable
    HTTP per entry); saving writes the managed block of `~/.dsh/cordis.patch.yml` and hot-loads
    through the official `@deepseek-ai/dsh-mcp-client` — no restart needed. Live status per server
-   (fiber phase + registered tool count); hand-added rows are listed read-only.
+   (fiber phase + registered tool count); hand-added rows are listed read-only. A **health panel**
+   aggregates every session log's MCP tool traffic (grouped by the `mcp__<server>__` prefix):
+   per-server call count, error rate (red ≥30%, amber ≥10%), average latency (call→result wall
+   time paired by callId), last-used time, and per-tool call counts — the data to answer "is this
+   server worth keeping". Incremental: per-session seq cursors plus a cross-call aggregate cache;
+   a call whose result has not landed yet is not counted until it does (and pairs correctly across
+   refresh boundaries); deleting a session resets the fold.
 3. **Skills** — a new Settings page. List registered skills with a content viewer; skills under
    `~/.dsh/skills/` can be created, edited, and deleted right on the page (writes are hot-registered
    by dsh's watched skill roots). Deployment-shipped preset skills (not user-editable) are hidden

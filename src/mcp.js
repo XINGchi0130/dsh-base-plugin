@@ -21,7 +21,15 @@
       var msg = msgState[0]
       var setMsg = msgState[1]
 
+      // 健康面板：每服务器 调用/失败率/平均延迟/最近使用 + 工具明细
+      var healthState = React.useState({ status: 'idle', servers: [] })
+      var health = healthState[0]
+      var setHealth = healthState[1]
+
       var refresh = React.useCallback(function () {
+        api('/mcp/health')
+          .then(function (value) { setHealth({ status: 'ready', servers: value.servers ?? [] }) })
+          .catch(function () { setHealth({ status: 'error', servers: [] }) })
         api('/state').then(function (value) {
           var yamlText = typeof value.mcpYaml === 'string' ? value.mcpYaml : null
           setData(function (prev) { return { status: 'ready', servers: value.mcpServers, mcpYaml: yamlText } })
@@ -85,6 +93,30 @@
               ),
             )
           }),
+        ),
+        // 健康面板：全部会话日志按服务器聚合的用量/失败/延迟
+        h('div', { className: 'dhb-list' },
+          h('h3', { className: 'dhb-sectTitle' }, t('mcpHealthTitle')),
+          health.status === 'error' ? h(Banner, { kind: 'warn', text: t('mcpHealthUnavailable') }) : null,
+          health.status !== 'error' && health.servers.length === 0
+            ? h('p', { className: 'dhb-hint' }, t('mcpHealthEmpty'))
+            : health.servers.map(function (row) {
+                var failColor = row.errorRate >= 30 ? '#c0392b' : row.errorRate >= 10 ? '#d68910' : null
+                return h('div', { className: 'dhb-card', key: row.server },
+                  h('div', { className: 'dhb-cardTitle' }, row.server,
+                    h('span', { className: 'dhb-badge', 'data-kind': 'managed' }, t('mcpCalls', { n: row.calls }))),
+                  h('div', { className: 'dhb-cardMeta' },
+                    h('span', null, t('mcpErrorRate') + ' ',
+                      h('span', { style: failColor !== null ? { color: failColor, fontWeight: 600 } : undefined }, row.errorRate + '%')),
+                    h('span', null, t('mcpAvgLatency') + ' ' + (row.avgLatencyMs !== null ? row.avgLatencyMs + 'ms' : '—')),
+                    row.lastUsedAt > 0 ? h('span', null, t('mcpLastUsed') + ' ' + new Date(row.lastUsedAt).toLocaleString()) : null),
+                  row.tools.length > 0
+                    ? h('p', { className: 'dhb-hint', style: { margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } },
+                        row.tools.map(function (tool) { return tool.tool + '×' + tool.calls }).join(' · '))
+                    : null,
+                )
+              }),
+          h('p', { className: 'dhb-hint' }, t('mcpHealthNote')),
         ),
         canEdit
           ? h('div', { className: 'dhb-form' },
