@@ -39,6 +39,7 @@ const ORDER = [
   'changes',   // 文件变更面板
   'terminal',  // 终端面板
   'monitor',   // 监控面板
+  'promptopt', // 提示词优化面板
   'usage',     // 用量统计节
   'moremenu',  // ⋯ 菜单
   'service',   // 停止/重启控制器

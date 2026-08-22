@@ -117,9 +117,10 @@
       // A panel whose capability vanished (probe raced negative, service
       // went away) falls back to another available one; none → close.
       var panel = snap.panel
-      if (panel === 'changes' && caps.changes !== true) panel = caps.terminal === true ? 'terminal' : (caps.monitor === true ? 'monitor' : null)
-      else if (panel === 'terminal' && caps.terminal !== true) panel = caps.changes === true ? 'changes' : (caps.monitor === true ? 'monitor' : null)
-      else if (panel === 'monitor' && caps.monitor !== true) panel = caps.changes === true ? 'changes' : (caps.terminal === true ? 'terminal' : null)
+      if (panel === 'changes' && caps.changes !== true) panel = caps.terminal === true ? 'terminal' : (caps.monitor === true ? 'monitor' : (caps.promptOpt === true ? 'promptOpt' : null))
+      else if (panel === 'terminal' && caps.terminal !== true) panel = caps.changes === true ? 'changes' : (caps.monitor === true ? 'monitor' : (caps.promptOpt === true ? 'promptOpt' : null))
+      else if (panel === 'monitor' && caps.monitor !== true) panel = caps.changes === true ? 'changes' : (caps.terminal === true ? 'terminal' : (caps.promptOpt === true ? 'promptOpt' : null))
+      else if (panel === 'promptOpt' && caps.promptOpt !== true) panel = caps.changes === true ? 'changes' : (caps.terminal === true ? 'terminal' : (caps.monitor === true ? 'monitor' : null))
       if (panel === null) return null
 
       var sessionLabel = snap.sessionTitle !== ''
@@ -129,6 +130,7 @@
       var changesIcon = h(FileDiffIcon, { size: 15 })
       var terminalIcon = h(TerminalIcon, { size: 15 })
       var monitorIcon = h(MonitorIcon, { size: 15 })
+      var promptIcon = h(WandIcon, { size: 15 })
 
       var navItem = function (key, label, icon) {
         return h('button', {
@@ -169,13 +171,16 @@
             caps.changes === true ? navItem('changes', t('tabChanges'), changesIcon) : null,
             caps.terminal === true ? navItem('terminal', t('tabTerminal'), terminalIcon) : null,
             caps.monitor === true ? navItem('monitor', t('tabMonitor'), monitorIcon) : null,
+            caps.promptOpt === true ? navItem('promptOpt', t('tabPromptOpt'), promptIcon) : null,
           ),
           h('div', { className: 'dhb-toolsBody' },
             panel === 'terminal'
               ? h(TerminalView, { t: t, kit: fakeKit })
               : panel === 'monitor'
                 ? h(MonitorView, { t: t, kit: fakeKit })
-                : h(ChangesView, { t: t, kit: fakeKit }),
+                : panel === 'promptOpt'
+                  ? h(PromptOptView, { t: t })
+                  : h(ChangesView, { t: t, kit: fakeKit }),
           ),
         ),
       )

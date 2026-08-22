@@ -53,6 +53,25 @@
         h('line', { x1: 12, y1: 19, x2: 20, y2: 19 }))
     }
 
+    /** 提示词优化字形（魔棒）。 */
+    function WandIcon(props) {
+      var size = props.size === undefined ? 15 : props.size
+      return h('svg', {
+        width: size, height: size, viewBox: '0 0 24 24',
+        fill: 'none', stroke: 'currentColor', strokeWidth: 2,
+        strokeLinecap: 'round', strokeLinejoin: 'round', 'aria-hidden': 'true',
+      },
+        h('path', { d: 'm3 21 9-9' }),
+        h('path', { d: 'M15 4V2' }),
+        h('path', { d: 'M15 16v-2' }),
+        h('path', { d: 'M8 9h2' }),
+        h('path', { d: 'M20 9h2' }),
+        h('path', { d: 'M17.8 11.8 19 13' }),
+        h('path', { d: 'M15 9h0' }),
+        h('path', { d: 'M17.8 6.2 19 5' }),
+        h('path', { d: 'm12.2 6.2-1.2-1.2' }))
+    }
+
     /** 监控面板字形（心电脉冲线）。 */
     function MonitorIcon(props) {
       var size = props.size === undefined ? 15 : props.size

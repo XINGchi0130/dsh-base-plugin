@@ -57,7 +57,7 @@
 
       // 无可用面板（无 git 二进制、无终端服务、无监控数据源）：⋯ 菜单
       // 会是空的——干脆不渲染按钮。
-      if (caps.changes !== true && caps.terminal !== true && caps.monitor !== true) return null
+      if (caps.changes !== true && caps.terminal !== true && caps.monitor !== true && caps.promptOpt !== true) return null
 
       return h('div', { className: 'dhb-smWrap' },
         h('button', {
@@ -85,6 +85,10 @@
             className: 'dhb-smItem', type: 'button', role: 'menuitem',
             onClick: function () { onOpenTool('monitor') },
           }, h(MonitorIcon, { size: 14 }), h('span', null, t('tabMonitor'))) : null,
+          caps.promptOpt === true ? h('button', {
+            className: 'dhb-smItem', type: 'button', role: 'menuitem',
+            onClick: function () { onOpenTool('promptOpt') },
+          }, h(WandIcon, { size: 14 }), h('span', null, t('tabPromptOpt'))) : null,
         ) : null,
       )
     }

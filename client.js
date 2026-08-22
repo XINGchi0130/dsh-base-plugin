@@ -51,7 +51,7 @@
  * 用分区横幅代替模块切分。分区顺序：i18n 词典 → store/api/styles
  * 辅助 → MarketTab → McpSection → SkillsSection → plugin apply。
  */
-// GENERATED from src/* by scripts/build-client.mjs — edit src/, then rebuild. stamp:cd0a8efa1636
+// GENERATED from src/* by scripts/build-client.mjs — edit src/, then rebuild. stamp:2daf1eb9d1ce
 window.__ModuleLoader__.load({
   id: 'dsh-base-plugin',
   factory: function (require) {
@@ -168,6 +168,16 @@ window.__ModuleLoader__.load({
       svcUnavailable: '宿主半边为旧版本：重启 dsh 一次后这两个按钮可用。',
       tabChanges: '文件变更',
       tabMonitor: '监控',
+      tabPromptOpt: '提示词',
+      poIntro: '把粗糙的想法重写成高质量提示词',
+      poPlaceholder: '用大白话写下你想让 AI 做什么…（Cmd/Ctrl+Enter 优化）',
+      poButton: '优化提示词',
+      poRunning: '优化中…',
+      poWaitHint: '模型调用中，通常几秒到十几秒',
+      poShortcut: '快捷键 Cmd/Ctrl + Enter',
+      poResultTitle: '优化结果',
+      poCopy: '复制',
+      poCopied: '已复制到剪贴板。',
       monNoSession: '未选择会话——从会话头部的 ⋯ 菜单打开监控。',
       monUnavailable: '该会话暂无统计数据。发出第一条消息后即可看到。',
       monLive: '会话进行中',
@@ -523,6 +533,16 @@ window.__ModuleLoader__.load({
       svcUnavailable: 'Host half is an older version: restart dsh once to enable these buttons.',
       tabChanges: 'File Changes',
       tabMonitor: 'Monitor',
+      tabPromptOpt: 'Prompt',
+      poIntro: 'Rewrite a rough idea into a high-quality prompt',
+      poPlaceholder: 'Type what you want the AI to do, in plain words… (Cmd/Ctrl+Enter to optimize)',
+      poButton: 'Optimize prompt',
+      poRunning: 'Optimizing…',
+      poWaitHint: 'model call in flight, usually seconds',
+      poShortcut: 'Shortcut: Cmd/Ctrl + Enter',
+      poResultTitle: 'Result',
+      poCopy: 'Copy',
+      poCopied: 'Copied to clipboard.',
       monNoSession: 'No session selected — open Monitor from the session header ⋯ menu.',
       monUnavailable: 'No stats for this session yet. Send the first message to see figures.',
       monLive: 'session in progress',
@@ -3735,6 +3755,97 @@ window.__ModuleLoader__.load({
       )
     }
 
+    // ── 提示词优化 tab ────────────────────────────────────────────────────
+
+    /** 提示词优化 tab：textarea 输入 + 优化按钮 + 结果展示 + 复制。
+     * 数据面走宿主 /prompt-opt（官方 llm 服务 + 用户默认模型；一次性
+     * 调用，无会话/工具/落盘）。优化中禁用输入与按钮；结果含 ```text
+     * 代码块时提取纯提示词部分供一键复制。 */
+    function PromptOptView(props) {
+      var t = props.t
+      useLocaleVersion()
+
+      var inputState = React.useState('')
+      var input = inputState[0]
+      var setInput = inputState[1]
+
+      var busyState = React.useState(false)
+      var busy = busyState[0]
+      var setBusy = busyState[1]
+
+      var resultState = React.useState(null) // { optimized, provider, model } | null
+      var result = resultState[0]
+      var setResult = resultState[1]
+
+      var msgState = React.useState(null)
+      var msg = msgState[0]
+      var setMsg = msgState[1]
+
+      function onOptimize() {
+        if (busy || input.trim() === '') return
+        setBusy(true)
+        setMsg(null)
+        post('/prompt-opt', { input: input })
+          .then(function (value) { setResult(value) })
+          .catch(function (error) { setMsg({ kind: 'err', text: String(error.message || error) }) })
+          .then(function () { setBusy(false) })
+      }
+
+      // 从 ```text 代码块提取纯提示词（无代码块则原样）
+      var purePrompt = null
+      if (result !== null) {
+        var m = /```text\n([\s\S]*?)```/.exec(result.optimized)
+        purePrompt = m !== null ? m[1].trim() : result.optimized
+      }
+
+      function onCopy() {
+        if (purePrompt === null) return
+        if (navigator.clipboard !== undefined && navigator.clipboard.writeText !== undefined) {
+          navigator.clipboard.writeText(purePrompt)
+          setMsg({ kind: 'ok', text: t('poCopied') })
+        }
+      }
+
+      return h('div', { style: { display: 'flex', flexDirection: 'column', gap: 12, fontSize: 13, lineHeight: 1.5, color: 'var(--dsw-alias-label-secondary,#3f4550)' } },
+        h('div', { className: 'dhb-row', style: { justifyContent: 'space-between' } },
+          h('span', { className: 'dhb-hint' }, t('poIntro')),
+          result !== null
+            ? h('span', { className: 'dhb-hint' }, result.provider + ' / ' + result.model)
+            : null,
+        ),
+        msg !== null ? h(Banner, { kind: msg.kind, text: msg.text }) : null,
+        h('textarea', {
+          className: 'dhb-textarea',
+          value: input,
+          style: { minHeight: 110, flex: 'none' },
+          spellCheck: false,
+          placeholder: t('poPlaceholder'),
+          disabled: busy,
+          onChange: function (e) { setInput(e.target.value) },
+          onKeyDown: function (e) {
+            if (isComposing(e)) return
+            if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) onOptimize()
+          },
+        }),
+        h('div', { className: 'dhb-row' },
+          h('button', {
+            className: 'dhb-btn dhb-btnPrimary', type: 'button',
+            disabled: busy || input.trim() === '',
+            title: t('poShortcut'),
+            onClick: onOptimize,
+          }, busy ? t('poRunning') : t('poButton')),
+          busy ? h('span', { className: 'dhb-hint' }, t('poWaitHint')) : null,
+        ),
+        result !== null
+          ? h('div', { className: 'dhb-card' },
+              h('div', { className: 'dhb-cardTitle' }, t('poResultTitle'),
+                h('button', { className: 'dhb-btn', type: 'button', style: { marginLeft: 'auto' }, onClick: onCopy }, t('poCopy'))),
+              h('pre', { className: 'dhb-pre', style: { whiteSpace: 'pre-wrap', wordBreak: 'break-word' } }, purePrompt),
+            )
+          : null,
+      )
+    }
+
     // ── 模型用量设置节 ─────────────────────────────────────────────────────
 
     /** 每模型系列的图表配色（按模型 id 稳定映射）。 */
@@ -4191,7 +4302,7 @@ window.__ModuleLoader__.load({
 
       // 无可用面板（无 git 二进制、无终端服务、无监控数据源）：⋯ 菜单
       // 会是空的——干脆不渲染按钮。
-      if (caps.changes !== true && caps.terminal !== true && caps.monitor !== true) return null
+      if (caps.changes !== true && caps.terminal !== true && caps.monitor !== true && caps.promptOpt !== true) return null
 
       return h('div', { className: 'dhb-smWrap' },
         h('button', {
@@ -4219,6 +4330,10 @@ window.__ModuleLoader__.load({
             className: 'dhb-smItem', type: 'button', role: 'menuitem',
             onClick: function () { onOpenTool('monitor') },
           }, h(MonitorIcon, { size: 14 }), h('span', null, t('tabMonitor'))) : null,
+          caps.promptOpt === true ? h('button', {
+            className: 'dhb-smItem', type: 'button', role: 'menuitem',
+            onClick: function () { onOpenTool('promptOpt') },
+          }, h(WandIcon, { size: 14 }), h('span', null, t('tabPromptOpt'))) : null,
         ) : null,
       )
     }
@@ -4355,6 +4470,25 @@ window.__ModuleLoader__.load({
       },
         h('polyline', { points: '4 17 10 11 4 5' }),
         h('line', { x1: 12, y1: 19, x2: 20, y2: 19 }))
+    }
+
+    /** 提示词优化字形（魔棒）。 */
+    function WandIcon(props) {
+      var size = props.size === undefined ? 15 : props.size
+      return h('svg', {
+        width: size, height: size, viewBox: '0 0 24 24',
+        fill: 'none', stroke: 'currentColor', strokeWidth: 2,
+        strokeLinecap: 'round', strokeLinejoin: 'round', 'aria-hidden': 'true',
+      },
+        h('path', { d: 'm3 21 9-9' }),
+        h('path', { d: 'M15 4V2' }),
+        h('path', { d: 'M15 16v-2' }),
+        h('path', { d: 'M8 9h2' }),
+        h('path', { d: 'M20 9h2' }),
+        h('path', { d: 'M17.8 11.8 19 13' }),
+        h('path', { d: 'M15 9h0' }),
+        h('path', { d: 'M17.8 6.2 19 5' }),
+        h('path', { d: 'm12.2 6.2-1.2-1.2' }))
     }
 
     /** 监控面板字形（心电脉冲线）。 */
@@ -4599,9 +4733,10 @@ window.__ModuleLoader__.load({
       // A panel whose capability vanished (probe raced negative, service
       // went away) falls back to another available one; none → close.
       var panel = snap.panel
-      if (panel === 'changes' && caps.changes !== true) panel = caps.terminal === true ? 'terminal' : (caps.monitor === true ? 'monitor' : null)
-      else if (panel === 'terminal' && caps.terminal !== true) panel = caps.changes === true ? 'changes' : (caps.monitor === true ? 'monitor' : null)
-      else if (panel === 'monitor' && caps.monitor !== true) panel = caps.changes === true ? 'changes' : (caps.terminal === true ? 'terminal' : null)
+      if (panel === 'changes' && caps.changes !== true) panel = caps.terminal === true ? 'terminal' : (caps.monitor === true ? 'monitor' : (caps.promptOpt === true ? 'promptOpt' : null))
+      else if (panel === 'terminal' && caps.terminal !== true) panel = caps.changes === true ? 'changes' : (caps.monitor === true ? 'monitor' : (caps.promptOpt === true ? 'promptOpt' : null))
+      else if (panel === 'monitor' && caps.monitor !== true) panel = caps.changes === true ? 'changes' : (caps.terminal === true ? 'terminal' : (caps.promptOpt === true ? 'promptOpt' : null))
+      else if (panel === 'promptOpt' && caps.promptOpt !== true) panel = caps.changes === true ? 'changes' : (caps.terminal === true ? 'terminal' : (caps.monitor === true ? 'monitor' : null))
       if (panel === null) return null
 
       var sessionLabel = snap.sessionTitle !== ''
@@ -4611,6 +4746,7 @@ window.__ModuleLoader__.load({
       var changesIcon = h(FileDiffIcon, { size: 15 })
       var terminalIcon = h(TerminalIcon, { size: 15 })
       var monitorIcon = h(MonitorIcon, { size: 15 })
+      var promptIcon = h(WandIcon, { size: 15 })
 
       var navItem = function (key, label, icon) {
         return h('button', {
@@ -4651,13 +4787,16 @@ window.__ModuleLoader__.load({
             caps.changes === true ? navItem('changes', t('tabChanges'), changesIcon) : null,
             caps.terminal === true ? navItem('terminal', t('tabTerminal'), terminalIcon) : null,
             caps.monitor === true ? navItem('monitor', t('tabMonitor'), monitorIcon) : null,
+            caps.promptOpt === true ? navItem('promptOpt', t('tabPromptOpt'), promptIcon) : null,
           ),
           h('div', { className: 'dhb-toolsBody' },
             panel === 'terminal'
               ? h(TerminalView, { t: t, kit: fakeKit })
               : panel === 'monitor'
                 ? h(MonitorView, { t: t, kit: fakeKit })
-                : h(ChangesView, { t: t, kit: fakeKit }),
+                : panel === 'promptOpt'
+                  ? h(PromptOptView, { t: t })
+                  : h(ChangesView, { t: t, kit: fakeKit }),
           ),
         ),
       )
@@ -5098,7 +5237,7 @@ window.__ModuleLoader__.load({
       // 监控数据源是否挂载）。用 store 而非 apply 时常量：探测结果可能
       // 晚于菜单挂载返回。合并式更新（读改写）——多个探测并发落地时
       // 任何一个都不得覆盖其余字段。
-      var capabilities = createStore({ changes: false, terminal: false, monitor: false })
+      var capabilities = createStore({ changes: false, terminal: false, monitor: false, promptOpt: false })
       var mergeCaps = function (patch) {
         capabilities.set(Object.assign({}, capabilities.getSnapshot(), patch))
       }
@@ -5111,6 +5250,9 @@ window.__ModuleLoader__.load({
       api('/monitor/available')
         .then(function (value) { mergeCaps({ monitor: value.available === true }) })
         .catch(function () { /* monitor sources not mounted: entry stays hidden */ })
+      api('/prompt-opt/available')
+        .then(function (value) { mergeCaps({ promptOpt: value.available === true }) })
+        .catch(function () { /* llm service not mounted: entry stays hidden */ })
 
       // 会话头部 ⋯ 菜单（工具面板入口）——用右对齐的 utilities 行
       // （titleRow 右端），不用标题旁的 actions 组：视觉上是头部右上角、

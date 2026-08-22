@@ -37,7 +37,7 @@
       // 监控数据源是否挂载）。用 store 而非 apply 时常量：探测结果可能
       // 晚于菜单挂载返回。合并式更新（读改写）——多个探测并发落地时
       // 任何一个都不得覆盖其余字段。
-      var capabilities = createStore({ changes: false, terminal: false, monitor: false })
+      var capabilities = createStore({ changes: false, terminal: false, monitor: false, promptOpt: false })
       var mergeCaps = function (patch) {
         capabilities.set(Object.assign({}, capabilities.getSnapshot(), patch))
       }
@@ -50,6 +50,9 @@
       api('/monitor/available')
         .then(function (value) { mergeCaps({ monitor: value.available === true }) })
         .catch(function () { /* monitor sources not mounted: entry stays hidden */ })
+      api('/prompt-opt/available')
+        .then(function (value) { mergeCaps({ promptOpt: value.available === true }) })
+        .catch(function () { /* llm service not mounted: entry stays hidden */ })
 
       // 会话头部 ⋯ 菜单（工具面板入口）——用右对齐的 utilities 行
       // （titleRow 右端），不用标题旁的 actions 组：视觉上是头部右上角、

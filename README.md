@@ -88,7 +88,14 @@ phone-width screens (see Mobile below).
    standby/cache included — so the pressure semantics hold as-is), with a
    reclaimable-cache line shown for transparency. The load-average row is
    hidden on Windows (os.loadavg() is hard-coded [0,0,0] there). The System
-   tab works without a session selected).
+   tab works without a session selected). A fourth tab, **Prompt** (magic-wand
+   icon), optimizes rough prompts: type a plain-language idea, one model call
+   through the OFFICIAL `llm` service with the Models page's default model
+   rewrites it into a clear structured prompt (goal/context/constraints kept
+   faithful to your language and intent) — one-click copy of the clean
+   prompt, Cmd/Ctrl+Enter shortcut; no session, no tools, nothing persisted.
+   The entry appears when the `llm` service and default-model selection are
+   both mounted.
 
    **Monitor** is the third panel in the same dock, split into two tabs —
    **Overview** (the session's vital figures at a glance) — turns & steps, LLM vs tool wall time, average

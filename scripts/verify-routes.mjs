@@ -23,7 +23,9 @@ const groups = [
 ]
 function panel_monitor(panels) { return panels.monitorRoutes(ctx) }
 function panel_fileops(panels) { return panels.fileOpsRoutes(ctx) }
+function panel_promptopt(panels) { return panels.promptOptimizerRoutes(ctx) }
 groups.push(panel_fileops(panels))
+groups.push(panel_promptopt(panels))
 
 const rows = []
 for (const g of groups) {
