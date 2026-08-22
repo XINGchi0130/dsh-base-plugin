@@ -2,7 +2,6 @@
   "GET /dsh-base-plugin/api/export/markdown",
   "GET /dsh-base-plugin/api/fileops",
   "GET /dsh-base-plugin/api/fileops/available",
-  "GET /dsh-base-plugin/api/fileops/diff",
   "GET /dsh-base-plugin/api/git/available",
   "GET /dsh-base-plugin/api/git/diff",
   "GET /dsh-base-plugin/api/git/status",

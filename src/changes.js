@@ -83,20 +83,11 @@
       var groupLimit = groupLimitState[0]
       var setGroupLimit = groupLimitState[1]
 
-      // 展开的操作：`<fileIdx>:<opIdx>` → true；diff 缓存 opId → diff|null
-      var expandedState = React.useState({})
-      var expanded = expandedState[0]
-      var setExpanded = expandedState[1]
-      var diffCacheState = React.useState({})
-      var diffCache = diffCacheState[0]
-      var setDiffCache = diffCacheState[1]
 
       var load = React.useCallback(function (sid) {
         if (sid === undefined || sid === '') return
         api('/fileops?sessionId=' + encodeURIComponent(sid))
           .then(function (value) {
-            // 键为稳定 opId，展开态跨刷新指向正确——不再清空（曾令 15s
-            // 轮询周期性折叠全部展开行）；diffCache 由 fetchDiff 侧限容。
             setData({ status: 'ready', files: value.files ?? [] })
           })
           .catch(function (error) { setData({ status: 'error', error: String(error.message || error) }) })
@@ -118,49 +109,6 @@
         try { var d = new Date(ms); var two = function (v) { return (v < 10 ? '0' : '') + v }
           return two(d.getHours()) + ':' + two(d.getMinutes()) + ':' + two(d.getSeconds()) } catch (err) { return '—' }
       }
-      // 迷你 diff：旧侧行加 − 前缀（红），新侧 + 前缀（绿）；diff 文本
-      // 按需取（轮询载荷只有摘要——见 lib/file-ops.js 的性能注记）。
-      var fetchDiff = function (op) {
-        if (diffCache[op.opId] !== undefined) return
-        // LRU 限容：长会话不无界（每次新取时裁到最近 50 条）。
-        var keys = Object.keys(diffCache)
-        if (keys.length >= 50) {
-          setDiffCache(function (prev) {
-            var next = {}
-            var keep = Object.keys(prev).slice(-49)
-            for (var k = 0; k < keep.length; k += 1) next[keep[k]] = prev[keep[k]]
-            return next
-          })
-        }
-        api('/fileops/diff?sessionId=' + encodeURIComponent(sessionId) + '&opId=' + encodeURIComponent(op.opId))
-          .then(function (value) {
-            setDiffCache(function (prev) {
-              var next = Object.assign({}, prev)
-              next[op.opId] = value !== null && value.diff !== null && value.evicted !== true ? value.diff : null
-              return next
-            })
-          })
-          .catch(function () {
-            setDiffCache(function (prev) {
-              var next = Object.assign({}, prev)
-              next[op.opId] = null
-              return next
-            })
-          })
-      }
-      var miniDiff = function (diff) {
-        if (diff === null) return null
-        var rows = []
-        if (diff.oldText !== '') diff.oldText.split('\n').forEach(function (l) { rows.push({ k: '-', text: l }) })
-        if (diff.newText !== '') diff.newText.split('\n').forEach(function (l) { rows.push({ k: '+', text: l }) })
-        return h('pre', { className: 'dhb-pre', style: { margin: '4px 0 0', maxHeight: 220, overflow: 'auto', fontSize: 11 } },
-          rows.map(function (r, i) {
-            return h('div', {
-              key: i,
-              style: { color: r.k === '+' ? '#1e7e34' : '#c0392b', whiteSpace: 'pre-wrap', wordBreak: 'break-all' },
-            }, r.k + ' ' + r.text)
-          }))
-      }
 
       // 外层不再用 dhb-page（那会与外层 ChangesView 的 dhb-page 嵌套出
       // 不可收缩的 flex 列——滚动失效的根因）；纯列容器让内容自然流动。
@@ -181,52 +129,28 @@
                   h('span', { className: 'dhb-hint' }, file.opsCount + ' ' + t('foOpsCount')
                     + (file.opsCount > file.ops.length ? ' · ' + t('foTruncated', { n: file.opsCount - file.ops.length }) : ''))),
                 file.ops.map(function (op) {
-                  // 键用稳定 opId（宿主取自事件 seq）：新操作 unshift 后
-                  // 位置索引会整体错位，曾导致展开态/diff 指向错误的操作。
-                  var key = op.opId
-                  var open = expanded[key] === true
-                  return h('div', { key: key, style: { marginTop: 2 } },
-                    h('button', {
-                      className: 'dhb-skillRow', type: 'button',
-                      style: { display: 'flex', gap: 8, width: '100%', textAlign: 'left', border: 'none', background: 'transparent', padding: '2px 0', cursor: 'pointer', fontSize: 12 },
-                      onClick: function () {
-                        var next = Object.assign({}, expanded)
-                        if (next[key] !== true) fetchDiff(op) // 展开时才取——渲染期不发副作用
-                        if (next[key] === true) delete next[key]; else next[key] = true
-                        setExpanded(next)
-                      },
-                    },
-                      h('span', { className: 'dhb-hint', style: { flex: 'none' } }, timeOf(op.time)),
-                      h('span', {
-                        className: 'dhb-badge',
-                        style: {
-                          flex: 'none',
-                          color: op.kind === 'read' ? '#1e7e34' : op.kind === 'command' ? '#555' : op.kind === 'write' ? '#2f6fed' : undefined,
-                        },
-                      }, op.tool),
-                      op.turn !== null ? h('span', { className: 'dhb-hint', style: { flex: 'none' } }, '#' + op.turn) : null,
-                      // 目标主体：read/write 显示文件尾段路径（title 悬浮全路径）
-                      // ——分组标题在滚动后不可见，行内必须自带路径。
-                      op.kind === 'command'
-                        ? h('span', { className: 'dhb-hint', style: { flex: 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 160 }, title: op.cwd !== undefined && op.cwd !== null ? op.cwd : '' },
-                            op.cwd !== undefined && op.cwd !== null ? op.cwd.split('/').filter(Boolean).pop() : '')
-                        : h('span', {
-                            style: { flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
-                            title: file.path,
-                          }, file.path.split('/').filter(Boolean).slice(-2).join('/')),
-                      op.kind === 'command'
-                        ? h('span', { className: 'dhb-hint', style: { flex: 'none' } }, t('foRan'))
-                        : h('span', { style: { flex: 'none', color: '#1e7e34' } }, '+' + op.added),
-                      op.kind === 'command' ? null : h('span', { style: { flex: 'none', color: '#c0392b' } }, '−' + op.deleted),
-                      op.failed === true ? h('span', { className: 'dhb-hint', style: { color: '#c0392b' } }, '⚠') : null,
-                      h('span', { className: 'dhb-hint', style: { marginLeft: 'auto', flex: 'none' } }, open ? '▾' : '▸'),
-                    ),
-                    open ? (function () {
-                      var d = diffCache[op.opId]
-                      if (d === undefined) return h('p', { className: 'dhb-hint', style: { margin: '4px 0 0' } }, t('loading'))
-                      if (d === null) return h('p', { className: 'dhb-hint', style: { margin: '4px 0 0' } }, t('foDiffEvicted'))
-                      return miniDiff(d)
-                    })() : null,
+                  return h('div', {
+                    key: op.opId,
+                    style: { display: 'flex', gap: 8, alignItems: 'baseline', padding: '2px 0', fontSize: 12 },
+                  },
+                    h('span', { className: 'dhb-hint', style: { flex: 'none' } }, timeOf(op.time)),
+                    h('span', {
+                      className: 'dhb-badge',
+                      style: { flex: 'none', color: op.kind === 'read' ? '#1e7e34' : op.kind === 'command' ? '#555' : op.kind === 'write' ? '#2f6fed' : undefined },
+                    }, op.tool),
+                    op.turn !== null ? h('span', { className: 'dhb-hint', style: { flex: 'none' } }, '#' + op.turn) : null,
+                    op.kind === 'command'
+                      ? h('span', { className: 'dhb-hint', style: { flex: 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 160 }, title: op.cwd !== undefined && op.cwd !== null ? op.cwd : '' },
+                          op.cwd !== undefined && op.cwd !== null ? op.cwd.split('/').filter(Boolean).pop() : '')
+                      : h('span', {
+                          style: { flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
+                          title: file.path,
+                        }, file.path.split('/').filter(Boolean).slice(-2).join('/')),
+                    op.kind === 'command'
+                      ? h('span', { className: 'dhb-hint', style: { flex: 'none' } }, t('foRan'))
+                      : h('span', { style: { flex: 'none', color: '#1e7e34' } }, '+' + op.added),
+                    op.kind === 'command' ? null : h('span', { style: { flex: 'none', color: '#c0392b' } }, '−' + op.deleted),
+                    op.failed === true ? h('span', { className: 'dhb-hint', style: { color: '#c0392b' } }, '⚠') : null,
                   )
                 }),
               )

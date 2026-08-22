@@ -49,20 +49,16 @@ phone-width screens (see Mobile below).
    read-only). The menu entry appears only when a git binary exists; a
    workspace without a repo is auto-initialized with a baseline commit
    (inline identity, never touches global git config), so changes are always
-   relative to a baseline. **Operation Log** is the AI's own operation
-   timeline folded from the session log: every write/edit
-   `tool/result` carries the official structured diff in its `meta` payload
-   (`{ diffs: [{path, oldText, newText}] }`), so the tab groups operations
-   by file (newest first, per-op time/tool/turn/±lines, expandable mini
-   diff, failed attempts marked) — what the AI did and when, distinct from git's
-   "what is on disk now" (bash-made file mutations surface only in the git
-   tab). Reads show the probed path; bash entries show the command line and
-   working directory with success/failure marks. Incremental fold with per-session cursors. Performance-shaped (measured:
-5000 ops fold in 6ms, but the naive payload was 4MB per poll): the poll
-   answer carries SUMMARIES ONLY (per-op time/tool/turn/±lines, newest 30
-   per file, lifetime counts preserved) — diff text is fetched on demand per
-   op via a dedicated endpoint, with a 200-op full-diff retention window
-   (evicted ops show a note; per-file totals stay truthful); polls at 15s.
+   relative to a baseline. **Operation Log** is the AI's operation TRAIL —
+   when, which tool, which target, ±how big, success or failure — folded
+   incrementally from the session log. write/edit record ±line counts (hunks
+   of one call merge into a single row) from the official meta payload's
+   shapes; reads record the probed path; bash entries record the command
+   line and working directory. No diffs by design — "what exactly changed on
+   disk" is the Workspace Changes (git) tab's job; the two tabs complement
+   each other (bash-made file mutations surface only in git). Per-file
+   lifetime counts/totals never shrink; rows are capped (evicted files stay
+   as summary-only rows); polls at 15s.
 
 7. **Terminal panel** — an entry in the session header's top-right ⋯ menu
    opening a right-docked panel with multiple PTY terminals in the session
