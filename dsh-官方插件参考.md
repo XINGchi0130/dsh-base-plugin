@@ -1,6 +1,7 @@
 # DSH（DeepSeek Harness）官方插件参考手册
 
-> 依据 `/Users/zxc/project/deepseek-harness` 源码整理（版本 0.1.0-rc.5）。
+> 依据 `/Users/zxc/project/deepseek-harness` 源码整理（版本 0.1.1-rc.2，2026-08-21 从 0.1.0-rc.5 升级，854 个提交）。
+> 0.1.1 主要变化：多模态图像管线（DeepSeek 视觉模型 + Files API 统一 + 附件规范编码）、凭据系统重构（可向用户请求凭据）、webserver 结构化 index 注入事件（`webserver/index-inject`，替代裸 HTML 变换的新机制）、Web UI 改进（宽表自适应/悬停滚动条/多行问答/自动开浏览器）、SQLite 持久化布局优化。
 > 目标：日常查阅不需要再翻源码。
 
 ---
@@ -203,6 +204,8 @@ Waterfall 语义：监听器收 `(...args, next)`；调 `next()` 走下游并拿
 | `workspace` | `dsh-workspace` | 工作区域 |
 | `session-projection-cache` | `dsh-session-projection-cache` | 投影缓存 |
 | `session-stats` | `dsh-session-stats` | 会话统计 |
+| `session-reference` | `dsh-session-reference` | 会话引用域（0.1.1 新增） |
+| `file-reference-local` | `dsh-file-reference-local` | 本地文件引用（0.1.1 新增） |
 | `directory-picker` | `dsh-host-directory-picker-auto` | 目录选择器（自动挑 native/browse） |
 | `plugin-inventory` | `dsh-host-plugin-inventory` | Loader 插件清单只读投影 |
 | `api-gateway` | `dsh-host-apiproxy` | API 网关（/api） |
@@ -229,6 +232,10 @@ Waterfall 语义：监听器收 `(...args, next)`；调 `next()` 走下游并拿
 | `ui-cordis` | `dsh-client-ui-cordis` | **动态插件面板/审批 UI** |
 | `ui-workflow-run` / `ui-deliverables` / `ui-workspace` | dsh-client-ui-* | workflow 卡 / 产出文件 / 工作区 |
 | `ui-input-trigger` / `ui-commands` / `ui-skill` / `ui-subagent` | dsh-client-ui-* | 输入触发 / 命令面 / 技能 / 子代理引用 |
+| `ui-reference` | dsh-client-ui-reference | 引用源（文件/会话引用，0.1.1 新增） |
+| `ui-renderer` | dsh-client-ui-renderer | 渲染器（0.1.1 新增） |
+| `ui-brand-official` | dsh-client-ui-brand-official | 官方品牌占位（侧栏/会话品牌槽，0.1.1 新增） |
+| `ui-attachment` | dsh-client-ui-attachment | 附件 UI（多模态图像管线，0.1.1 新增） |
 | `ui-jobs` / `ui-goal` / `ui-message-feedback` | dsh-client-ui-* | 后台任务 / 目标条 / 反馈条 |
 | `ui-model-selection` / `ui-permission` / `ui-agent-preset` | dsh-client-ui-* | 模型选择 / 权限 / 预设选择 |
 | `ui-plan` / `ui-user-questions` / `ui-trajectory` | dsh-client-ui-* | 计划座 / 用户提问 / 轨迹 |
