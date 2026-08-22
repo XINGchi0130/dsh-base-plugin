@@ -77,10 +77,13 @@
       var data = dataState[0]
       var setData = dataState[1]
 
-      // 展开的操作：`<fileIdx>:<opIdx>` → true
+      // 展开的操作：`<fileIdx>:<opIdx>` → true；diff 缓存 opId → diff|null
       var expandedState = React.useState({})
       var expanded = expandedState[0]
       var setExpanded = expandedState[1]
+      var diffCacheState = React.useState({})
+      var diffCache = diffCacheState[0]
+      var setDiffCache = diffCacheState[1]
 
       var load = React.useCallback(function (sid) {
         if (sid === undefined || sid === '') return
@@ -92,7 +95,7 @@
       React.useEffect(function () {
         load(sessionId)
         if (sessionId === undefined || sessionId === '') return undefined
-        var timer = setInterval(function () { load(sessionId) }, 10000)
+        var timer = setInterval(function () { load(sessionId) }, 15000)
         return function () { clearInterval(timer) }
       }, [sessionId, load])
 
@@ -105,7 +108,26 @@
         try { var d = new Date(ms); var two = function (v) { return (v < 10 ? '0' : '') + v }
           return two(d.getHours()) + ':' + two(d.getMinutes()) + ':' + two(d.getSeconds()) } catch (err) { return '—' }
       }
-      // 迷你 diff：旧侧行加 − 前缀（红），新侧 + 前缀（绿）
+      // 迷你 diff：旧侧行加 − 前缀（红），新侧 + 前缀（绿）；diff 文本
+      // 按需取（轮询载荷只有摘要——见 lib/file-ops.js 的性能注记）。
+      var fetchDiff = function (op) {
+        if (diffCache[op.opId] !== undefined) return
+        api('/fileops/diff?sessionId=' + encodeURIComponent(sessionId) + '&opId=' + encodeURIComponent(op.opId))
+          .then(function (value) {
+            setDiffCache(function (prev) {
+              var next = Object.assign({}, prev)
+              next[op.opId] = value !== null && value.diff !== null && value.evicted !== true ? value.diff : null
+              return next
+            })
+          })
+          .catch(function () {
+            setDiffCache(function (prev) {
+              var next = Object.assign({}, prev)
+              next[op.opId] = null
+              return next
+            })
+          })
+      }
       var miniDiff = function (diff) {
         if (diff === null) return null
         var rows = []
@@ -134,7 +156,8 @@
                 h('div', { className: 'dhb-cardMeta' },
                   h('span', { style: { color: '#1e7e34' } }, '+' + file.totalAdded),
                   h('span', { style: { color: '#c0392b' } }, '−' + file.totalDeleted),
-                  h('span', { className: 'dhb-hint' }, file.ops.length + ' ' + t('foOpsCount'))),
+                  h('span', { className: 'dhb-hint' }, file.opsCount + ' ' + t('foOpsCount')
+                    + (file.opsCount > file.ops.length ? ' · ' + t('foTruncated', { n: file.opsCount - file.ops.length }) : ''))),
                 file.ops.map(function (op, oi) {
                   var key = fi + ':' + oi
                   var open = expanded[key] === true
@@ -154,8 +177,15 @@
                       h('span', { style: { flex: 'none', color: '#1e7e34' } }, '+' + op.added),
                       h('span', { style: { flex: 'none', color: '#c0392b' } }, '−' + op.deleted),
                       op.failed === true ? h('span', { className: 'dhb-hint', style: { color: '#c0392b' } }, '⚠') : null,
-                      h('span', { className: 'dhb-hint', style: { marginLeft: 'auto', flex: 'none' } }, open ? '▾' : '▸')),
-                    open ? miniDiff(op.diff) : null,
+                      h('span', { className: 'dhb-hint', style: { marginLeft: 'auto', flex: 'none' } }, open ? '▾' : '▸'),
+                    ),
+                    open ? (function () {
+                      fetchDiff(op)
+                      var d = diffCache[op.opId]
+                      if (d === undefined) return h('p', { className: 'dhb-hint', style: { margin: '4px 0 0' } }, t('loading'))
+                      if (d === null) return h('p', { className: 'dhb-hint', style: { margin: '4px 0 0' } }, t('foDiffEvicted'))
+                      return miniDiff(d)
+                    })() : null,
                   )
                 }),
               )

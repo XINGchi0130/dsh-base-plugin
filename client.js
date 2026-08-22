@@ -51,7 +51,7 @@
  * 用分区横幅代替模块切分。分区顺序：i18n 词典 → store/api/styles
  * 辅助 → MarketTab → McpSection → SkillsSection → plugin apply。
  */
-// GENERATED from src/* by scripts/build-client.mjs — edit src/, then rebuild. stamp:1a189cf1c071
+// GENERATED from src/* by scripts/build-client.mjs — edit src/, then rebuild. stamp:e6308c0c93d1
 window.__ModuleLoader__.load({
   id: 'dsh-base-plugin',
   factory: function (require) {
@@ -262,6 +262,8 @@ window.__ModuleLoader__.load({
       foIntro: 'AI 经 write/edit 工具的操作历史',
       foEmpty: '本会话暂无文件编辑——AI 通过写工具改动文件后，这里会按文件分组记录每次操作。',
       foOpsCount: '次操作',
+      foTruncated: '仅显示最近 {n} 条',
+      foDiffEvicted: '该操作的 diff 已超出保留窗口（仅最近 200 条完整保留）。',
       foNoSession: '未选择会话。',
       gitNoChanges: '工作区没有文件变更。',
       gitSearchPlaceholder: '搜索文件路径…',
@@ -618,6 +620,8 @@ window.__ModuleLoader__.load({
       foIntro: 'AI operations through the write/edit tools',
       foEmpty: 'No file edits in this session yet — once the AI changes files through the write tools, each operation is recorded here grouped by file.',
       foOpsCount: 'operations',
+      foTruncated: 'showing the newest {n}',
+      foDiffEvicted: "This op's diff is outside the retention window (only the newest 200 keep full diffs).",
       foNoSession: 'No session selected.',
       gitNoChanges: 'No file changes in the workspace.',
       gitSearchPlaceholder: 'Search file paths…',
@@ -2674,10 +2678,13 @@ window.__ModuleLoader__.load({
       var data = dataState[0]
       var setData = dataState[1]
 
-      // 展开的操作：`<fileIdx>:<opIdx>` → true
+      // 展开的操作：`<fileIdx>:<opIdx>` → true；diff 缓存 opId → diff|null
       var expandedState = React.useState({})
       var expanded = expandedState[0]
       var setExpanded = expandedState[1]
+      var diffCacheState = React.useState({})
+      var diffCache = diffCacheState[0]
+      var setDiffCache = diffCacheState[1]
 
       var load = React.useCallback(function (sid) {
         if (sid === undefined || sid === '') return
@@ -2689,7 +2696,7 @@ window.__ModuleLoader__.load({
       React.useEffect(function () {
         load(sessionId)
         if (sessionId === undefined || sessionId === '') return undefined
-        var timer = setInterval(function () { load(sessionId) }, 10000)
+        var timer = setInterval(function () { load(sessionId) }, 15000)
         return function () { clearInterval(timer) }
       }, [sessionId, load])
 
@@ -2702,7 +2709,26 @@ window.__ModuleLoader__.load({
         try { var d = new Date(ms); var two = function (v) { return (v < 10 ? '0' : '') + v }
           return two(d.getHours()) + ':' + two(d.getMinutes()) + ':' + two(d.getSeconds()) } catch (err) { return '—' }
       }
-      // 迷你 diff：旧侧行加 − 前缀（红），新侧 + 前缀（绿）
+      // 迷你 diff：旧侧行加 − 前缀（红），新侧 + 前缀（绿）；diff 文本
+      // 按需取（轮询载荷只有摘要——见 lib/file-ops.js 的性能注记）。
+      var fetchDiff = function (op) {
+        if (diffCache[op.opId] !== undefined) return
+        api('/fileops/diff?sessionId=' + encodeURIComponent(sessionId) + '&opId=' + encodeURIComponent(op.opId))
+          .then(function (value) {
+            setDiffCache(function (prev) {
+              var next = Object.assign({}, prev)
+              next[op.opId] = value !== null && value.diff !== null && value.evicted !== true ? value.diff : null
+              return next
+            })
+          })
+          .catch(function () {
+            setDiffCache(function (prev) {
+              var next = Object.assign({}, prev)
+              next[op.opId] = null
+              return next
+            })
+          })
+      }
       var miniDiff = function (diff) {
         if (diff === null) return null
         var rows = []
@@ -2731,7 +2757,8 @@ window.__ModuleLoader__.load({
                 h('div', { className: 'dhb-cardMeta' },
                   h('span', { style: { color: '#1e7e34' } }, '+' + file.totalAdded),
                   h('span', { style: { color: '#c0392b' } }, '−' + file.totalDeleted),
-                  h('span', { className: 'dhb-hint' }, file.ops.length + ' ' + t('foOpsCount'))),
+                  h('span', { className: 'dhb-hint' }, file.opsCount + ' ' + t('foOpsCount')
+                    + (file.opsCount > file.ops.length ? ' · ' + t('foTruncated', { n: file.opsCount - file.ops.length }) : ''))),
                 file.ops.map(function (op, oi) {
                   var key = fi + ':' + oi
                   var open = expanded[key] === true
@@ -2751,8 +2778,15 @@ window.__ModuleLoader__.load({
                       h('span', { style: { flex: 'none', color: '#1e7e34' } }, '+' + op.added),
                       h('span', { style: { flex: 'none', color: '#c0392b' } }, '−' + op.deleted),
                       op.failed === true ? h('span', { className: 'dhb-hint', style: { color: '#c0392b' } }, '⚠') : null,
-                      h('span', { className: 'dhb-hint', style: { marginLeft: 'auto', flex: 'none' } }, open ? '▾' : '▸')),
-                    open ? miniDiff(op.diff) : null,
+                      h('span', { className: 'dhb-hint', style: { marginLeft: 'auto', flex: 'none' } }, open ? '▾' : '▸'),
+                    ),
+                    open ? (function () {
+                      fetchDiff(op)
+                      var d = diffCache[op.opId]
+                      if (d === undefined) return h('p', { className: 'dhb-hint', style: { margin: '4px 0 0' } }, t('loading'))
+                      if (d === null) return h('p', { className: 'dhb-hint', style: { margin: '4px 0 0' } }, t('foDiffEvicted'))
+                      return miniDiff(d)
+                    })() : null,
                   )
                 }),
               )

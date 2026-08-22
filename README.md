@@ -56,7 +56,12 @@ phone-width screens (see Mobile below).
    by file (newest first, per-op time/tool/turn/±lines, expandable mini
    diff, failed attempts marked) — what the AI changed and when, distinct
    from git's "what is on disk now" (bash-made changes surface only in the
-   git tab). Incremental fold with per-session cursors; refreshes every 10s.
+   git tab). Incremental fold with per-session cursors. Performance-shaped (measured:
+5000 ops fold in 6ms, but the naive payload was 4MB per poll): the poll
+   answer carries SUMMARIES ONLY (per-op time/tool/turn/±lines, newest 30
+   per file, lifetime counts preserved) — diff text is fetched on demand per
+   op via a dedicated endpoint, with a 200-op full-diff retention window
+   (evicted ops show a note; per-file totals stay truthful); polls at 15s.
 
 7. **Terminal panel** — an entry in the session header's top-right ⋯ menu
    opening a right-docked panel with multiple PTY terminals in the session
