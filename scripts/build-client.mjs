@@ -50,6 +50,9 @@ const ORDER = [
   'apply',     // apply 组装层
 ]
 
+// hooks 顺序检查先跑（工具坞崩溃事故的防回归）。
+await import('./check-hooks.mjs')
+
 // 守卫：src/ 下任何未列入 ORDER 的文件会被静默丢弃（缺函数直到运行
 // 时才 ReferenceError）——构建前断言集合相等。
 const onDisk = readdirSync(join(root, 'src'))
