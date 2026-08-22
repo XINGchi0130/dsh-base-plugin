@@ -51,7 +51,7 @@
  * 用分区横幅代替模块切分。分区顺序：i18n 词典 → store/api/styles
  * 辅助 → MarketTab → McpSection → SkillsSection → plugin apply。
  */
-// GENERATED from src/* by scripts/build-client.mjs — edit src/, then rebuild. stamp:266040e55787
+// GENERATED from src/* by scripts/build-client.mjs — edit src/, then rebuild. stamp:c57f00aaa532
 window.__ModuleLoader__.load({
   id: 'dsh-base-plugin',
   factory: function (require) {
@@ -282,7 +282,10 @@ window.__ModuleLoader__.load({
       ntfEventContext: '上下文将满（≥85%，建议开新会话）',
       ntfTestBtn: '发送测试',
       ntfTestHint: '测试使用的是「已保存」的配置——修改后请先保存再测试。',
-      ntfTestOk: '测试通知已发出——手机上应该收到了。',
+      ntfTestOk: '测试通知已发出——目标渠道应该收到了。',
+      ntfTestOkBrowser: '测试通知已弹出（若没看到，检查系统通知权限）。',
+      ntfTestBrowserBody: '如果你看到这条弹窗，浏览器通知已配置成功。',
+      ntfPermNeeded: '尚未授权浏览器通知——先点上方「授权浏览器通知」。',
       ntfQuietBtn: '静音 1 小时',
       ntfQuietCancel: '取消静音',
       ntfQuietOn: '已静音 {n} 分钟。',
@@ -672,7 +675,10 @@ window.__ModuleLoader__.load({
       ntfEventContext: 'Context nearly full (≥85% — consider a new session)',
       ntfTestBtn: 'Send test',
       ntfTestHint: 'The test uses the SAVED config — save your edits before testing.',
-      ntfTestOk: 'Test notification sent — your phone should have it.',
+      ntfTestOk: 'Test notification sent — the target channel should have it.',
+      ntfTestOkBrowser: 'Test notification popped (if not visible, check OS notification permission).',
+      ntfTestBrowserBody: 'If you can read this popup, browser notifications work.',
+      ntfPermNeeded: 'Browser notification not granted yet — click the grant button above first.',
       ntfQuietBtn: 'Mute 1 hour',
       ntfQuietCancel: 'Unmute',
       ntfQuietOn: 'Muted for {n} minutes.',
@@ -2601,7 +2607,20 @@ window.__ModuleLoader__.load({
         setBusy(true)
         setMsg(null)
         post('/notify/test', {})
-          .then(function () { setMsg({ kind: 'ok', text: t('ntfTestOk') }) })
+          .then(function () {
+            // browser 渠道：不等 30s 事件泵——立即直接弹一条（宿主测试
+            // 已确认桥通；弹窗本身就是这条渠道的"送达"）。
+            if (cfg.channel === 'browser') {
+              if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+                try { new Notification('DSH 通知测试', { body: t('ntfTestBrowserBody') }) } catch (err) { /* 极端环境 */ }
+                setMsg({ kind: 'ok', text: t('ntfTestOkBrowser') })
+              } else {
+                setMsg({ kind: 'err', text: t('ntfPermNeeded') })
+              }
+            } else {
+              setMsg({ kind: 'ok', text: t('ntfTestOk') })
+            }
+          })
           .catch(function (error) { setMsg({ kind: 'err', text: String(error.message || error) }) })
           .then(function () { setBusy(false) })
       }
@@ -3741,9 +3760,7 @@ window.__ModuleLoader__.load({
                   className: 'dhb-btn', type: 'button',
                   style: { padding: '0 8px', fontSize: 11, height: 20 },
                   onClick: function () {
-                    if (navigator.clipboard !== undefined && navigator.clipboard.writeText !== undefined) {
-                      void navigator.clipboard.writeText(s.id)
-                    }
+                    copyText(s.id).catch(function () { /* 复制失败静默：ID 仍可从 title 悬浮手动选 */ })
                   },
                   title: t('monSubResumeHint'),
                 }, '▸ ' + t('monSubContinuable'))
@@ -5673,20 +5690,38 @@ window.__ModuleLoader__.load({
         )
       })
 
-      // 浏览器通知渠道的事件泵：启用且渠道=browser 时 30s 轮询宿主事件
-      // 环形缓冲，逐条触发 Notification（页面开着才收——浏览器通知的
-      // 固有边界，README 已注明；其他渠道走宿主侧推送无此限制）。
+      // 浏览器通知渠道的事件泵：启用且渠道=browser 且已授权时 30s 轮询。
+      // 三个关键设计：
+      // 1. 游标以「泵启动时刻」为起点（Date.now()）——若从 0 起会把环形
+      //    缓冲里的历史事件在每次页面刷新后重放成一批迟到弹窗；
+      // 2. 多标签页去重：同源标签共享 localStorage，泵用「标签专属键 + 
+      //    时间窗」仲裁——30s 窗口内在另一个标签已处理的事件跳过；
+      // 3. /notify 配置查询本身是门：禁用或非 browser 渠道时连
+      //    /notify/events 都不发（避免每 30s 一发空转请求）。
       var ntfTimer = null
-      var ntfSince = 0
+      var ntfSince = Date.now()
+      var NTF_PUMP_KEY = 'dsh-base-plugin:notify-pump'
       function ntfPump() {
         if (typeof Notification === 'undefined' || Notification.permission !== 'granted') return
         api('/notify').then(function (cfg) {
-          if (cfg === undefined || cfg === null || cfg.enabled !== true || cfg.channel !== 'browser') return
+          if (cfg === undefined || cfg === null || cfg.enabled !== true || cfg.channel !== 'browser') return null
+          // 多标签仲裁：读共享的最近处理游标，比自己的新则采纳（别的
+          // 标签刚处理过这些事件）。
+          try {
+            var shared = Number(window.localStorage.getItem(NTF_PUMP_KEY) ?? '0')
+            if (shared > ntfSince) ntfSince = shared
+          } catch (err) { /* localStorage 不可用则退化为独立游标 */ }
           return api('/notify/events?since=' + ntfSince).then(function (r) {
-            for (var i = 0; i < (r.events ?? []).length; i += 1) {
-              var ev = r.events[i]
-              try { new Notification(ev.title, { body: ev.body }) } catch (err) { /* 极端环境 */ }
-              if (ev.at > ntfSince) ntfSince = ev.at
+            var events = r.events ?? []
+            var latest = ntfSince
+            for (var i = 0; i < events.length; i += 1) {
+              var ev = events[i]
+              try { new Notification(ev.title, { body: ev.body }) } catch (err2) { /* 极端环境 */ }
+              if (ev.at > latest) latest = ev.at
+            }
+            if (latest > ntfSince) {
+              ntfSince = latest
+              try { window.localStorage.setItem(NTF_PUMP_KEY, String(latest)) } catch (err3) { /* 同上 */ }
             }
           })
         }).catch(function () { /* 泵失败静默，下轮再试 */ })

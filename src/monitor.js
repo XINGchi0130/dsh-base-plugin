@@ -242,9 +242,7 @@
                   className: 'dhb-btn', type: 'button',
                   style: { padding: '0 8px', fontSize: 11, height: 20 },
                   onClick: function () {
-                    if (navigator.clipboard !== undefined && navigator.clipboard.writeText !== undefined) {
-                      void navigator.clipboard.writeText(s.id)
-                    }
+                    copyText(s.id).catch(function () { /* 复制失败静默：ID 仍可从 title 悬浮手动选 */ })
                   },
                   title: t('monSubResumeHint'),
                 }, '▸ ' + t('monSubContinuable'))

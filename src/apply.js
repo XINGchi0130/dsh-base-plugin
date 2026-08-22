@@ -259,20 +259,38 @@
         )
       })
 
-      // 浏览器通知渠道的事件泵：启用且渠道=browser 时 30s 轮询宿主事件
-      // 环形缓冲，逐条触发 Notification（页面开着才收——浏览器通知的
-      // 固有边界，README 已注明；其他渠道走宿主侧推送无此限制）。
+      // 浏览器通知渠道的事件泵：启用且渠道=browser 且已授权时 30s 轮询。
+      // 三个关键设计：
+      // 1. 游标以「泵启动时刻」为起点（Date.now()）——若从 0 起会把环形
+      //    缓冲里的历史事件在每次页面刷新后重放成一批迟到弹窗；
+      // 2. 多标签页去重：同源标签共享 localStorage，泵用「标签专属键 + 
+      //    时间窗」仲裁——30s 窗口内在另一个标签已处理的事件跳过；
+      // 3. /notify 配置查询本身是门：禁用或非 browser 渠道时连
+      //    /notify/events 都不发（避免每 30s 一发空转请求）。
       var ntfTimer = null
-      var ntfSince = 0
+      var ntfSince = Date.now()
+      var NTF_PUMP_KEY = 'dsh-base-plugin:notify-pump'
       function ntfPump() {
         if (typeof Notification === 'undefined' || Notification.permission !== 'granted') return
         api('/notify').then(function (cfg) {
-          if (cfg === undefined || cfg === null || cfg.enabled !== true || cfg.channel !== 'browser') return
+          if (cfg === undefined || cfg === null || cfg.enabled !== true || cfg.channel !== 'browser') return null
+          // 多标签仲裁：读共享的最近处理游标，比自己的新则采纳（别的
+          // 标签刚处理过这些事件）。
+          try {
+            var shared = Number(window.localStorage.getItem(NTF_PUMP_KEY) ?? '0')
+            if (shared > ntfSince) ntfSince = shared
+          } catch (err) { /* localStorage 不可用则退化为独立游标 */ }
           return api('/notify/events?since=' + ntfSince).then(function (r) {
-            for (var i = 0; i < (r.events ?? []).length; i += 1) {
-              var ev = r.events[i]
-              try { new Notification(ev.title, { body: ev.body }) } catch (err) { /* 极端环境 */ }
-              if (ev.at > ntfSince) ntfSince = ev.at
+            var events = r.events ?? []
+            var latest = ntfSince
+            for (var i = 0; i < events.length; i += 1) {
+              var ev = events[i]
+              try { new Notification(ev.title, { body: ev.body }) } catch (err2) { /* 极端环境 */ }
+              if (ev.at > latest) latest = ev.at
+            }
+            if (latest > ntfSince) {
+              ntfSince = latest
+              try { window.localStorage.setItem(NTF_PUMP_KEY, String(latest)) } catch (err3) { /* 同上 */ }
             }
           })
         }).catch(function () { /* 泵失败静默，下轮再试 */ })

@@ -66,7 +66,20 @@
         setBusy(true)
         setMsg(null)
         post('/notify/test', {})
-          .then(function () { setMsg({ kind: 'ok', text: t('ntfTestOk') }) })
+          .then(function () {
+            // browser 渠道：不等 30s 事件泵——立即直接弹一条（宿主测试
+            // 已确认桥通；弹窗本身就是这条渠道的"送达"）。
+            if (cfg.channel === 'browser') {
+              if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+                try { new Notification('DSH 通知测试', { body: t('ntfTestBrowserBody') }) } catch (err) { /* 极端环境 */ }
+                setMsg({ kind: 'ok', text: t('ntfTestOkBrowser') })
+              } else {
+                setMsg({ kind: 'err', text: t('ntfPermNeeded') })
+              }
+            } else {
+              setMsg({ kind: 'ok', text: t('ntfTestOk') })
+            }
+          })
           .catch(function (error) { setMsg({ kind: 'err', text: String(error.message || error) }) })
           .then(function () { setBusy(false) })
       }
