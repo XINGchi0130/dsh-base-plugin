@@ -134,6 +134,19 @@ phone-width screens (see Mobile below).
     session More menu is open and on touch/narrow viewports (<760px).
     The harness's own themed scrollbar skin is left untouched.
 
+12. **Notifications** — a new Settings page. Push dsh events to your phone through
+    Bark (iOS), ntfy (cross-platform), or a generic webhook (Feishu/DingTalk/WeCom
+    custom bots and anything that accepts a JSON POST). Three event sources, all
+    official host services: agent **turn finished** (`session/event` filtered to
+    `turn/end` — the long-task-done signal), **background job settled**
+    (`jobs.onJobDone`, failures included), and **approval waiting** (the
+    `approval/request` waterfall: the bridge notifies, then passes through — the
+    outcome itself is not re-notified). Per-event toggles, a one-click test send,
+    and a mute window (1h / cancel). Delivery is best-effort with a 10s timeout:
+    a failing channel logs once and never blocks the event flow. Listeners live
+    on the plugin fiber (removed on unload); settings are re-read per event, so
+    saving takes effect immediately.
+
 ### Mobile (phone-width) adaptation
 
 All of this plugin's own surfaces reflow below 760px: touch-sized buttons,
@@ -180,7 +193,7 @@ pnpm check:client     # verify sync (a pre-commit hook auto-rebuilds anyway)
 
 - The **node half** (`index.js` entry + `lib/` feature modules: `routes`, `market`, `installer`,
   `patch`, `git`, `skills-io`, `sessions`, `usage`, `mobile/*` (`server`, `auth`, `qr` + vendored
-  QR, `pwa`), `status`, `lifecycle`, `env`, `state`, `pnpm`, `terminals-api`) serves
+  QR, `pwa`), `status`, `lifecycle`, `notify`, `env`, `state`, `pnpm`, `terminals-api`) serves
   `/dsh-base-plugin/api/*` on the DSH web server: state, market search, install/uninstall, MCP
   config save, skills list/detail/create/edit/delete, session inventory/delete, mobile-access
   control (toggle/QR/devices/revoke/rotate) plus the LAN pairing proxy itself, service

@@ -25,6 +25,7 @@
 import { chmodSync, existsSync, mkdirSync } from 'node:fs'
 import { dshHome, statePath } from './lib/env.js'
 import { commit } from './lib/patch.js'
+import { installNotifyBridge, notifyFrom } from './lib/notify.js'
 import { registerRoutes } from './lib/routes.js'
 import { loadState, saveState } from './lib/state.js'
 import { MobileAuth } from './lib/mobile/auth.js'
@@ -174,5 +175,17 @@ export function apply(ctx) {
       port: mobileHandle !== null ? mobileHandle.port : (loadState().mobile?.port ?? 8787),
     }),
   })
+
+  // 通知桥：监听器挂在当前 fiber 上（ctx.on/jobs.onJobDone），插件停止
+  // 即全部回收；配置逐事件现读（保存/静音改完即生效，无需重装）。
+  ctx.effect(
+    () => installNotifyBridge(
+      ctx,
+      () => notifyFrom(loadState().notify ?? {}),
+      message => ctx.logger.warn(`dsh-base-plugin: ${message}`),
+    ),
+    'dsh-base-plugin: notify bridge',
+  )
+
   void startMobile()
 }

@@ -35,6 +35,7 @@ const ORDER = [
   'skills',    // 技能设置节
   'sessions',  // 会话管理设置节
   'mobile',    // 手机访问设置节
+  'notify',    // 通知设置节
   'changes',   // 文件变更面板
   'terminal',  // 终端面板
   'monitor',   // 监控面板

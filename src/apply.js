@@ -242,6 +242,20 @@
         )
       })
 
+      // 通知桥设置节（渠道/事件开关/测试/静音）。
+      var disposeNotify = slots.inject('settings.section', function () {
+        return slots.register(
+          {
+            name: 'settings.section',
+            id: 'dsh-base-plugin-notify',
+            order: 204,
+            label: function () { return t('sectionNotify') },
+            registrant: 'dsh-base-plugin',
+          },
+          function () { return h(NotifySection, { t: t }) },
+        )
+      })
+
       ctx.effect(function () {
         return function () {
           if (disposeStyles !== undefined) disposeStyles()
@@ -260,6 +274,7 @@
           disposeChatRail()
           disposeSessions()
           disposeMobile()
+          disposeNotify()
           for (var j = 0; j < localeDisposers.length; j += 1) {
             var dispose = localeDisposers[j]
             if (typeof dispose === 'function') dispose()

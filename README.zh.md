@@ -140,6 +140,15 @@ pnpm check:client     # 校验同步（pre-commit 钩子也会自动重建）
 - **浏览器半边**（`client.js`）通过标准插槽（`settings.plugins.tab`、`settings.section`）
   注册界面，并经 DSH locale 服务双语化。
 
+12. **通知** —— 设置里的新页面。把 dsh 事件推到手机：Bark（iOS）、ntfy（跨平台）
+    或通用 webhook（飞书/钉钉/企业微信自定义机器人等一切接受 JSON POST 的服务）。
+    三个事件源全部来自官方宿主服务：**回合结束**（`session/event` 过滤
+    `turn/end`——长任务完成信号）、**后台任务完结**（`jobs.onJobDone`，含失败）、
+    **审批等待**（`approval/request` waterfall：桥先通知再透传，结果本身不重复通知）。
+    每类事件独立开关、一键测试发送、静音窗口（1 小时/取消）。投递尽力而为
+    （10 秒超时）：渠道失败只记一次日志，绝不阻塞事件流。监听器挂在插件 fiber
+    上（卸载即回收）；配置逐事件现读——保存即生效。
+
 ## 安装（部署者）
 
 ```bash

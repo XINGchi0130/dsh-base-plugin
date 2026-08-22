@@ -51,7 +51,7 @@
  * 用分区横幅代替模块切分。分区顺序：i18n 词典 → store/api/styles
  * 辅助 → MarketTab → McpSection → SkillsSection → plugin apply。
  */
-// GENERATED from src/* by scripts/build-client.mjs — edit src/, then rebuild. stamp:18d784182143
+// GENERATED from src/* by scripts/build-client.mjs — edit src/, then rebuild. stamp:742b24b5fd2c
 window.__ModuleLoader__.load({
   id: 'dsh-base-plugin',
   factory: function (require) {
@@ -201,6 +201,33 @@ window.__ModuleLoader__.load({
       monSubOneShot: '一次性',
       monSubRunning: '运行中',
       monSubInactive: '已结束',
+      sectionNotify: '通知',
+      ntfIntro: '把 dsh 的事件推到手机：回合结束、后台任务完结、审批等待。支持 Bark（iOS）、ntfy（跨平台）与通用 webhook（飞书/钉钉/企业微信自定义机器人等）。',
+      ntfEnable: '启用通知桥',
+      ntfChannelLabel: '渠道',
+      ntfChannelBark: 'Bark',
+      ntfChannelNtfy: 'ntfy',
+      ntfChannelWebhook: 'Webhook',
+      ntfUrlLabel: '服务器 / Webhook URL',
+      ntfUrlPlaceholder: 'Bark/ntfy 自建服务器，或 webhook 完整 URL',
+      ntfUrlHint: 'Bark 与 ntfy 留空用官方服务；webhook 填完整 URL。URL 含 {title}/{body} 时按模板 GET，否则 POST JSON {title, body}。',
+      ntfBarkKeyLabel: 'Bark 设备 Key',
+      ntfBarkKeyHint: 'Bark App 里复制的那串 key；用自建服务器时可为空。',
+      ntfTopicLabel: 'ntfy Topic',
+      ntfTopicHint: '订阅名，手机 ntfy 应用里订阅同名 topic。',
+      ntfEventsLabel: '通知事件',
+      ntfEventTurnEnd: '回合结束（长任务完成信号）',
+      ntfEventJobs: '后台任务完结（含失败）',
+      ntfEventApprovals: '审批等待（需要你批准工具调用）',
+      ntfTestBtn: '发送测试',
+      ntfTestOk: '测试通知已发出——手机上应该收到了。',
+      ntfQuietBtn: '静音 1 小时',
+      ntfQuietCancel: '取消静音',
+      ntfQuietOn: '已静音 {n} 分钟。',
+      ntfQuietOff: '已取消静音。',
+      ntfQuietActive: '通知处于静音窗口——事件不会推送。',
+      ntfSaved: '通知配置已保存，即时生效。',
+      ntfSecurityNote: '提示：Bark/ntfy 官方服务经公网中转；webhook URL 与设备 key 等同于凭据，请勿泄露。',
       gitNoChanges: '工作区没有文件变更。',
       gitSearchPlaceholder: '搜索文件路径…',
       gitNoMatch: '没有匹配的文件。',
@@ -482,6 +509,33 @@ window.__ModuleLoader__.load({
       monSubOneShot: 'one-shot',
       monSubRunning: 'running',
       monSubInactive: 'done',
+      sectionNotify: 'Notifications',
+      ntfIntro: 'Push dsh events to your phone: turn finished, background job settled, approval waiting. Channels: Bark (iOS), ntfy (cross-platform), and a generic webhook (Feishu/DingTalk/WeCom custom bots and friends).',
+      ntfEnable: 'Enable the notification bridge',
+      ntfChannelLabel: 'Channel',
+      ntfChannelBark: 'Bark',
+      ntfChannelNtfy: 'ntfy',
+      ntfChannelWebhook: 'Webhook',
+      ntfUrlLabel: 'Server / Webhook URL',
+      ntfUrlPlaceholder: 'self-hosted Bark/ntfy server, or the full webhook URL',
+      ntfUrlHint: 'Empty uses the official Bark/ntfy service; webhooks need the full URL. A URL containing {title}/{body} is fetched as a templated GET; otherwise a JSON POST {title, body} is sent.',
+      ntfBarkKeyLabel: 'Bark device key',
+      ntfBarkKeyHint: 'The key from the Bark app; may stay empty with a self-hosted server.',
+      ntfTopicLabel: 'ntfy topic',
+      ntfTopicHint: 'Subscribe to the same topic name in the phone ntfy app.',
+      ntfEventsLabel: 'Events',
+      ntfEventTurnEnd: 'Turn finished (the long-task-done signal)',
+      ntfEventJobs: 'Background job settled (failures included)',
+      ntfEventApprovals: 'Approval waiting (a tool call needs your decision)',
+      ntfTestBtn: 'Send test',
+      ntfTestOk: 'Test notification sent — your phone should have it.',
+      ntfQuietBtn: 'Mute 1 hour',
+      ntfQuietCancel: 'Unmute',
+      ntfQuietOn: 'Muted for {n} minutes.',
+      ntfQuietOff: 'Mute cancelled.',
+      ntfQuietActive: 'Notifications are muted — events will not be pushed.',
+      ntfSaved: 'Notification settings saved and effective immediately.',
+      ntfSecurityNote: 'Note: the official Bark/ntfy services relay over the public internet; a webhook URL or device key is a credential — keep it private.',
       gitNoChanges: 'No file changes in the workspace.',
       gitSearchPlaceholder: 'Search file paths…',
       gitNoMatch: 'No matching files.',
@@ -2156,6 +2210,175 @@ window.__ModuleLoader__.load({
               )
             : null,
         ),
+      )
+    }
+
+    // ── 通知设置节（通知桥控制）─────────────────────────────────────────
+
+    /** 渠道定义：值 + 标签键 + 所需字段。 */
+    var NOTIFY_CHANNELS = [
+      { value: 'bark', labelKey: 'ntfChannelBark', fields: ['url', 'barkKey'] },
+      { value: 'ntfy', labelKey: 'ntfChannelNtfy', fields: ['url', 'ntfyTopic'] },
+      { value: 'webhook', labelKey: 'ntfChannelWebhook', fields: ['url'] },
+    ]
+
+    /**
+     * 通知设置节：启用开关 + 渠道三选一 + 按渠道显隐的字段（Bark 设备
+     * key/自建 URL、ntfy topic/服务器、webhook URL）+ 三类事件开关
+     * （回合结束/任务完结/审批等待）+ 测试发送与静音。全部经宿主
+     * /notify* 路由；保存即生效（监听器逐事件现读配置）。
+     */
+    function NotifySection(props) {
+      var t = props.t
+      useLocaleVersion()
+
+      var dataState = React.useState({ status: 'idle' })
+      var data = dataState[0]
+      var setData = dataState[1]
+
+      var busyState = React.useState(false)
+      var busy = busyState[0]
+      var setBusy = busyState[1]
+
+      var msgState = React.useState(null)
+      var msg = msgState[0]
+      var setMsg = msgState[1]
+
+      var refresh = React.useCallback(function () {
+        api('/notify').then(function (value) {
+          setData({ status: 'ready', cfg: value })
+        }).catch(function (error) {
+          setData({ status: 'error' })
+          setMsg({ kind: 'err', text: String(error.message || error) })
+        })
+      }, [])
+
+      React.useEffect(function () { refresh() }, [refresh])
+
+      function patch(patchObj) {
+        setData(function (prev) {
+          return prev.status === 'ready' ? { status: 'ready', cfg: Object.assign({}, prev.cfg, patchObj) } : prev
+        })
+      }
+
+      function onSave() {
+        if (busy || data.status !== 'ready') return
+        setBusy(true)
+        setMsg(null)
+        post('/notify', data.cfg)
+          .then(function (value) {
+            setData({ status: 'ready', cfg: value })
+            setMsg({ kind: 'ok', text: t('ntfSaved') })
+          })
+          .catch(function (error) { setMsg({ kind: 'err', text: String(error.message || error) }) })
+          .then(function () { setBusy(false) })
+      }
+
+      function onTest() {
+        if (busy) return
+        setBusy(true)
+        setMsg(null)
+        post('/notify/test', {})
+          .then(function () { setMsg({ kind: 'ok', text: t('ntfTestOk') }) })
+          .catch(function (error) { setMsg({ kind: 'err', text: String(error.message || error) }) })
+          .then(function () { setBusy(false) })
+      }
+
+      function onQuiet(minutes) {
+        if (busy) return
+        setBusy(true)
+        setMsg(null)
+        post('/notify/quiet', { minutes: minutes })
+          .then(function (value) {
+            patch({ quietUntil: value.quietUntil })
+            setMsg({ kind: 'ok', text: minutes > 0 ? t('ntfQuietOn', { n: minutes }) : t('ntfQuietOff') })
+          })
+          .catch(function (error) { setMsg({ kind: 'err', text: String(error.message || error) }) })
+          .then(function () { setBusy(false) })
+      }
+
+      if (data.status !== 'ready') {
+        return h('div', { className: 'dhb-page' },
+          h('h2', { className: 'dhb-title' }, t('sectionNotify')),
+          data.status === 'error' ? h(Banner, { kind: 'err', text: msg !== null ? msg.text : t('errorTitle') })
+          : h('p', { className: 'dhb-desc' }, t('loading')),
+        )
+      }
+
+      var cfg = data.cfg
+      var channelDef = null
+      for (var i = 0; i < NOTIFY_CHANNELS.length; i += 1) {
+        if (NOTIFY_CHANNELS[i].value === cfg.channel) { channelDef = NOTIFY_CHANNELS[i]; break }
+      }
+      var needs = function (f) { return channelDef !== null && channelDef.fields.indexOf(f) !== -1 }
+      var quietActive = typeof cfg.quietUntil === 'number' && cfg.quietUntil > Date.now()
+
+      return h('div', { className: 'dhb-page' },
+        h('h2', { className: 'dhb-title' }, t('sectionNotify')),
+        h('p', { className: 'dhb-desc' }, t('ntfIntro')),
+        msg !== null ? h(Banner, { kind: msg.kind, text: msg.text }) : null,
+        quietActive ? h(Banner, { kind: 'warn', text: t('ntfQuietActive') }) : null,
+        h('div', { className: 'dhb-form' },
+          h('label', { className: 'dhb-row', style: { gap: 6 } },
+            h('input', { type: 'checkbox', checked: cfg.enabled === true, onChange: function (e) { patch({ enabled: e.target.checked }) } }),
+            h('span', null, t('ntfEnable'))),
+          // 渠道选择
+          h('div', { className: 'dhb-field' },
+            h('span', { className: 'dhb-label' }, t('ntfChannelLabel')),
+            h('div', { className: 'dhb-row' },
+              NOTIFY_CHANNELS.map(function (ch) {
+                return h('button', {
+                  key: ch.value, type: 'button',
+                  className: 'dhb-btn' + (cfg.channel === ch.value ? ' dhb-btnPrimary' : ''),
+                  onClick: function () { patch({ channel: ch.value }) },
+                }, t(ch.labelKey))
+              }),
+            ),
+          ),
+          // 按渠道显隐的字段
+          needs('url')
+            ? h('div', { className: 'dhb-field' },
+                h('span', { className: 'dhb-label' }, t('ntfUrlLabel')),
+                h('input', { className: 'dhb-input', value: cfg.url, placeholder: t('ntfUrlPlaceholder'), spellCheck: false, onChange: function (e) { patch({ url: e.target.value }) } }),
+                h('span', { className: 'dhb-hint' }, t('ntfUrlHint')),
+              )
+            : null,
+          needs('barkKey')
+            ? h('div', { className: 'dhb-field' },
+                h('span', { className: 'dhb-label' }, t('ntfBarkKeyLabel')),
+                h('input', { className: 'dhb-input', value: cfg.barkKey, placeholder: 'xxxxxxxx', spellCheck: false, onChange: function (e) { patch({ barkKey: e.target.value }) } }),
+                h('span', { className: 'dhb-hint' }, t('ntfBarkKeyHint')),
+              )
+            : null,
+          needs('ntfyTopic')
+            ? h('div', { className: 'dhb-field' },
+                h('span', { className: 'dhb-label' }, t('ntfTopicLabel')),
+                h('input', { className: 'dhb-input', value: cfg.ntfyTopic, placeholder: 'my-dsh', spellCheck: false, onChange: function (e) { patch({ ntfyTopic: e.target.value }) } }),
+                h('span', { className: 'dhb-hint' }, t('ntfTopicHint')),
+              )
+            : null,
+          // 事件开关
+          h('div', { className: 'dhb-field' },
+            h('span', { className: 'dhb-label' }, t('ntfEventsLabel')),
+            h('label', { className: 'dhb-row', style: { gap: 6 } },
+              h('input', { type: 'checkbox', checked: cfg.turnEnd === true, onChange: function (e) { patch({ turnEnd: e.target.checked }) } }),
+              h('span', null, t('ntfEventTurnEnd'))),
+            h('label', { className: 'dhb-row', style: { gap: 6 } },
+              h('input', { type: 'checkbox', checked: cfg.jobs === true, onChange: function (e) { patch({ jobs: e.target.checked }) } }),
+              h('span', null, t('ntfEventJobs'))),
+            h('label', { className: 'dhb-row', style: { gap: 6 } },
+              h('input', { type: 'checkbox', checked: cfg.approvals === true, onChange: function (e) { patch({ approvals: e.target.checked }) } }),
+              h('span', null, t('ntfEventApprovals'))),
+          ),
+          h('div', { className: 'dhb-row' },
+            h('button', { className: 'dhb-btn dhb-btnPrimary', type: 'button', disabled: busy, onClick: onSave }, busy ? t('saving') : t('save')),
+            h('button', { className: 'dhb-btn', type: 'button', disabled: busy, onClick: onTest }, t('ntfTestBtn')),
+            quietActive
+              ? h('button', { className: 'dhb-btn', type: 'button', disabled: busy, onClick: function () { onQuiet(0) } }, t('ntfQuietCancel'))
+              : h('button', { className: 'dhb-btn', type: 'button', disabled: busy, onClick: function () { onQuiet(60) } }, t('ntfQuietBtn')),
+          ),
+        ),
+        h('p', { className: 'dhb-hint' }, t('ntfSecurityNote')),
       )
     }
 
@@ -3921,6 +4144,7 @@ window.__ModuleLoader__.load({
       skills: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4 2 9l10 5 10-5z"/><path d="M6 11.8V16c0 1.7 2.7 3 6 3s6-1.3 6-3v-4.2"/></svg>',
       sessions: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22z"/></svg>',
       mobile: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="7" y="2" width="10" height="20" rx="2"/><line x1="11" y1="18" x2="13" y2="18"/></svg>',
+      notify: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>',
     }
 
     /** 节键 → 导航标签当前取值所用的 i18n 键。 */
@@ -3931,6 +4155,7 @@ window.__ModuleLoader__.load({
       skills: 'sectionSkills',
       sessions: 'sectionSessions',
       mobile: 'sectionMobile',
+      notify: 'sectionNotify',
     }
 
     /** 单趟扫描：为每个打开对话框里命中的导航按钮打补丁。幂等性以
@@ -4528,6 +4753,20 @@ window.__ModuleLoader__.load({
         )
       })
 
+      // 通知桥设置节（渠道/事件开关/测试/静音）。
+      var disposeNotify = slots.inject('settings.section', function () {
+        return slots.register(
+          {
+            name: 'settings.section',
+            id: 'dsh-base-plugin-notify',
+            order: 204,
+            label: function () { return t('sectionNotify') },
+            registrant: 'dsh-base-plugin',
+          },
+          function () { return h(NotifySection, { t: t }) },
+        )
+      })
+
       ctx.effect(function () {
         return function () {
           if (disposeStyles !== undefined) disposeStyles()
@@ -4546,6 +4785,7 @@ window.__ModuleLoader__.load({
           disposeChatRail()
           disposeSessions()
           disposeMobile()
+          disposeNotify()
           for (var j = 0; j < localeDisposers.length; j += 1) {
             var dispose = localeDisposers[j]
             if (typeof dispose === 'function') dispose()
