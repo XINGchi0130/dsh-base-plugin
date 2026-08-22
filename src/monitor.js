@@ -190,10 +190,17 @@
       return h('div', { className: 'dhb-list' }, jobsCard, subCard)
     }
 
-    /** 字节 → "8.4G" / "512M"。 */
+    /** 字节数 → "22.5G" / "531M" / "412K"。1024 进制（内存语境的惯用
+     * 单位），≥1G 保留一位小数，M 级取整——25770M 这类读数从此绝迹。 */
     function monBytes(n) {
-      if (typeof n !== 'number' || !Number.isFinite(n)) return '—'
-      return monTokens(n) // 与 token 同一套 K/M 缩放（1000 进制近似展示足够）
+      if (typeof n !== 'number' || !Number.isFinite(n) || n < 0) return '—'
+      if (n < 1024) return String(Math.round(n)) + 'B'
+      var units = ['K', 'M', 'G', 'T']
+      var v = n
+      var u = -1
+      do { v /= 1024; u += 1 } while (v >= 1024 && u < units.length - 1)
+      // ≥100 用整数（531M），否则一位小数（22.5G）——同一套"够看就好"缩放
+      return (v >= 100 ? String(Math.round(v)) : String(Math.round(v * 10) / 10)) + units[u]
     }
 
     /** 系统标签页：CPU（整机/本进程）、内存（系统/进程）、负载、运行时长。
@@ -236,16 +243,19 @@
             (v.cpuPct !== null ? v.cpuPct + '%' : '—') + ' ' + t('monSysCpuOf', { n: v.cpus })),
           bar(v.cpuPct ?? 0, (v.cpuPct ?? 0) >= 85),
           h('span', { className: 'dhb-hint' },
-            t('monSysProcCpu') + ' ' + (v.procCpuPct !== null ? v.procCpuPct + '%' : '—')
-            + ' · ' + t('monSysLoad') + ' ' + v.loadavg.join(' / ')),
+            t('monSysProcCpu') + ' ' + (v.procCpuPct !== null ? v.procCpuPct + '%' : '—')),
+          h('span', { className: 'dhb-hint' }, t('monSysLoad') + ' ' + v.loadavg.join(' / ')),
         ),
         h(MonCard, { title: t('monSysMem') },
           h('span', { style: { fontSize: 15 } },
             monBytes(v.usedMem) + ' / ' + monBytes(v.totalMem) + (memPct !== null ? ' · ' + memPct + '%' : '')),
           bar(memPct ?? 0, (memPct ?? 0) >= 90),
+          // 进程行拆两行小字：RSS 一行、heap 一行——挤压在一行时
+          // "531M · heap 119M / 279M" 在窄面板会折行错位。
+          h('span', { className: 'dhb-hint' }, 'dsh ' + t('monSysProcMem') + ' ' + monBytes(v.rss)),
           h('span', { className: 'dhb-hint' },
-            'dsh ' + t('monSysProcMem') + ' ' + monBytes(v.rss)
-            + ' · heap ' + monBytes(v.heapUsed) + ' / ' + monBytes(v.heapTotal)),
+            'heap ' + monBytes(v.heapUsed) + ' / ' + monBytes(v.heapTotal)
+            + (v.heapTotal > 0 ? ' · ' + Math.round(v.heapUsed / v.heapTotal * 100) + '%' : '')),
         ),
         h(MonCard, { title: t('monSysUptime') },
           h('span', { className: 'dhb-hint' },
