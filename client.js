@@ -51,7 +51,7 @@
  * 用分区横幅代替模块切分。分区顺序：i18n 词典 → store/api/styles
  * 辅助 → MarketTab → McpSection → SkillsSection → plugin apply。
  */
-// GENERATED from src/* by scripts/build-client.mjs — edit src/, then rebuild. stamp:5fb503fd4d91
+// GENERATED from src/* by scripts/build-client.mjs — edit src/, then rebuild. stamp:eff5d07efbc7
 window.__ModuleLoader__.load({
   id: 'dsh-base-plugin',
   factory: function (require) {
@@ -175,6 +175,11 @@ window.__ModuleLoader__.load({
       monToolLabel: '工具',
       monTtftLabel: '首 token 平均',
       monContextTitle: '上下文水位',
+      monContextUsed: '已用 {pct}%',
+      monCtxSystem: '系统提示词',
+      monCtxTools: '工具',
+      monCtxMessages: '对话消息',
+      monCtxNote: '构成为启发式估值（官方 contextBreakdown），与占比分母不同源。',
       monContextHigh: '即将写满，建议开新会话',
       monTokenTitle: 'Token 用量',
       monInput: '输入',
@@ -499,6 +504,11 @@ window.__ModuleLoader__.load({
       monToolLabel: 'tools',
       monTtftLabel: 'avg first token',
       monContextTitle: 'Context pressure',
+      monContextUsed: '{pct}% used',
+      monCtxSystem: 'System prompt',
+      monCtxTools: 'Tools',
+      monCtxMessages: 'Messages',
+      monCtxNote: 'Composition is heuristic (the official contextBreakdown) and not the same denominator as the ratio.',
       monContextHigh: 'nearly full — consider a new session',
       monTokenTitle: 'Token usage',
       monInput: 'input',
@@ -3147,26 +3157,45 @@ window.__ModuleLoader__.load({
       )
     }
 
-    /** 上下文水位卡：projectedTokens / contextWindow 的比例条。投影
-     * 缺任一字段（无请求/未上报容量）时返回 null 隐藏整卡。 */
+    /** 上下文水位卡：水位条（contextPressure：provider 锚定的占比）+
+     * 构成分解（contextBreakdown：系统提示词/工具/对话消息的启发式
+     * 估值——官方口径明确它不等于占比分母，故作图例而非堆叠入条）。
+     * 投影缺任一字段（无请求/未上报容量）时返回 null 隐藏整卡。 */
     function ctxCard(p, t) {
       if (p === null || p.context === null || typeof p.context !== 'object') return null
       var projected = p.context.projectedTokens
       var windowTokens = p.context.contextWindow
       if (typeof projected !== 'number' || typeof windowTokens !== 'number' || windowTokens <= 0) return null
       var pct = Math.min(100, Math.round(projected / windowTokens * 100))
+      var color = pct >= 85 ? '#c0392b' : pct >= 70 ? '#d68910' : '#2f6fed'
+      // 构成分解行（缺投影则整段隐藏）
+      var b = p !== null && p.breakdown !== null && typeof p.breakdown === 'object' ? p.breakdown : null
+      var breakdownRows = b === null ? null : [
+        { key: 'monCtxSystem', v: b.systemTokens },
+        { key: 'monCtxTools', v: b.toolsTokens },
+        { key: 'monCtxMessages', v: b.messageTokens },
+      ].filter(function (r) { return typeof r.v === 'number' })
       return h(MonCard, { title: t('monContextTitle') },
+        // 水位条：provider 锚定的占用比例
         h('div', { style: { width: '100%', height: 8, borderRadius: 4, background: 'var(--dsw-alias-border-l2,#e3e6ec)', overflow: 'hidden' } },
           h('div', {
-            style: {
-              width: pct + '%', height: '100%',
-              background: pct >= 85 ? '#c0392b' : pct >= 70 ? '#d68910' : '#2f6fed',
-              transition: 'width .3s',
-            },
+            style: { width: pct + '%', height: '100%', background: color, transition: 'width .3s' },
           })),
         h('span', { className: 'dhb-hint' },
-          monTokens(projected) + ' / ' + monTokens(windowTokens) + ' · ' + pct + '%'
+          t('monContextUsed', { pct: pct })
+          + ' · ' + monTokens(projected) + ' / ' + monTokens(windowTokens)
           + (pct >= 85 ? ' · ' + t('monContextHigh') : '')),
+        // 构成分解：官方 contextBreakdown 的三项启发式估值
+        breakdownRows !== null && breakdownRows.length > 0
+          ? h('div', { style: { width: '100%', display: 'flex', flexDirection: 'column', gap: 2, marginTop: 4 } },
+              breakdownRows.map(function (r) {
+                return h('span', { key: r.key, className: 'dhb-hint', style: { display: 'flex', justifyContent: 'space-between' } },
+                  h('span', null, t(r.key)),
+                  h('span', null, '~' + monTokens(r.v)))
+              }),
+              h('span', { className: 'dhb-hint', style: { marginTop: 2, opacity: 0.8 } }, t('monCtxNote')),
+            )
+          : null,
       )
     }
 

@@ -31,26 +31,45 @@
       )
     }
 
-    /** 上下文水位卡：projectedTokens / contextWindow 的比例条。投影
-     * 缺任一字段（无请求/未上报容量）时返回 null 隐藏整卡。 */
+    /** 上下文水位卡：水位条（contextPressure：provider 锚定的占比）+
+     * 构成分解（contextBreakdown：系统提示词/工具/对话消息的启发式
+     * 估值——官方口径明确它不等于占比分母，故作图例而非堆叠入条）。
+     * 投影缺任一字段（无请求/未上报容量）时返回 null 隐藏整卡。 */
     function ctxCard(p, t) {
       if (p === null || p.context === null || typeof p.context !== 'object') return null
       var projected = p.context.projectedTokens
       var windowTokens = p.context.contextWindow
       if (typeof projected !== 'number' || typeof windowTokens !== 'number' || windowTokens <= 0) return null
       var pct = Math.min(100, Math.round(projected / windowTokens * 100))
+      var color = pct >= 85 ? '#c0392b' : pct >= 70 ? '#d68910' : '#2f6fed'
+      // 构成分解行（缺投影则整段隐藏）
+      var b = p !== null && p.breakdown !== null && typeof p.breakdown === 'object' ? p.breakdown : null
+      var breakdownRows = b === null ? null : [
+        { key: 'monCtxSystem', v: b.systemTokens },
+        { key: 'monCtxTools', v: b.toolsTokens },
+        { key: 'monCtxMessages', v: b.messageTokens },
+      ].filter(function (r) { return typeof r.v === 'number' })
       return h(MonCard, { title: t('monContextTitle') },
+        // 水位条：provider 锚定的占用比例
         h('div', { style: { width: '100%', height: 8, borderRadius: 4, background: 'var(--dsw-alias-border-l2,#e3e6ec)', overflow: 'hidden' } },
           h('div', {
-            style: {
-              width: pct + '%', height: '100%',
-              background: pct >= 85 ? '#c0392b' : pct >= 70 ? '#d68910' : '#2f6fed',
-              transition: 'width .3s',
-            },
+            style: { width: pct + '%', height: '100%', background: color, transition: 'width .3s' },
           })),
         h('span', { className: 'dhb-hint' },
-          monTokens(projected) + ' / ' + monTokens(windowTokens) + ' · ' + pct + '%'
+          t('monContextUsed', { pct: pct })
+          + ' · ' + monTokens(projected) + ' / ' + monTokens(windowTokens)
           + (pct >= 85 ? ' · ' + t('monContextHigh') : '')),
+        // 构成分解：官方 contextBreakdown 的三项启发式估值
+        breakdownRows !== null && breakdownRows.length > 0
+          ? h('div', { style: { width: '100%', display: 'flex', flexDirection: 'column', gap: 2, marginTop: 4 } },
+              breakdownRows.map(function (r) {
+                return h('span', { key: r.key, className: 'dhb-hint', style: { display: 'flex', justifyContent: 'space-between' } },
+                  h('span', null, t(r.key)),
+                  h('span', null, '~' + monTokens(r.v)))
+              }),
+              h('span', { className: 'dhb-hint', style: { marginTop: 2, opacity: 0.8 } }, t('monCtxNote')),
+            )
+          : null,
       )
     }
 

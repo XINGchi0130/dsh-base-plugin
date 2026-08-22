@@ -76,7 +76,11 @@ phone-width screens (see Mobile below).
    turns·steps plus output tokens — folded incrementally through the same
    cursor machinery; unreadable child logs show as gray rows). The Overview tab also carries a **context-pressure bar** (the official
    `contextPressure` projection: projected next-prompt tokens ÷ the route's
-   context window — amber at 70%, red at 85%). The entry appears when the
+   context window — amber at 70%, red at 85%) plus a composition legend from
+   the official `contextBreakdown` projection (system prompt / tools /
+   messages — heuristic estimates, deliberately NOT summed into the bar: the
+   official contract keeps them on a different denominator than the
+   provider-anchored ratio). The entry appears when the
    core data sources are mounted; a missing optional service hides its card
    only. The tab strip reuses the dock's tool-nav
    button style.
