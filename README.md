@@ -70,12 +70,14 @@ phone-width screens (see Mobile below).
    (title, project path, workspace, created time, live/archived badges) with
    filter chips (All / Live / Archived / Ghosts), a search box
    (title / id / path), and a destructive per-row Delete (confirmation
-   dialog, refuses live sessions — close first). Deletion removes, in a
-   crash-idempotent order: workspace accounting, the projection-cache row,
-   the durable log directory itself (jsonl backend only), and best-effort
-   the archive-set entry. Ghost rows (archived ids whose log is already
-   gone) delete as a pure metadata sweep. Deleting a session destroys its
-   full conversation log and cannot be undone.
+   dialog, refuses live sessions — close first). Deletion first walks the
+   official teardown channel (`agents.resume()` + dispose) so every connected
+   client drops the sidebar row immediately — no page refresh needed — then
+   removes, in a crash-idempotent order: workspace accounting, the
+   projection-cache row, the durable log directory itself (jsonl backend
+   only), and best-effort the archive-set entry. Ghost rows (archived ids
+   whose log is already gone) delete as a pure metadata sweep. Deleting a
+   session destroys its full conversation log and cannot be undone.
 
 10. **Mobile Access** — a new Settings page. Use the full DSH UI from your
     phone on the LAN: an authenticated reverse proxy starts on its own port
