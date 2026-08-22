@@ -142,7 +142,9 @@
           }))
       }
 
-      return h('div', { className: 'dhb-page' },
+      // 外层不再用 dhb-page（那会与外层 ChangesView 的 dhb-page 嵌套出
+      // 不可收缩的 flex 列——滚动失效的根因）；纯列容器让内容自然流动。
+      return h('div', { style: { display: 'flex', flexDirection: 'column', gap: 12, fontSize: 13, lineHeight: 1.5, color: 'var(--dsw-alias-label-secondary,#3f4550)' } },
         h('div', { className: 'dhb-row', style: { justifyContent: 'space-between' } },
           h('span', { className: 'dhb-hint' }, t('foIntro')),
           h('button', { className: 'dhb-btn', type: 'button', onClick: function () { load(sessionId) } }, t('refresh')),
@@ -172,10 +174,19 @@
                       },
                     },
                       h('span', { className: 'dhb-hint', style: { flex: 'none' } }, timeOf(op.time)),
-                      h('span', { className: 'dhb-badge' }, op.tool),
+                      h('span', {
+                        className: 'dhb-badge',
+                        style: {
+                          flex: 'none',
+                          color: op.kind === 'read' ? '#1e7e34' : op.kind === 'command' ? '#555' : op.kind === 'write' ? '#2f6fed' : undefined,
+                        },
+                      }, op.tool),
                       op.turn !== null ? h('span', { className: 'dhb-hint', style: { flex: 'none' } }, '#' + op.turn) : null,
-                      h('span', { style: { flex: 'none', color: '#1e7e34' } }, '+' + op.added),
-                      h('span', { style: { flex: 'none', color: '#c0392b' } }, '−' + op.deleted),
+                      op.kind === 'command'
+                        ? h('span', { className: 'dhb-hint', style: { flex: 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 160 }, title: op.cwd !== undefined && op.cwd !== null ? op.cwd : '' },
+                            op.cwd !== undefined && op.cwd !== null ? op.cwd.split('/').filter(Boolean).pop() : '')
+                        : h('span', { style: { flex: 'none', color: '#1e7e34' } }, '+' + op.added),
+                      op.kind === 'command' ? null : h('span', { style: { flex: 'none', color: '#c0392b' } }, '−' + op.deleted),
                       op.failed === true ? h('span', { className: 'dhb-hint', style: { color: '#c0392b' } }, '⚠') : null,
                       h('span', { className: 'dhb-hint', style: { marginLeft: 'auto', flex: 'none' } }, open ? '▾' : '▸'),
                     ),

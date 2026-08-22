@@ -206,7 +206,7 @@
       '.dhb-toolsNavItem[data-active="1"]{background:var(--dsw-alias-interactive-bg-hover,rgba(127,127,127,.12));color:var(--dsw-alias-label-primary,#222);font-weight:600}',
       '.dhb-toolsMain{flex:1;min-width:0;display:flex;flex-direction:column}',
       '.dhb-toolsHead{flex:none;display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--dsw-alias-border-l2,#e3e6ec)}',
-      '.dhb-toolsBody{flex:1;min-height:0}',
+      '.dhb-toolsBody{flex:1;min-height:0;overflow:auto;-webkit-overflow-scrolling:touch}',
       '.dhb-svcCard{display:flex;flex-direction:column;gap:8px;align-items:center;padding:22px 30px;border-radius:14px;border:1px solid var(--dsw-alias-border-l1,#d0d4dd);background:var(--dsw-alias-bg-base,#fff);box-shadow:0 16px 40px rgba(0,0,0,.22);font-size:13px;color:var(--dsw-alias-label-secondary,#3f4550);max-width:420px;text-align:center}',
       '.dhb-svcSpin{width:22px;height:22px;border-radius:50%;border:2.5px solid var(--dsw-alias-border-l2,#e3e6ec);border-top-color:#2f6fed;animation:dhbSpin 0.9s linear infinite}',
       '@keyframes dhbSpin{to{transform:rotate(360deg)}}',

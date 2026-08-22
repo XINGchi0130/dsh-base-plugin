@@ -51,7 +51,7 @@
  * 用分区横幅代替模块切分。分区顺序：i18n 词典 → store/api/styles
  * 辅助 → MarketTab → McpSection → SkillsSection → plugin apply。
  */
-// GENERATED from src/* by scripts/build-client.mjs — edit src/, then rebuild. stamp:51a0e57a72a8
+// GENERATED from src/* by scripts/build-client.mjs — edit src/, then rebuild. stamp:837680087f63
 window.__ModuleLoader__.load({
   id: 'dsh-base-plugin',
   factory: function (require) {
@@ -258,9 +258,9 @@ window.__ModuleLoader__.load({
       ntfSecurityNote: '提示：Bark/ntfy 官方服务经公网中转；webhook URL 与设备 key 等同于凭据，请勿泄露。',
       foTabsLabel: '文件变更标签页',
       foTabGit: '工作区变更',
-      foTabHistory: '编辑记录',
-      foIntro: 'AI 经 write/edit 工具的操作历史',
-      foEmpty: '本会话暂无文件编辑——AI 通过写工具改动文件后，这里会按文件分组记录每次操作。',
+      foTabHistory: '操作记录',
+      foIntro: 'AI 的操作轨迹：write/edit（带 diff）、read 探查、bash 执行',
+      foEmpty: '本会话暂无操作记录——AI 读写文件或执行命令后，这里会按目标分组记录每次操作。',
       foOpsCount: '次操作',
       foTruncated: '仅显示最近 {n} 条',
       foDiffEvicted: '该操作的 diff 已超出保留窗口（仅最近 200 条完整保留）。',
@@ -616,9 +616,9 @@ window.__ModuleLoader__.load({
       ntfSecurityNote: 'Note: the official Bark/ntfy services relay over the public internet; a webhook URL or device key is a credential — keep it private.',
       foTabsLabel: 'File changes tabs',
       foTabGit: 'Workspace Changes',
-      foTabHistory: 'Edit History',
-      foIntro: 'AI operations through the write/edit tools',
-      foEmpty: 'No file edits in this session yet — once the AI changes files through the write tools, each operation is recorded here grouped by file.',
+      foTabHistory: 'Operation Log',
+      foIntro: 'AI operation trail: write/edit (with diffs), reads, bash',
+      foEmpty: 'No operations in this session yet — once the AI reads, writes, or runs commands, each operation is recorded here grouped by target.',
       foOpsCount: 'operations',
       foTruncated: 'showing the newest {n}',
       foDiffEvicted: "This op's diff is outside the retention window (only the newest 200 keep full diffs).",
@@ -1061,7 +1061,7 @@ window.__ModuleLoader__.load({
       '.dhb-toolsNavItem[data-active="1"]{background:var(--dsw-alias-interactive-bg-hover,rgba(127,127,127,.12));color:var(--dsw-alias-label-primary,#222);font-weight:600}',
       '.dhb-toolsMain{flex:1;min-width:0;display:flex;flex-direction:column}',
       '.dhb-toolsHead{flex:none;display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--dsw-alias-border-l2,#e3e6ec)}',
-      '.dhb-toolsBody{flex:1;min-height:0}',
+      '.dhb-toolsBody{flex:1;min-height:0;overflow:auto;-webkit-overflow-scrolling:touch}',
       '.dhb-svcCard{display:flex;flex-direction:column;gap:8px;align-items:center;padding:22px 30px;border-radius:14px;border:1px solid var(--dsw-alias-border-l1,#d0d4dd);background:var(--dsw-alias-bg-base,#fff);box-shadow:0 16px 40px rgba(0,0,0,.22);font-size:13px;color:var(--dsw-alias-label-secondary,#3f4550);max-width:420px;text-align:center}',
       '.dhb-svcSpin{width:22px;height:22px;border-radius:50%;border:2.5px solid var(--dsw-alias-border-l2,#e3e6ec);border-top-color:#2f6fed;animation:dhbSpin 0.9s linear infinite}',
       '@keyframes dhbSpin{to{transform:rotate(360deg)}}',
@@ -2743,7 +2743,9 @@ window.__ModuleLoader__.load({
           }))
       }
 
-      return h('div', { className: 'dhb-page' },
+      // 外层不再用 dhb-page（那会与外层 ChangesView 的 dhb-page 嵌套出
+      // 不可收缩的 flex 列——滚动失效的根因）；纯列容器让内容自然流动。
+      return h('div', { style: { display: 'flex', flexDirection: 'column', gap: 12, fontSize: 13, lineHeight: 1.5, color: 'var(--dsw-alias-label-secondary,#3f4550)' } },
         h('div', { className: 'dhb-row', style: { justifyContent: 'space-between' } },
           h('span', { className: 'dhb-hint' }, t('foIntro')),
           h('button', { className: 'dhb-btn', type: 'button', onClick: function () { load(sessionId) } }, t('refresh')),
@@ -2773,10 +2775,19 @@ window.__ModuleLoader__.load({
                       },
                     },
                       h('span', { className: 'dhb-hint', style: { flex: 'none' } }, timeOf(op.time)),
-                      h('span', { className: 'dhb-badge' }, op.tool),
+                      h('span', {
+                        className: 'dhb-badge',
+                        style: {
+                          flex: 'none',
+                          color: op.kind === 'read' ? '#1e7e34' : op.kind === 'command' ? '#555' : op.kind === 'write' ? '#2f6fed' : undefined,
+                        },
+                      }, op.tool),
                       op.turn !== null ? h('span', { className: 'dhb-hint', style: { flex: 'none' } }, '#' + op.turn) : null,
-                      h('span', { style: { flex: 'none', color: '#1e7e34' } }, '+' + op.added),
-                      h('span', { style: { flex: 'none', color: '#c0392b' } }, '−' + op.deleted),
+                      op.kind === 'command'
+                        ? h('span', { className: 'dhb-hint', style: { flex: 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 160 }, title: op.cwd !== undefined && op.cwd !== null ? op.cwd : '' },
+                            op.cwd !== undefined && op.cwd !== null ? op.cwd.split('/').filter(Boolean).pop() : '')
+                        : h('span', { style: { flex: 'none', color: '#1e7e34' } }, '+' + op.added),
+                      op.kind === 'command' ? null : h('span', { style: { flex: 'none', color: '#c0392b' } }, '−' + op.deleted),
                       op.failed === true ? h('span', { className: 'dhb-hint', style: { color: '#c0392b' } }, '⚠') : null,
                       h('span', { className: 'dhb-hint', style: { marginLeft: 'auto', flex: 'none' } }, open ? '▾' : '▸'),
                     ),

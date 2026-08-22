@@ -49,14 +49,15 @@ phone-width screens (see Mobile below).
    read-only). The menu entry appears only when a git binary exists; a
    workspace without a repo is auto-initialized with a baseline commit
    (inline identity, never touches global git config), so changes are always
-   relative to a baseline. **Edit History** is the AI's own write/edit
-   operation timeline folded from the session log: every write/edit
+   relative to a baseline. **Operation Log** is the AI's own operation
+   timeline folded from the session log: every write/edit
    `tool/result` carries the official structured diff in its `meta` payload
    (`{ diffs: [{path, oldText, newText}] }`), so the tab groups operations
    by file (newest first, per-op time/tool/turn/±lines, expandable mini
-   diff, failed attempts marked) — what the AI changed and when, distinct
-   from git's "what is on disk now" (bash-made changes surface only in the
-   git tab). Incremental fold with per-session cursors. Performance-shaped (measured:
+   diff, failed attempts marked) — what the AI did and when, distinct from git's
+   "what is on disk now" (bash-made file mutations surface only in the git
+   tab). Reads show the probed path; bash entries show the command line and
+   working directory with success/failure marks. Incremental fold with per-session cursors. Performance-shaped (measured:
 5000 ops fold in 6ms, but the naive payload was 4MB per poll): the poll
    answer carries SUMMARIES ONLY (per-op time/tool/turn/±lines, newest 30
    per file, lifetime counts preserved) — diff text is fetched on demand per
