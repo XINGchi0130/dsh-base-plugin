@@ -31,6 +31,29 @@
       )
     }
 
+    /** 上下文水位卡：projectedTokens / contextWindow 的比例条。投影
+     * 缺任一字段（无请求/未上报容量）时返回 null 隐藏整卡。 */
+    function ctxCard(p, t) {
+      if (p === null || p.context === null || typeof p.context !== 'object') return null
+      var projected = p.context.projectedTokens
+      var windowTokens = p.context.contextWindow
+      if (typeof projected !== 'number' || typeof windowTokens !== 'number' || windowTokens <= 0) return null
+      var pct = Math.min(100, Math.round(projected / windowTokens * 100))
+      return h(MonCard, { title: t('monContextTitle') },
+        h('div', { style: { width: '100%', height: 8, borderRadius: 4, background: 'var(--dsw-alias-border-l2,#e3e6ec)', overflow: 'hidden' } },
+          h('div', {
+            style: {
+              width: pct + '%', height: '100%',
+              background: pct >= 85 ? '#c0392b' : pct >= 70 ? '#d68910' : '#2f6fed',
+              transition: 'width .3s',
+            },
+          })),
+        h('span', { className: 'dhb-hint' },
+          monTokens(projected) + ' / ' + monTokens(windowTokens) + ' · ' + pct + '%'
+          + (pct >= 85 ? ' · ' + t('monContextHigh') : '')),
+      )
+    }
+
     /** 概览 tab：轮次与步骤 / 耗时 / token 用量（整日志统计）。 */
     function MonOverviewTab(props) {
       var t = props.t
@@ -65,6 +88,8 @@
           h('span', { className: 'dhb-hint' }, t('monTtftLabel') + ' ' + (ttftAvg !== null ? monDuration(ttftAvg) : '—')
             + (tokPerSec !== null ? ' · ' + (Math.round(tokPerSec * 10) / 10) + ' tok/s' : '')),
         ),
+        // 上下文水位（官方 contextPressure 投影；无数据时隐藏整卡）
+        ctxCard(p, t),
         // token 用量
         h(MonCard, { title: t('monTokenTitle') },
           h('span', null, t('monInput') + ' ' + (tok !== null ? monTokens(tok.input) : '—')

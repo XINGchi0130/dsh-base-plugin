@@ -74,9 +74,11 @@ phone-width screens (see Mobile below).
    (the official `subagents` registry's durable descendant tree, indented
    by depth, each row showing mode, running state, and mini figures —
    turns·steps plus output tokens — folded incrementally through the same
-   cursor machinery; unreadable child logs show as gray rows). The entry
-   appears when the core data sources are mounted; a missing optional
-   service hides its card only. The tab strip reuses the dock's tool-nav
+   cursor machinery; unreadable child logs show as gray rows). The Overview tab also carries a **context-pressure bar** (the official
+   `contextPressure` projection: projected next-prompt tokens ÷ the route's
+   context window — amber at 70%, red at 85%). The entry appears when the
+   core data sources are mounted; a missing optional service hides its card
+   only. The tab strip reuses the dock's tool-nav
    button style.
 
 8. **Usage** — a Settings section right after Models (order 11): aggregated token usage over
@@ -103,7 +105,13 @@ phone-width screens (see Mobile below).
    tool calls paired with results, injected context as collapsed blocks) and
    **Export Zip** (the official `GET /api/session.export` endpoint — the
    complete durable log plus attachment artifacts; the plugin adds no route,
-   the browser downloads it directly).
+   the browser downloads it directly), plus a **Time machine** action: list
+   the session's completed turns (each with a preview of its first human
+   prompt) and fork a copy from any turn through the official
+   `sessions.fork(boundary)` primitive — the child session appears in every
+   connected client's sidebar immediately. Forking needs the source session
+   live in this process (the store's contract); cold sessions get a hint to
+   open them first.
 
 10. **Mobile Access** — a new Settings page. Use the full DSH UI from your
     phone on the LAN: an authenticated reverse proxy starts on its own port
@@ -147,7 +155,9 @@ phone-width screens (see Mobile below).
     `turn/end` — the long-task-done signal), **background job settled**
     (`jobs.onJobDone`, failures included), and **approval waiting** (the
     `approval/request` waterfall: the bridge notifies, then passes through — the
-    outcome itself is not re-notified). Per-event toggles, a one-click test send,
+    outcome itself is not re-notified), and **context nearly full** (the
+    `contextPressure` projection crossing 85% — hysteresis: one notice per
+    crossing, re-notice only every +10 points, re-armed below 70%). Per-event toggles, a one-click test send,
     and a mute window (1h / cancel). Delivery is best-effort with a 10s timeout:
     a failing channel logs once and never blocks the event flow. Listeners live
     on the plugin fiber (removed on unload); settings are re-read per event, so

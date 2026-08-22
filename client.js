@@ -51,7 +51,7 @@
  * 用分区横幅代替模块切分。分区顺序：i18n 词典 → store/api/styles
  * 辅助 → MarketTab → McpSection → SkillsSection → plugin apply。
  */
-// GENERATED from src/* by scripts/build-client.mjs — edit src/, then rebuild. stamp:6be0a0a56078
+// GENERATED from src/* by scripts/build-client.mjs — edit src/, then rebuild. stamp:5fb503fd4d91
 window.__ModuleLoader__.load({
   id: 'dsh-base-plugin',
   factory: function (require) {
@@ -174,6 +174,8 @@ window.__ModuleLoader__.load({
       monLlmLabel: '模型',
       monToolLabel: '工具',
       monTtftLabel: '首 token 平均',
+      monContextTitle: '上下文水位',
+      monContextHigh: '即将写满，建议开新会话',
       monTokenTitle: 'Token 用量',
       monInput: '输入',
       monOutput: '输出',
@@ -219,6 +221,7 @@ window.__ModuleLoader__.load({
       ntfEventTurnEnd: '回合结束（长任务完成信号）',
       ntfEventJobs: '后台任务完结（含失败）',
       ntfEventApprovals: '审批等待（需要你批准工具调用）',
+      ntfEventContext: '上下文将满（≥85%，建议开新会话）',
       ntfTestBtn: '发送测试',
       ntfTestOk: '测试通知已发出——手机上应该收到了。',
       ntfQuietBtn: '静音 1 小时',
@@ -357,6 +360,15 @@ window.__ModuleLoader__.load({
       badgeGhost: '仅残留数据',
       badgeDraft: '新会话草稿',
       draftHint: '「新建会话」会为工作区预创建一个占位会话以便秒开；此会话从未对话。未被使用时会被自动回收（活跃状态随之消失），之后可删除。',
+      tmBtn: '回到过去',
+      tmHint: '按轮次分叉此会话：从任意一轮创建副本继续',
+      tmTitle: '时间机器',
+      tmIntro: '从「{name}」的任意一轮创建分叉副本——官方 fork 原语，子会话即时出现在侧栏。',
+      tmTurnLabel: '第 {n} 轮',
+      tmForkHere: '从此轮分叉',
+      tmForked: '已创建分叉 {id}…——侧栏应已出现新会话。',
+      tmCold: '该会话未在当前进程打开（fork 需要活跃会话）——先在聊天里打开它再回来分叉。',
+      tmNoTurns: '没有已完成的轮次可分叉。',
       sessExportMd: '导出 MD',
       sessExportMdHint: '下载可读的 Markdown 转写（用户/助手/工具调用）',
       sessExportZip: '导出 Zip',
@@ -486,6 +498,8 @@ window.__ModuleLoader__.load({
       monLlmLabel: 'LLM',
       monToolLabel: 'tools',
       monTtftLabel: 'avg first token',
+      monContextTitle: 'Context pressure',
+      monContextHigh: 'nearly full — consider a new session',
       monTokenTitle: 'Token usage',
       monInput: 'input',
       monOutput: 'output',
@@ -531,6 +545,7 @@ window.__ModuleLoader__.load({
       ntfEventTurnEnd: 'Turn finished (the long-task-done signal)',
       ntfEventJobs: 'Background job settled (failures included)',
       ntfEventApprovals: 'Approval waiting (a tool call needs your decision)',
+      ntfEventContext: 'Context nearly full (≥85% — consider a new session)',
       ntfTestBtn: 'Send test',
       ntfTestOk: 'Test notification sent — your phone should have it.',
       ntfQuietBtn: 'Mute 1 hour',
@@ -669,6 +684,15 @@ window.__ModuleLoader__.load({
       badgeGhost: 'metadata only',
       badgeDraft: 'new-chat draft',
       draftHint: '"New Session" keeps a placeholder session per workspace for instant open; this one has never been conversed. Unused ones are reclaimed automatically (the live flag drops soon after), and can be deleted then.',
+      tmBtn: 'Time machine',
+      tmHint: 'Fork this session by turn: continue from any point as a copy',
+      tmTitle: 'Time machine',
+      tmIntro: 'Fork a copy of "{name}" from any completed turn — the official fork primitive; the child appears in the sidebar immediately.',
+      tmTurnLabel: 'Turn {n}',
+      tmForkHere: 'Fork here',
+      tmForked: 'Fork {id}… created — the new session should already be in the sidebar.',
+      tmCold: 'This session is not open in the current process (fork needs it live) — open it in the chat first.',
+      tmNoTurns: 'No completed turns to fork from.',
       sessExportMd: 'Export MD',
       sessExportMdHint: 'Download a readable Markdown transcript (user/assistant/tool calls)',
       sessExportZip: 'Export Zip',
@@ -1912,6 +1936,34 @@ window.__ModuleLoader__.load({
 
       React.useEffect(function () { refresh() }, [refresh])
 
+      // tm: null 关闭；{ item, status, turns, error, busyTurn }
+      var tmState = React.useState(null)
+      var tm = tmState[0]
+      var setTm = tmState[1]
+
+      function onTimeMachine(item) {
+        setTm({ item: item, status: 'loading', turns: [], error: '' })
+        api('/timemachine?sessionId=' + encodeURIComponent(item.id))
+          .then(function (value) {
+            setTm({ item: item, status: 'ready', turns: value.turns ?? [], error: value.live === true ? '' : 'cold' })
+          })
+          .catch(function (error) {
+            setTm({ item: item, status: 'error', turns: [], error: String(error.message || error) })
+          })
+      }
+
+      function onFork(turn) {
+        if (tm === null || tm.busyTurn !== undefined) return
+        setTm(function (prev) { return Object.assign({}, prev, { busyTurn: turn.endSeq }) })
+        post('/timemachine/fork', { sessionId: tm.item.id, boundary: turn.endSeq })
+          .then(function (value) {
+            setTm(function (prev) { return Object.assign({}, prev, { forked: value.childId }) })
+          })
+          .catch(function (error) {
+            setTm(function (prev) { return Object.assign({}, prev, { error: String(error.message || error) }) })
+          })
+      }
+
       function onDelete(item) {
         if (busy !== null) return
         showConfirm(t('confirmDeleteSession', { name: sessionDisplayName(item, t) }), { okLabel: t('sessDelete'), danger: true })
@@ -1937,6 +1989,39 @@ window.__ModuleLoader__.load({
         return h('div', { className: 'dhb-page' },
           h('h2', { className: 'dhb-title' }, t('sectionSessions')),
           h('p', { className: 'dhb-desc' }, t('sessUnavailable')),
+        )
+      }
+
+      // 时间机器对话框（打开时覆盖整页内容区）
+      if (tm !== null) {
+        return h('div', { className: 'dhb-page' },
+          h('h2', { className: 'dhb-title' }, t('tmTitle')),
+          h('p', { className: 'dhb-desc' }, t('tmIntro', { name: sessionDisplayName(tm.item, t) })),
+          h('div', { className: 'dhb-row' },
+            h('button', { className: 'dhb-btn', type: 'button', onClick: function () { setTm(null) } }, t('back')),
+            h('button', { className: 'dhb-btn', type: 'button', onClick: function () { onTimeMachine(tm.item) } }, t('refresh')),
+          ),
+          tm.error === 'cold' ? h(Banner, { kind: 'warn', text: t('tmCold') }) : null,
+          tm.status === 'error' && tm.error !== 'cold' ? h(Banner, { kind: 'err', text: tm.error }) : null,
+          tm.forked !== undefined ? h(Banner, { kind: 'ok', text: t('tmForked', { id: tm.forked.slice(0, 12) }) }) : null,
+          h('div', { className: 'dhb-list' },
+            tm.status === 'loading' ? h('p', { className: 'dhb-desc' }, t('loading'))
+            : tm.turns.length === 0 ? h('p', { className: 'dhb-desc' }, t('tmNoTurns'))
+            : tm.turns.map(function (turn) {
+                return h('div', { className: 'dhb-card', key: turn.endSeq },
+                  h('div', { className: 'dhb-cardTitle' }, t('tmTurnLabel', { n: turn.turn })
+                    + (turn.time > 0 ? ' · ' + new Date(turn.time).toLocaleString() : '')),
+                  h('p', { className: 'dhb-hint', style: { margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } },
+                    turn.preview),
+                  h('div', { className: 'dhb-cardActions' },
+                    h('button', {
+                      className: 'dhb-btn dhb-btnPrimary', type: 'button',
+                      disabled: tm.busyTurn !== undefined || tm.error === 'cold',
+                      onClick: function () { onFork(turn) },
+                    }, tm.busyTurn === turn.endSeq ? t('loading') : t('tmForkHere'))),
+                )
+              }),
+          ),
         )
       }
 
@@ -2015,6 +2100,12 @@ window.__ModuleLoader__.load({
                 : null,
               h('div', { className: 'dhb-hint', style: { wordBreak: 'break-all' } }, item.id),
               h('div', { className: 'dhb-cardActions' },
+                // 时间机器：按轮次分叉（官方 sessions.fork）。
+                h('button', {
+                  className: 'dhb-btn', type: 'button',
+                  title: t('tmHint'),
+                  onClick: function () { onTimeMachine(item) },
+                }, t('tmBtn')),
                 // 导出：MD（宿主折叠的可读转写）与 Zip（官方全量端点）。
                 // window.open 触发浏览器原生下载；官方端点在无会话时自答错误页。
                 h('button', {
@@ -2393,6 +2484,9 @@ window.__ModuleLoader__.load({
             h('label', { className: 'dhb-row', style: { gap: 6 } },
               h('input', { type: 'checkbox', checked: cfg.approvals === true, onChange: function (e) { patch({ approvals: e.target.checked }) } }),
               h('span', null, t('ntfEventApprovals'))),
+            h('label', { className: 'dhb-row', style: { gap: 6 } },
+              h('input', { type: 'checkbox', checked: cfg.context === true, onChange: function (e) { patch({ context: e.target.checked }) } }),
+              h('span', null, t('ntfEventContext'))),
           ),
           h('div', { className: 'dhb-row' },
             h('button', { className: 'dhb-btn dhb-btnPrimary', type: 'button', disabled: busy, onClick: onSave }, busy ? t('saving') : t('save')),
@@ -3053,6 +3147,29 @@ window.__ModuleLoader__.load({
       )
     }
 
+    /** 上下文水位卡：projectedTokens / contextWindow 的比例条。投影
+     * 缺任一字段（无请求/未上报容量）时返回 null 隐藏整卡。 */
+    function ctxCard(p, t) {
+      if (p === null || p.context === null || typeof p.context !== 'object') return null
+      var projected = p.context.projectedTokens
+      var windowTokens = p.context.contextWindow
+      if (typeof projected !== 'number' || typeof windowTokens !== 'number' || windowTokens <= 0) return null
+      var pct = Math.min(100, Math.round(projected / windowTokens * 100))
+      return h(MonCard, { title: t('monContextTitle') },
+        h('div', { style: { width: '100%', height: 8, borderRadius: 4, background: 'var(--dsw-alias-border-l2,#e3e6ec)', overflow: 'hidden' } },
+          h('div', {
+            style: {
+              width: pct + '%', height: '100%',
+              background: pct >= 85 ? '#c0392b' : pct >= 70 ? '#d68910' : '#2f6fed',
+              transition: 'width .3s',
+            },
+          })),
+        h('span', { className: 'dhb-hint' },
+          monTokens(projected) + ' / ' + monTokens(windowTokens) + ' · ' + pct + '%'
+          + (pct >= 85 ? ' · ' + t('monContextHigh') : '')),
+      )
+    }
+
     /** 概览 tab：轮次与步骤 / 耗时 / token 用量（整日志统计）。 */
     function MonOverviewTab(props) {
       var t = props.t
@@ -3087,6 +3204,8 @@ window.__ModuleLoader__.load({
           h('span', { className: 'dhb-hint' }, t('monTtftLabel') + ' ' + (ttftAvg !== null ? monDuration(ttftAvg) : '—')
             + (tokPerSec !== null ? ' · ' + (Math.round(tokPerSec * 10) / 10) + ' tok/s' : '')),
         ),
+        // 上下文水位（官方 contextPressure 投影；无数据时隐藏整卡）
+        ctxCard(p, t),
         // token 用量
         h(MonCard, { title: t('monTokenTitle') },
           h('span', null, t('monInput') + ' ' + (tok !== null ? monTokens(tok.input) : '—')

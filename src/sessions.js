@@ -55,6 +55,34 @@
 
       React.useEffect(function () { refresh() }, [refresh])
 
+      // tm: null 关闭；{ item, status, turns, error, busyTurn }
+      var tmState = React.useState(null)
+      var tm = tmState[0]
+      var setTm = tmState[1]
+
+      function onTimeMachine(item) {
+        setTm({ item: item, status: 'loading', turns: [], error: '' })
+        api('/timemachine?sessionId=' + encodeURIComponent(item.id))
+          .then(function (value) {
+            setTm({ item: item, status: 'ready', turns: value.turns ?? [], error: value.live === true ? '' : 'cold' })
+          })
+          .catch(function (error) {
+            setTm({ item: item, status: 'error', turns: [], error: String(error.message || error) })
+          })
+      }
+
+      function onFork(turn) {
+        if (tm === null || tm.busyTurn !== undefined) return
+        setTm(function (prev) { return Object.assign({}, prev, { busyTurn: turn.endSeq }) })
+        post('/timemachine/fork', { sessionId: tm.item.id, boundary: turn.endSeq })
+          .then(function (value) {
+            setTm(function (prev) { return Object.assign({}, prev, { forked: value.childId }) })
+          })
+          .catch(function (error) {
+            setTm(function (prev) { return Object.assign({}, prev, { error: String(error.message || error) }) })
+          })
+      }
+
       function onDelete(item) {
         if (busy !== null) return
         showConfirm(t('confirmDeleteSession', { name: sessionDisplayName(item, t) }), { okLabel: t('sessDelete'), danger: true })
@@ -80,6 +108,39 @@
         return h('div', { className: 'dhb-page' },
           h('h2', { className: 'dhb-title' }, t('sectionSessions')),
           h('p', { className: 'dhb-desc' }, t('sessUnavailable')),
+        )
+      }
+
+      // 时间机器对话框（打开时覆盖整页内容区）
+      if (tm !== null) {
+        return h('div', { className: 'dhb-page' },
+          h('h2', { className: 'dhb-title' }, t('tmTitle')),
+          h('p', { className: 'dhb-desc' }, t('tmIntro', { name: sessionDisplayName(tm.item, t) })),
+          h('div', { className: 'dhb-row' },
+            h('button', { className: 'dhb-btn', type: 'button', onClick: function () { setTm(null) } }, t('back')),
+            h('button', { className: 'dhb-btn', type: 'button', onClick: function () { onTimeMachine(tm.item) } }, t('refresh')),
+          ),
+          tm.error === 'cold' ? h(Banner, { kind: 'warn', text: t('tmCold') }) : null,
+          tm.status === 'error' && tm.error !== 'cold' ? h(Banner, { kind: 'err', text: tm.error }) : null,
+          tm.forked !== undefined ? h(Banner, { kind: 'ok', text: t('tmForked', { id: tm.forked.slice(0, 12) }) }) : null,
+          h('div', { className: 'dhb-list' },
+            tm.status === 'loading' ? h('p', { className: 'dhb-desc' }, t('loading'))
+            : tm.turns.length === 0 ? h('p', { className: 'dhb-desc' }, t('tmNoTurns'))
+            : tm.turns.map(function (turn) {
+                return h('div', { className: 'dhb-card', key: turn.endSeq },
+                  h('div', { className: 'dhb-cardTitle' }, t('tmTurnLabel', { n: turn.turn })
+                    + (turn.time > 0 ? ' · ' + new Date(turn.time).toLocaleString() : '')),
+                  h('p', { className: 'dhb-hint', style: { margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } },
+                    turn.preview),
+                  h('div', { className: 'dhb-cardActions' },
+                    h('button', {
+                      className: 'dhb-btn dhb-btnPrimary', type: 'button',
+                      disabled: tm.busyTurn !== undefined || tm.error === 'cold',
+                      onClick: function () { onFork(turn) },
+                    }, tm.busyTurn === turn.endSeq ? t('loading') : t('tmForkHere'))),
+                )
+              }),
+          ),
         )
       }
 
@@ -158,6 +219,12 @@
                 : null,
               h('div', { className: 'dhb-hint', style: { wordBreak: 'break-all' } }, item.id),
               h('div', { className: 'dhb-cardActions' },
+                // 时间机器：按轮次分叉（官方 sessions.fork）。
+                h('button', {
+                  className: 'dhb-btn', type: 'button',
+                  title: t('tmHint'),
+                  onClick: function () { onTimeMachine(item) },
+                }, t('tmBtn')),
                 // 导出：MD（宿主折叠的可读转写）与 Zip（官方全量端点）。
                 // window.open 触发浏览器原生下载；官方端点在无会话时自答错误页。
                 h('button', {
