@@ -235,14 +235,14 @@
                   className: 'dhb-btn', type: 'button',
                   title: t('sessExportMdHint'),
                   onClick: function () {
-                    window.open('/dsh-base-plugin/api/export/markdown?sessionId=' + encodeURIComponent(item.id), '_blank')
+                    window.open('/dsh-base-plugin/api/export/markdown?sessionId=' + encodeURIComponent(item.id), '_blank', 'noopener')
                   },
                 }, t('sessExportMd')),
                 h('button', {
                   className: 'dhb-btn', type: 'button',
                   title: t('sessExportZipHint'),
                   onClick: function () {
-                    window.open('/api/session.export?sessionId=' + encodeURIComponent(item.id), '_blank')
+                    window.open('/api/session.export?sessionId=' + encodeURIComponent(item.id), '_blank', 'noopener')
                   },
                 }, t('sessExportZip')),
                 h('button', {

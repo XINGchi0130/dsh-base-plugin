@@ -98,7 +98,7 @@
         h('div', { className: 'dhb-list' },
           h('h3', { className: 'dhb-sectTitle' }, t('mcpHealthTitle')),
           health.status === 'error' ? h(Banner, { kind: 'warn', text: t('mcpHealthUnavailable') }) : null,
-          health.status !== 'error' && health.servers.length === 0
+          health.status === 'ready' && health.servers.length === 0
             ? h('p', { className: 'dhb-hint' }, t('mcpHealthEmpty'))
             : health.servers.map(function (row) {
                 var failColor = row.errorRate >= 30 ? '#c0392b' : row.errorRate >= 10 ? '#d68910' : null

@@ -51,7 +51,7 @@
  * 用分区横幅代替模块切分。分区顺序：i18n 词典 → store/api/styles
  * 辅助 → MarketTab → McpSection → SkillsSection → plugin apply。
  */
-// GENERATED from src/* by scripts/build-client.mjs — edit src/, then rebuild. stamp:c8246a3fcdfb
+// GENERATED from src/* by scripts/build-client.mjs — edit src/, then rebuild. stamp:ea0658a67320
 window.__ModuleLoader__.load({
   id: 'dsh-base-plugin',
   factory: function (require) {
@@ -86,10 +86,8 @@ window.__ModuleLoader__.load({
       uninstall: '卸载',
       uninstalling: '卸载中…',
       confirmUninstall: '确定卸载 {name}？将移除其组合行并从 profile 移除依赖。',
-      opRunning: '有操作正在进行：{op}',
       installDone: '已安装 {name}（{rows} 个组合行）。通过 home 补丁热加载；界面未变化时请刷新页面或重启 dsh。',
       uninstallDone: '已卸载 {name}。若界面仍显示，请刷新页面。',
-      warning: '警告',
       noResults: '没有找到匹配的仓库。试试英文关键词，或清空搜索框浏览全部 topic 认证插件。',
       topicVerified: 'topic 认证',
       managedTitle: '通过 dsh-base-plugin 安装',
@@ -265,7 +263,6 @@ window.__ModuleLoader__.load({
       foTruncated: '仅显示最近 {n} 条',
       foMoreGroups: '加载更多（还有 {n} 个目标）',
       foRan: '执行',
-      foDiffEvicted: '该操作的 diff 已超出保留窗口（仅最近 200 条完整保留）。',
       foNoSession: '未选择会话。',
       gitNoChanges: '工作区没有文件变更。',
       gitSearchPlaceholder: '搜索文件路径…',
@@ -316,7 +313,6 @@ window.__ModuleLoader__.load({
       usagePriceSave: '保存单价',
       usagePriceHint: '单位：美元/百万 token。修改后所有费用立即按新单价重算。',
       usagePriceDefault: '内置 DeepSeek 参考价，可自行修改。',
-      usageTrend: '近 31 天用量（token/天）',
       usageTopSessions: '消耗最多的会话',
       usageNoData: '还没有用量数据（无会话或模型未上报用量）。',
       usageSessions: '{n} 个会话',
@@ -351,15 +347,11 @@ window.__ModuleLoader__.load({
       termClose: '关闭此终端',
       termClosing: '正在关闭 {name}…',
       termCloseConfirm: '确定关闭终端 {name}？其中的运行进程将被终止。',
-      termUnavailable: '主机未挂载终端服务（需要 @deepseek-ai/dsh-terminal 与终端后端组合行）。',
-      termConnecting: '正在创建终端…',
       termPlaceholder: '输入命令，Enter 执行',
       noSkills: '暂无技能。',
       providerLabel: '提供者',
-      whenToUseLabel: '适用场景',
       back: '← 返回列表',
       skillUnavailable: '此主机没有 skills 服务。',
-      notFound: '未找到该技能。',
       notFoundFull: '未找到技能：{name}',
       contentLabel: '内容',
       sectionSessions: '会话管理',
@@ -448,10 +440,8 @@ window.__ModuleLoader__.load({
       uninstall: 'Uninstall',
       uninstalling: 'Uninstalling…',
       confirmUninstall: 'Uninstall {name}? Its composition rows and profile dependency will be removed.',
-      opRunning: 'An operation is running: {op}',
       installDone: 'Installed {name} ({rows} composition rows). Hot-loads through the home patch; refresh or restart dsh if the UI does not update.',
       uninstallDone: 'Uninstalled {name}. Refresh the page if it still appears.',
-      warning: 'Warning',
       noResults: 'No matching repositories. Try English keywords, or clear the search box to browse all topic-verified plugins.',
       topicVerified: 'topic verified',
       managedTitle: 'Installed via dsh-base-plugin',
@@ -627,7 +617,6 @@ window.__ModuleLoader__.load({
       foTruncated: 'showing the newest {n}',
       foMoreGroups: 'Load more ({n} more targets)',
       foRan: 'ran',
-      foDiffEvicted: "This op's diff is outside the retention window (only the newest 200 keep full diffs).",
       foNoSession: 'No session selected.',
       gitNoChanges: 'No file changes in the workspace.',
       gitSearchPlaceholder: 'Search file paths…',
@@ -678,7 +667,6 @@ window.__ModuleLoader__.load({
       usagePriceSave: 'Save prices',
       usagePriceHint: 'USD per 1M tokens. Saving reprices every cost immediately.',
       usagePriceDefault: 'DeepSeek reference prices built in; edit freely.',
-      usageTrend: 'Last 31 days (tokens/day)',
       usageTopSessions: 'Top sessions by usage',
       usageNoData: 'No usage data yet (no sessions, or the adapter reported none).',
       usageSessions: '{n} sessions',
@@ -713,15 +701,11 @@ window.__ModuleLoader__.load({
       termClose: 'Close this terminal',
       termClosing: 'Closing {name}…',
       termCloseConfirm: 'Close terminal {name}? Running processes in it will be terminated.',
-      termUnavailable: 'The terminals service is not mounted on this host (compose @deepseek-ai/dsh-terminal with a backend row).',
-      termConnecting: 'Creating terminal…',
       termPlaceholder: 'Type a command and press Enter',
       noSkills: 'No skills yet.',
       providerLabel: 'provider',
-      whenToUseLabel: 'when to use',
       back: '← Back to list',
       skillUnavailable: 'The skills service is unavailable on this host.',
-      notFound: 'Skill not found.',
       notFoundFull: 'Skill not found: {name}',
       contentLabel: 'content',
       sectionSessions: 'Sessions',
@@ -1607,7 +1591,7 @@ window.__ModuleLoader__.load({
         h('div', { className: 'dhb-list' },
           h('h3', { className: 'dhb-sectTitle' }, t('mcpHealthTitle')),
           health.status === 'error' ? h(Banner, { kind: 'warn', text: t('mcpHealthUnavailable') }) : null,
-          health.status !== 'error' && health.servers.length === 0
+          health.status === 'ready' && health.servers.length === 0
             ? h('p', { className: 'dhb-hint' }, t('mcpHealthEmpty'))
             : health.servers.map(function (row) {
                 var failColor = row.errorRate >= 30 ? '#c0392b' : row.errorRate >= 10 ? '#d68910' : null
@@ -2238,14 +2222,14 @@ window.__ModuleLoader__.load({
                   className: 'dhb-btn', type: 'button',
                   title: t('sessExportMdHint'),
                   onClick: function () {
-                    window.open('/dsh-base-plugin/api/export/markdown?sessionId=' + encodeURIComponent(item.id), '_blank')
+                    window.open('/dsh-base-plugin/api/export/markdown?sessionId=' + encodeURIComponent(item.id), '_blank', 'noopener')
                   },
                 }, t('sessExportMd')),
                 h('button', {
                   className: 'dhb-btn', type: 'button',
                   title: t('sessExportZipHint'),
                   onClick: function () {
-                    window.open('/api/session.export?sessionId=' + encodeURIComponent(item.id), '_blank')
+                    window.open('/api/session.export?sessionId=' + encodeURIComponent(item.id), '_blank', 'noopener')
                   },
                 }, t('sessExportZip')),
                 h('button', {
@@ -3386,10 +3370,10 @@ window.__ModuleLoader__.load({
     function monDuration(ms) {
       if (typeof ms !== 'number' || !Number.isFinite(ms) || ms < 0) return '—'
       if (ms < 1000) return Math.round(ms) + 'ms'
-      var s = ms / 1000
-      if (s < 60) return (Math.round(s * 10) / 10) + 's'
+      var s = Math.round(ms / 1000) // 先取整秒再进位——119.6s 曾产出 '1m60s'
+      if (s < 60) return s + 's'
       var m = Math.floor(s / 60)
-      var rest = Math.round(s - m * 60)
+      var rest = s - m * 60
       if (m < 60) return m + 'm' + (rest < 10 ? '0' : '') + rest + 's'
       var h = Math.floor(m / 60)
       return h + 'h' + (m - h * 60) + 'm'

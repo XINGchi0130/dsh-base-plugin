@@ -5,10 +5,10 @@
     function monDuration(ms) {
       if (typeof ms !== 'number' || !Number.isFinite(ms) || ms < 0) return '—'
       if (ms < 1000) return Math.round(ms) + 'ms'
-      var s = ms / 1000
-      if (s < 60) return (Math.round(s * 10) / 10) + 's'
+      var s = Math.round(ms / 1000) // 先取整秒再进位——119.6s 曾产出 '1m60s'
+      if (s < 60) return s + 's'
       var m = Math.floor(s / 60)
-      var rest = Math.round(s - m * 60)
+      var rest = s - m * 60
       if (m < 60) return m + 'm' + (rest < 10 ? '0' : '') + rest + 's'
       var h = Math.floor(m / 60)
       return h + 'h' + (m - h * 60) + 'm'
