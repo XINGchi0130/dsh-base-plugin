@@ -155,7 +155,7 @@
             p.live !== true ? h('span', { className: 'dhb-hint' }, t('monJobsColdNote')) : null,
           )
         : null
-      var subCard = p !== null && p.subagents !== null
+      var subCard = p !== null && Array.isArray(p.subagents)
         ? h(MonCard, { title: t('monSubagentsTitle') },
             h('span', { className: 'dhb-hint' },
               t('monSubTotal', { n: p.subagents.length })

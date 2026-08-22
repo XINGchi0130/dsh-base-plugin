@@ -29,25 +29,27 @@
         if (busy || input.trim() === '') return
         setBusy(true)
         setMsg(null)
+        setResult(null) // 旧结果滞留曾让 busy/失败期间一键复制拿到上一次的提示词
         post('/prompt-opt', { input: input })
           .then(function (value) { setResult(value) })
           .catch(function (error) { setMsg({ kind: 'err', text: String(error.message || error) }) })
           .then(function () { setBusy(false) })
       }
 
-      // 从 ```text 代码块提取纯提示词（无代码块则原样）
+      // 从 ```text 代码块提取纯提示词（无代码块则原样）。闭合围栏锚定
+      // 行首并容忍 CRLF：惰性匹配停在正文内部第一个 ``` 上，曾把含
+      // 围栏的提示词静默截断到半句。
       var purePrompt = null
       if (result !== null) {
-        var m = /```text\n([\s\S]*?)```/.exec(result.optimized)
-        purePrompt = m !== null ? m[1].trim() : result.optimized
+        var m = /^```text\r?\n([\s\S]*?)\r?\n^```/m.exec(result.optimized)
+        purePrompt = m !== null ? m[1].replace(/\r\n/g, '\n').trim() : result.optimized
       }
 
       function onCopy() {
         if (purePrompt === null) return
-        if (navigator.clipboard !== undefined && navigator.clipboard.writeText !== undefined) {
-          navigator.clipboard.writeText(purePrompt)
-          setMsg({ kind: 'ok', text: t('poCopied') })
-        }
+        copyText(purePrompt)
+          .then(function () { setMsg({ kind: 'ok', text: t('poCopied') }) })
+          .catch(function () { setMsg({ kind: 'err', text: t('poCopyFailed') }) })
       }
 
       return h('div', { style: { display: 'flex', flexDirection: 'column', gap: 12, fontSize: 13, lineHeight: 1.5, color: 'var(--dsw-alias-label-secondary,#3f4550)' } },

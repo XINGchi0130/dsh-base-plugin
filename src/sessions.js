@@ -121,7 +121,7 @@
           h('p', { className: 'dhb-desc' }, t('tmIntro', { name: sessionDisplayName(tm.item, t) })),
           h('div', { className: 'dhb-row' },
             h('button', { className: 'dhb-btn', type: 'button', onClick: function () { setTm(null); refresh() } }, t('back')),
-            h('button', { className: 'dhb-btn', type: 'button', onClick: function () { onTimeMachine(tm.item) } }, t('refresh')),
+            h('button', { className: 'dhb-btn', type: 'button', disabled: tm.status === 'loading', onClick: function () { onTimeMachine(tm.item) } }, t('refresh')),
           ),
           tm.error === 'cold' ? h(Banner, { kind: 'warn', text: t('tmCold') }) : null,
           tm.status === 'error' && tm.error !== 'cold' ? h(Banner, { kind: 'err', text: tm.error }) : null,

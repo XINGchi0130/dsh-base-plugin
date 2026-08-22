@@ -284,7 +284,11 @@
         })
         api('/git/diff?cwd=' + encodeURIComponent(cwd) + '&file=' + encodeURIComponent(entry.path))
           .then(function (value) {
+            // 落地时校验仍是 loading 态：用户在途收起（collapse 删除缓存
+            // 项）后，此响应不得复活已收起的行（幽灵展开）。
             setDiffs(function (prev) {
+              var cur = prev[entry.path]
+              if (cur === undefined || cur.status !== 'loading') return prev // 已收起，丢弃
               var copy = Object.assign({}, prev)
               copy[entry.path] = { status: 'ready', diff: typeof value.diff === 'string' ? value.diff : '' }
               return copy

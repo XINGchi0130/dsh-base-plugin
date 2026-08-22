@@ -51,7 +51,7 @@
  * 用分区横幅代替模块切分。分区顺序：i18n 词典 → store/api/styles
  * 辅助 → MarketTab → McpSection → SkillsSection → plugin apply。
  */
-// GENERATED from src/* by scripts/build-client.mjs — edit src/, then rebuild. stamp:2daf1eb9d1ce
+// GENERATED from src/* by scripts/build-client.mjs — edit src/, then rebuild. stamp:1125d61d2343
 window.__ModuleLoader__.load({
   id: 'dsh-base-plugin',
   factory: function (require) {
@@ -178,6 +178,7 @@ window.__ModuleLoader__.load({
       poResultTitle: '优化结果',
       poCopy: '复制',
       poCopied: '已复制到剪贴板。',
+      poCopyFailed: '复制失败——请手动选择复制。',
       monNoSession: '未选择会话——从会话头部的 ⋯ 菜单打开监控。',
       monUnavailable: '该会话暂无统计数据。发出第一条消息后即可看到。',
       monLive: '会话进行中',
@@ -543,6 +544,7 @@ window.__ModuleLoader__.load({
       poResultTitle: 'Result',
       poCopy: 'Copy',
       poCopied: 'Copied to clipboard.',
+      poCopyFailed: 'Copy failed — please select and copy manually.',
       monNoSession: 'No session selected — open Monitor from the session header ⋯ menu.',
       monUnavailable: 'No stats for this session yet. Send the first message to see figures.',
       monLive: 'session in progress',
@@ -905,6 +907,8 @@ window.__ModuleLoader__.load({
       '.dhb-field{display:flex;flex-direction:column;gap:3px}',
       '.dhb-label{font-size:12px;font-weight:500;color:var(--dsw-alias-label-secondary,#3f4550)}',
       '.dhb-hint{font-size:11px;color:var(--dsw-alias-label-caption,#8a919e)}',
+      '.dhb-textarea:disabled{opacity:.55;cursor:not-allowed}',
+      '.dhb-input:disabled{opacity:.55;cursor:not-allowed}',
       '.dhb-textarea{padding:6px 10px;border-radius:8px;border:1px solid var(--dsw-alias-border-l1,#d0d4dd);background:var(--dsw-alias-bg-base,#fff);color:var(--dsw-alias-label-secondary,#3f4550);font-size:12px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;min-height:56px;resize:vertical;outline:none}',
       '.dhb-link{color:#2f6fed;text-decoration:none;font-size:12px}',
       '.dhb-link:hover{text-decoration:underline}',
@@ -1254,6 +1258,31 @@ window.__ModuleLoader__.load({
         ui.keyHandler = function (e) { if (e.key === 'Escape') settleConfirm(false) }
         document.addEventListener('keydown', ui.keyHandler)
         ui.root.style.display = 'flex'
+      })
+    }
+
+/** 复制文本：优先异步 clipboard API，降级 execCommand（非安全上下文
+ * ——http 局域网访问恰是 mobile 代理主场景——clipboard 为 undefined）。
+ * 返回 Promise，拒绝时调用方负责反馈。 */
+    function copyText(text) {
+      if (navigator.clipboard !== undefined && navigator.clipboard.writeText !== undefined) {
+        return navigator.clipboard.writeText(text)
+      }
+      return new Promise(function (resolve, reject) {
+        var ta = document.createElement('textarea')
+        ta.value = text
+        ta.style.position = 'fixed'
+        ta.style.opacity = '0'
+        document.body.appendChild(ta)
+        ta.select()
+        try {
+          if (document.execCommand('copy')) resolve()
+          else reject(new Error('copy failed'))
+        } catch (err) {
+          reject(err)
+        } finally {
+          document.body.removeChild(ta)
+        }
       })
     }
 
@@ -1622,7 +1651,7 @@ window.__ModuleLoader__.load({
                       h('span', { style: failColor !== null ? { color: failColor, fontWeight: 600 } : undefined }, row.errorRate + '%')),
                     h('span', null, t('mcpAvgLatency') + ' ' + (row.avgLatencyMs !== null ? row.avgLatencyMs + 'ms' : '—')),
                     row.lastUsedAt > 0 ? h('span', null, t('mcpLastUsed') + ' ' + new Date(row.lastUsedAt).toLocaleString()) : null),
-                  row.tools.length > 0
+                  Array.isArray(row.tools) && row.tools.length > 0
                     ? h('p', { className: 'dhb-hint', style: { margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } },
                         row.tools.map(function (tool) { return tool.tool + '×' + tool.calls }).join(' · '))
                     : null,
@@ -2127,7 +2156,7 @@ window.__ModuleLoader__.load({
           h('p', { className: 'dhb-desc' }, t('tmIntro', { name: sessionDisplayName(tm.item, t) })),
           h('div', { className: 'dhb-row' },
             h('button', { className: 'dhb-btn', type: 'button', onClick: function () { setTm(null); refresh() } }, t('back')),
-            h('button', { className: 'dhb-btn', type: 'button', onClick: function () { onTimeMachine(tm.item) } }, t('refresh')),
+            h('button', { className: 'dhb-btn', type: 'button', disabled: tm.status === 'loading', onClick: function () { onTimeMachine(tm.item) } }, t('refresh')),
           ),
           tm.error === 'cold' ? h(Banner, { kind: 'warn', text: t('tmCold') }) : null,
           tm.status === 'error' && tm.error !== 'cold' ? h(Banner, { kind: 'err', text: tm.error }) : null,
@@ -2400,10 +2429,9 @@ window.__ModuleLoader__.load({
                     h('button', {
                       className: 'dhb-btn', type: 'button',
                       onClick: function () {
-                        if (navigator.clipboard !== undefined && navigator.clipboard.writeText !== undefined) {
-                          navigator.clipboard.writeText(url)
-                          setMsg({ kind: 'ok', text: url + ' → ⧉' })
-                        }
+                        copyText(url)
+                          .then(function () { setMsg({ kind: 'ok', text: url + ' → ⧉' }) })
+                          .catch(function () { setMsg({ kind: 'err', text: t('poCopyFailed') }) })
                       },
                     }, '⧉'),
                   )
@@ -2918,7 +2946,11 @@ window.__ModuleLoader__.load({
         })
         api('/git/diff?cwd=' + encodeURIComponent(cwd) + '&file=' + encodeURIComponent(entry.path))
           .then(function (value) {
+            // 落地时校验仍是 loading 态：用户在途收起（collapse 删除缓存
+            // 项）后，此响应不得复活已收起的行（幽灵展开）。
             setDiffs(function (prev) {
+              var cur = prev[entry.path]
+              if (cur === undefined || cur.status !== 'loading') return prev // 已收起，丢弃
               var copy = Object.assign({}, prev)
               copy[entry.path] = { status: 'ready', diff: typeof value.diff === 'string' ? value.diff : '' }
               return copy
@@ -3160,7 +3192,7 @@ window.__ModuleLoader__.load({
             },
           }),
           h('button', {
-            className: 'dhb-tmCtrl', type: 'button',
+            className: 'dhb-tmCtrl',
             title: 'Ctrl+C',
             onClick: function () { onInterrupt(term.key) },
           }, '^C'),
@@ -3556,7 +3588,7 @@ window.__ModuleLoader__.load({
             p.live !== true ? h('span', { className: 'dhb-hint' }, t('monJobsColdNote')) : null,
           )
         : null
-      var subCard = p !== null && p.subagents !== null
+      var subCard = p !== null && Array.isArray(p.subagents)
         ? h(MonCard, { title: t('monSubagentsTitle') },
             h('span', { className: 'dhb-hint' },
               t('monSubTotal', { n: p.subagents.length })
@@ -3785,25 +3817,27 @@ window.__ModuleLoader__.load({
         if (busy || input.trim() === '') return
         setBusy(true)
         setMsg(null)
+        setResult(null) // 旧结果滞留曾让 busy/失败期间一键复制拿到上一次的提示词
         post('/prompt-opt', { input: input })
           .then(function (value) { setResult(value) })
           .catch(function (error) { setMsg({ kind: 'err', text: String(error.message || error) }) })
           .then(function () { setBusy(false) })
       }
 
-      // 从 ```text 代码块提取纯提示词（无代码块则原样）
+      // 从 ```text 代码块提取纯提示词（无代码块则原样）。闭合围栏锚定
+      // 行首并容忍 CRLF：惰性匹配停在正文内部第一个 ``` 上，曾把含
+      // 围栏的提示词静默截断到半句。
       var purePrompt = null
       if (result !== null) {
-        var m = /```text\n([\s\S]*?)```/.exec(result.optimized)
-        purePrompt = m !== null ? m[1].trim() : result.optimized
+        var m = /^```text\r?\n([\s\S]*?)\r?\n^```/m.exec(result.optimized)
+        purePrompt = m !== null ? m[1].replace(/\r\n/g, '\n').trim() : result.optimized
       }
 
       function onCopy() {
         if (purePrompt === null) return
-        if (navigator.clipboard !== undefined && navigator.clipboard.writeText !== undefined) {
-          navigator.clipboard.writeText(purePrompt)
-          setMsg({ kind: 'ok', text: t('poCopied') })
-        }
+        copyText(purePrompt)
+          .then(function () { setMsg({ kind: 'ok', text: t('poCopied') }) })
+          .catch(function () { setMsg({ kind: 'err', text: t('poCopyFailed') }) })
       }
 
       return h('div', { style: { display: 'flex', flexDirection: 'column', gap: 12, fontSize: 13, lineHeight: 1.5, color: 'var(--dsw-alias-label-secondary,#3f4550)' } },
@@ -3851,8 +3885,7 @@ window.__ModuleLoader__.load({
     /** 每模型系列的图表配色（按模型 id 稳定映射）。 */
     var USAGE_COLORS = ['#2f6fed', '#1e7e34', '#c0392b', '#8e44ad', '#d68910', '#00838f', '#c2185b', '#5d4037']
     function usageColorOf(model, index) {
-      var hash = 0
-      for (var i = 0; i < model.length; i += 1) hash = (hash * 31 + model.charCodeAt(i)) & 0xffff
+      void model // 保留参数形状（调用方传 model）；配色按序列 index 取
       return USAGE_COLORS[index % USAGE_COLORS.length]
     }
 

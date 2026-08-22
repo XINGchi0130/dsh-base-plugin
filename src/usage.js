@@ -4,8 +4,7 @@
     /** 每模型系列的图表配色（按模型 id 稳定映射）。 */
     var USAGE_COLORS = ['#2f6fed', '#1e7e34', '#c0392b', '#8e44ad', '#d68910', '#00838f', '#c2185b', '#5d4037']
     function usageColorOf(model, index) {
-      var hash = 0
-      for (var i = 0; i < model.length; i += 1) hash = (hash * 31 + model.charCodeAt(i)) & 0xffff
+      void model // 保留参数形状（调用方传 model）；配色按序列 index 取
       return USAGE_COLORS[index % USAGE_COLORS.length]
     }
 

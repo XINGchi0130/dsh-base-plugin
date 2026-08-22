@@ -55,7 +55,7 @@
             },
           }),
           h('button', {
-            className: 'dhb-tmCtrl', type: 'button',
+            className: 'dhb-tmCtrl',
             title: 'Ctrl+C',
             onClick: function () { onInterrupt(term.key) },
           }, '^C'),

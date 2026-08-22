@@ -20,7 +20,7 @@ const HOOK_RE = /React\.(useState|useEffect|useRef|useCallback|useMemo|useSyncEx
 // 只认函数体语句级的 return（本项目组件体为 6 空格缩进；回调/表达式内
 // 的 return 缩进更深，不算早退）。
 const COND_RETURN = /^ {6}(?:if\s*\([^)]*\)\s*return\b|return\b)/
-const LOOP_OR_COND = /^\s*(?:for\s*\(|whiles*\(|if\s*\(|switch\s*\()/
+const LOOP_OR_COND = /^\s*(?:for\s*\(|while\s*\(|if\s*\(|switch\s*\()/
 
 let violations = 0
 
@@ -61,12 +61,10 @@ for (const file of readdirSync(join(root, 'src'))) {
   const src = readFileSync(join(root, 'src', file), 'utf8')
   for (const body of componentBodies(src)) {
     let returned = false
-    let inCondBlock = false
-    for (let i = 0; i < body.lines.length; i += 1) {
+        for (let i = 0; i < body.lines.length; i += 1) {
       const line = body.lines[i]
       if (COND_RETURN.test(line)) returned = true
-      if (LOOP_OR_COND.test(line)) inCondBlock = true
-      if (HOOK_RE.test(line)) {
+            if (HOOK_RE.test(line)) {
         // hook 在任何条件 return 之后 → 违例
         if (returned) {
           console.error(`✗ src/${file} ${body.name}: 第 ${i + 1} 行 hook 在条件 return 之后 → ${line.trim().slice(0, 60)}`)
@@ -74,7 +72,6 @@ for (const file of readdirSync(join(root, 'src'))) {
         }
       }
     }
-    void inCondBlock
   }
 }
 

@@ -103,6 +103,31 @@
       })
     }
 
+/** 复制文本：优先异步 clipboard API，降级 execCommand（非安全上下文
+ * ——http 局域网访问恰是 mobile 代理主场景——clipboard 为 undefined）。
+ * 返回 Promise，拒绝时调用方负责反馈。 */
+    function copyText(text) {
+      if (navigator.clipboard !== undefined && navigator.clipboard.writeText !== undefined) {
+        return navigator.clipboard.writeText(text)
+      }
+      return new Promise(function (resolve, reject) {
+        var ta = document.createElement('textarea')
+        ta.value = text
+        ta.style.position = 'fixed'
+        ta.style.opacity = '0'
+        document.body.appendChild(ta)
+        ta.select()
+        try {
+          if (document.execCommand('copy')) resolve()
+          else reject(new Error('copy failed'))
+        } catch (err) {
+          reject(err)
+        } finally {
+          document.body.removeChild(ta)
+        }
+      })
+    }
+
     function settleConfirm(result) {
       if (pendingConfirmResolve !== null) pendingConfirmResolve(result)
     }

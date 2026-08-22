@@ -110,7 +110,7 @@
                       h('span', { style: failColor !== null ? { color: failColor, fontWeight: 600 } : undefined }, row.errorRate + '%')),
                     h('span', null, t('mcpAvgLatency') + ' ' + (row.avgLatencyMs !== null ? row.avgLatencyMs + 'ms' : '—')),
                     row.lastUsedAt > 0 ? h('span', null, t('mcpLastUsed') + ' ' + new Date(row.lastUsedAt).toLocaleString()) : null),
-                  row.tools.length > 0
+                  Array.isArray(row.tools) && row.tools.length > 0
                     ? h('p', { className: 'dhb-hint', style: { margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } },
                         row.tools.map(function (tool) { return tool.tool + '×' + tool.calls }).join(' · '))
                     : null,

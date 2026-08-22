@@ -132,10 +132,9 @@
                     h('button', {
                       className: 'dhb-btn', type: 'button',
                       onClick: function () {
-                        if (navigator.clipboard !== undefined && navigator.clipboard.writeText !== undefined) {
-                          navigator.clipboard.writeText(url)
-                          setMsg({ kind: 'ok', text: url + ' → ⧉' })
-                        }
+                        copyText(url)
+                          .then(function () { setMsg({ kind: 'ok', text: url + ' → ⧉' }) })
+                          .catch(function () { setMsg({ kind: 'err', text: t('poCopyFailed') }) })
                       },
                     }, '⧉'),
                   )
