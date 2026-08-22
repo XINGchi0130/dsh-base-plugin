@@ -73,8 +73,12 @@ phone-width screens (see Mobile below).
    used — a healthy machine painted 90% red), so reclaimable pages are
    subtracted (macOS via `vm_stat` free+speculative+purgeable+inactive with
    the tool's own page size — 16K on Apple Silicon where sysctl says 4K;
-   Linux via /proc/meminfo `MemAvailable`), with a reclaimable-cache line
-   shown for transparency. The System tab works without a session selected).
+   Linux via /proc/meminfo `MemAvailable`; on Windows os.freemem() already
+   reports availability — Node maps GlobalMemoryStatusEx's ullAvailPhys,
+   standby/cache included — so the pressure semantics hold as-is), with a
+   reclaimable-cache line shown for transparency. The load-average row is
+   hidden on Windows (os.loadavg() is hard-coded [0,0,0] there). The System
+   tab works without a session selected).
 
    **Monitor** is the third panel in the same dock, split into two tabs —
    **Overview** (the session's vital figures at a glance) — turns & steps, LLM vs tool wall time, average

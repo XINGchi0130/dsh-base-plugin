@@ -51,7 +51,7 @@
  * 用分区横幅代替模块切分。分区顺序：i18n 词典 → store/api/styles
  * 辅助 → MarketTab → McpSection → SkillsSection → plugin apply。
  */
-// GENERATED from src/* by scripts/build-client.mjs — edit src/, then rebuild. stamp:275a6aaa974b
+// GENERATED from src/* by scripts/build-client.mjs — edit src/, then rebuild. stamp:ed217252fbab
 window.__ModuleLoader__.load({
   id: 'dsh-base-plugin',
   factory: function (require) {
@@ -3444,7 +3444,11 @@ window.__ModuleLoader__.load({
           bar(v.cpuPct ?? 0, (v.cpuPct ?? 0) >= 85),
           h('span', { className: 'dhb-hint' },
             t('monSysProcCpu') + ' ' + (v.procCpuPct !== null ? v.procCpuPct + '%' : '—')),
-          h('span', { className: 'dhb-hint' }, t('monSysLoad') + ' ' + v.loadavg.join(' / ')),
+          // Windows 的 os.loadavg 恒 [0,0,0]（无信息量）——宿主标记
+          // 不支持时整行隐藏，不留"0 / 0 / 0"的困惑。
+          v.loadavgSupported !== false
+            ? h('span', { className: 'dhb-hint' }, t('monSysLoad') + ' ' + v.loadavg.join(' / '))
+            : null,
         ),
         h(MonCard, { title: t('monSysMem') },
           h('span', { style: { fontSize: 15 } },

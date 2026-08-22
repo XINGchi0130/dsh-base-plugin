@@ -43,8 +43,11 @@ DeepSeek Harness（DSH）基础插件：插件市场、MCP 服务器管理与技
    free 是狭义空闲（文件缓存计为已用，健康机器曾被画成 90% 红），故扣除
    可回收页（macOS 经 vm_stat 的 free+speculative+purgeable+inactive，页大小
    以工具自报为准——Apple Silicon 上是 16K 而 sysctl 报 4K；Linux 经
-   /proc/meminfo 的 MemAvailable），界面附可回收缓存行作解释。系统标签无需
-   选中会话即可查看）。
+   /proc/meminfo 的 MemAvailable；Windows 上 os.freemem() 本身就是可用值
+   ——Node 映射 GlobalMemoryStatusEx 的 ullAvailPhys，已含待机/缓存列表
+   ——压力语义直接成立），界面附可回收缓存行作解释。负载行在 Windows
+   隐藏（os.loadavg() 在该平台恒为 [0,0,0]）。系统标签无需选中会话即可
+   查看）。
 
    **监控**是同一工具坞里的第三个面板，分两个标签页——**概览**（一屏看清当前会话的运行概况）——轮次与步骤、
    模型与工具耗时、首 token 平均延迟、解码吞吐（tok/s）、缓存命中率与输入/输出

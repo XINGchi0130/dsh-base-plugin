@@ -246,7 +246,11 @@
           bar(v.cpuPct ?? 0, (v.cpuPct ?? 0) >= 85),
           h('span', { className: 'dhb-hint' },
             t('monSysProcCpu') + ' ' + (v.procCpuPct !== null ? v.procCpuPct + '%' : '—')),
-          h('span', { className: 'dhb-hint' }, t('monSysLoad') + ' ' + v.loadavg.join(' / ')),
+          // Windows 的 os.loadavg 恒 [0,0,0]（无信息量）——宿主标记
+          // 不支持时整行隐藏，不留"0 / 0 / 0"的困惑。
+          v.loadavgSupported !== false
+            ? h('span', { className: 'dhb-hint' }, t('monSysLoad') + ' ' + v.loadavg.join(' / '))
+            : null,
         ),
         h(MonCard, { title: t('monSysMem') },
           h('span', { style: { fontSize: 15 } },
