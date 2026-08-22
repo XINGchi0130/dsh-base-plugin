@@ -2,288 +2,151 @@
 
 English | [中文](README.zh.md)
 
-A base plugin for [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) (DSH): a Plugin
-Market, MCP server management, and skill browsing — added to Settings without touching DSH source
-code. UI text follows the DSH language setting (中文 / English), and every page adapts to
-phone-width screens (see Mobile below).
+An enhancement plugin for [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) (DSH): **plugin market, MCP management, session management, mobile access, notifications, terminal, file changes, prompt optimization** — 12 capabilities delivered entirely through Settings pages and the tools dock, **without touching DSH source code**. Bilingual UI (follows the DSH language setting); every page adapts to phone screens.
 
 ## Features
 
-1. **Plugin Market** — a new tab inside Settings → Plugins. Discovery-first search over the
-   ecosystem-certified set (`topic:dsh-plugin` + dsh-named): your term hits GitHub directly AND
-   soft-matches names/descriptions locally, so real plugins no longer vanish behind literal
-   keyword misses (Chinese terms find Chinese-described plugins); empty search browses the top
-   100 certified plugins; only when nothing certified matches does a legacy name-search fallback
-   run (unbadged rows). Certified rows carry a "topic verified" badge. One-click install
-   (`pnpm add` into the web profile + composition rows written into the managed block of
-   `~/.dsh/cordis.patch.yml`), validation that the result is really a DSH plugin (auto-rollback
-   otherwise), and one-click uninstall.
-2. **MCP** — a new Settings page. Edit the MCP server list directly as YAML (stdio or Streamable
-   HTTP per entry); saving writes the managed block of `~/.dsh/cordis.patch.yml` and hot-loads
-   through the official `@deepseek-ai/dsh-mcp-client` — no restart needed. Live status per server
-   (fiber phase + registered tool count); hand-added rows are listed read-only. A **health panel**
-   aggregates every session log's MCP tool traffic (grouped by the `mcp__<server>__` prefix):
-   per-server call count, error rate (red ≥30%, amber ≥10%), average latency (call→result wall
-   time paired by callId), last-used time, and per-tool call counts — the data to answer "is this
-   server worth keeping". Incremental: per-session seq cursors plus a cross-call aggregate cache;
-   a call whose result has not landed yet is not counted until it does (and pairs correctly across
-   refresh boundaries); deleting a session resets the fold.
-3. **Skills** — a new Settings page. List registered skills with a content viewer; skills under
-   `~/.dsh/skills/` can be created, edited, and deleted right on the page (writes are hot-registered
-   by dsh's watched skill roots). Deployment-shipped preset skills (not user-editable) are hidden
-   with a count note.
-4. **System Prompt** — a new Settings page. Edit the global persona (order-0 system prompt
-   section, effective for every session). The persona override row is always present in the
-   managed block — empty by default, which neutralizes the deployment bundle's own default
-   persona — and saves hot-load. `{{model}}`/`{{cwd}}` variables are supported.
-5. **Service Stop/Restart** — compact buttons beside Settings at the sidebar foot. Stop asks
-   the launcher for a graceful exit (sessions flush first). Restart spawns a detached helper
-   that re-execs the same invocation (execArgv included, plus `--no-open` so the restarted
-   process does NOT hand the URL to the browser again — the official startup opens the
-   default browser by default, which turned every restart into a duplicate tab; the already
-   open page polls and reloads itself) once the old pid is gone.
-6. **File Changes panel** — an entry in the session header's top-right ⋯ menu
-   opening a right-docked panel with two tabs. **Workspace Changes** shows the
-   session workspace's git changes
-   (new/modified/deleted/renamed with per-file colored diffs, strictly
-   read-only). The menu entry appears only when a git binary exists; a
-   workspace without a repo is auto-initialized with a baseline commit
-   (inline identity, never touches global git config; a minimal .gitignore excluding node_modules/ is placed first when absent, keeping dependency trees out of the baseline), so changes are always
-   relative to a baseline. **Operation Log** is the AI's operation TRAIL —
-   when, which tool, which target, ±how big, success or failure — folded
-   incrementally from the session log. write/edit record ±line counts (hunks
-   of one call merge into a single row) from the official meta payload's
-   shapes; reads record the probed path; bash entries record the command
-   line and working directory. No diffs by design — "what exactly changed on
-   disk" is the Workspace Changes (git) tab's job; the two tabs complement
-   each other (bash-made file mutations surface only in git). Per-file
-   lifetime counts/totals never shrink; rows are capped (evicted files stay
-   as summary-only rows); polls at 15s.
+| Feature | Entry | One-liner |
+|---|---|---|
+| **Plugin Market** | Settings → Plugins | Search GitHub ecosystem-certified plugins; one-click install/uninstall (DSH-plugin validation with auto-rollback) |
+| **MCP** | Settings → MCP | Edit the server list as YAML, hot-reloads on save; per-server live status plus a **health panel** (calls / error rate / latency) |
+| **Skills** | Settings → Skills | Browse registered skills; create/edit/delete under `~/.dsh/skills/` — writes hot-register instantly |
+| **System Prompt** | Settings → System Prompt | Edit the global persona (effective for every session); `{{model}}`/`{{cwd}}` variables; hot-reload on save |
+| **Usage** | Settings → Usage | Token totals across every session, per-model cost estimates (editable prices), 31-day trend, top sessions |
+| **Sessions** | Settings → Sessions | Every persisted session in one list (filter/search); delete (rows vanish from every sidebar live); export MD/Zip; **time machine** (fork from any turn) |
+| **Notifications** | Settings → Notifications | Turn finished / job settled / approval waiting / context nearly full → Bark / ntfy / webhook push to your phone |
+| **Mobile Access** | Settings → Mobile Access | Pair by QR on the LAN and use the full DSH UI from your phone (HMAC device cookies + exponential backoff) |
+| **File Changes** | session ⋯ menu | Two tabs: **Workspace Changes** (git baseline diff, strictly read-only) + **Operation Log** (AI read/write/bash trail with ±lines and success/failure) |
+| **Terminal** | session ⋯ menu | Multiple PTY terminals: Enter to run, Ctrl+C interrupt, streaming output |
+| **Monitor** | session ⋯ menu | Three tabs: **Overview** (turns/timing/tokens/context pressure), **Tasks** (background jobs + subagent tree), **System** (CPU/memory/load, pressure-based) |
+| **Prompt** | session ⋯ menu | Type a rough idea → the default model rewrites it into a structured prompt; one-click copy |
+| Message rail | in-session (automatic) | Slim tick bar beside the scrollbar: blue = user / green = AI messages; click to jump, hover for a preview |
+| Service stop/restart | sidebar foot | Graceful exit (sessions flush first); restart reloads in place without a duplicate tab |
 
-7. **Terminal panel** — an entry in the session header's top-right ⋯ menu
-   opening a right-docked panel with multiple PTY terminals in the session
-   workspace (new/close per terminal, line input with Enter to run, Ctrl+C
-   interrupt, streaming output). Built on the official `terminals` service;
-   requires the host composition to mount `@deepseek-ai/dsh-terminal` and a
-   backend row (`@deepseek-ai/dsh-terminal-bash`); the entry is hidden
-   otherwise.
+All tool panels dock as a REAL column right of the chat (the app frame squeezes — nothing is covered); drag the left edge to resize; switch panels in place.
 
-   Both panels dock as a REAL column on the right of the chat (not a
-   floating sheet): while open, the whole app frame is squeezed by the
-   panel width, so the chat column genuinely narrows and nothing is
-   covered. The left edge drags to resize (the frame follows live); the
-   panel's TOP bar carries the breadcrumb (session title › active panel)
-   and the close button, with a horizontal tool nav row beneath it —
-   switching between File Changes, Terminal, and Monitor in place. Esc or
-   the close button dismisses it. Monitor itself has three tabs — Overview,
-   Tasks, and **System** (host CPU via delta-sampled `os.cpus()` times,
-   dsh-process CPU via `process.resourceUsage()` deltas — per-core percentage
-   like top; load averages and uptimes. Memory is PRESSURE-based, not
-   `total − os.freemem()`: on macOS free is narrow (file cache counts as
-   used — a healthy machine painted 90% red), so reclaimable pages are
-   subtracted (macOS via `vm_stat` free+speculative+purgeable+inactive with
-   the tool's own page size — 16K on Apple Silicon where sysctl says 4K;
-   Linux via /proc/meminfo `MemAvailable`; on Windows os.freemem() already
-   reports availability — Node maps GlobalMemoryStatusEx's ullAvailPhys,
-   standby/cache included — so the pressure semantics hold as-is), with a
-   reclaimable-cache line shown for transparency. The load-average row is
-   hidden on Windows (os.loadavg() is hard-coded [0,0,0] there). The System
-   tab works without a session selected). A fourth tab, **Prompt** (magic-wand
-   icon), optimizes rough prompts: type a plain-language idea, one model call
-   through the OFFICIAL `llm` service with the Models page's default model
-   rewrites it into a clear structured prompt (goal/context/constraints kept
-   faithful to your language and intent) — one-click copy of the clean
-   prompt, Cmd/Ctrl+Enter shortcut; no session, no tools, nothing persisted.
-   The entry appears when the `llm` service and default-model selection are
-   both mounted.
+## Requirements
 
-   **Monitor** is the third panel in the same dock, split into two tabs —
-   **Overview** (the session's vital figures at a glance) — turns & steps, LLM vs tool wall time, average
-   first-token latency, decode throughput (tok/s), cache-hit rate, and
-   input/output token totals (reasoning tokens too when present). Stats
-   come from the official `sessionStats` whole-log projection
-   (`@deepseek-ai/dsh-session-stats` — live sessions via the projection
-   registry, cold ones via the projection cache), so figures match the
-   composer stats line exactly and survive paging/compaction; token totals
-   fold incrementally from the durable log (a per-session seq cursor makes
-   the 5-second auto-refresh cheap). Two more cards: **Jobs** (the official
-   `jobs` registry, agent-scoped like the session/jobs frames — live
-   sessions only, since the registry is process-local) and **Subagents**
-   (the official `subagents` registry's durable descendant tree, indented
-   by depth, each row showing mode, running state, and mini figures —
-   turns·steps plus output tokens — folded incrementally through the same
-   cursor machinery; unreadable child logs show as gray rows). The Overview tab also carries a **context-pressure bar** (the official
-   `contextPressure` projection: projected next-prompt tokens ÷ the route's
-   context window — amber at 70%, red at 85%) plus a composition legend from
-   the official `contextBreakdown` projection (system prompt / tools /
-   messages — heuristic estimates, deliberately NOT summed into the bar: the
-   official contract keeps them on a different denominator than the
-   provider-anchored ratio). The entry appears when the
-   core data sources are mounted; a missing optional service hides its card
-   only. The tab strip reuses the dock's tool-nav
-   button style.
+- A running DeepSeek Harness (DSH) web deployment [TODO: minimum DSH version]
+- Node.js ≥ 20 (ships with the DSH host) [TODO: confirmed minimum]
+- git (optional — the File Changes panel needs it; the entry auto-hides without)
+- pnpm (needed by the Plugin Market installer)
 
-8. **Usage** — a Settings section right after Models (order 11): aggregated token usage over
-   every session log (input / cache-read / cache-write / output / reasoning — exact
-   adapter-reported counts), a per-model table with request counts and estimated cost under an
-   editable USD/1M-token price table (DeepSeek reference prices built in; unpriced models show
-   "—"), a 31-day usage trend, and the top sessions by usage. Scans are incremental (a
-   per-session last-seq cache in `$DSH_HOME/dsh-usage-cache.json`).
-
-9. **Sessions** — a new Settings page. Every persisted session in one list
-   (title, project path, workspace, created time, live/archived badges) with
-   filter chips (All / Live / Archived / Ghosts), a search box
-   (title / id / path), and a destructive per-row Delete (confirmation
-   dialog, refuses live sessions — close first). Deletion first walks the
-   official teardown channel (`agents.resume()` + dispose) so every connected
-   client drops the sidebar row immediately — no page refresh needed — then
-   removes, in a crash-idempotent order: workspace accounting, the
-   projection-cache row, the durable log directory itself (jsonl backend
-   only), and best-effort the archive-set entry. Ghost rows (archived ids
-   whose log is already gone) delete as a pure metadata sweep. Deleting a
-   session destroys its full conversation log and cannot be undone. Each row
-   also exports: **Export MD** (a readable Markdown transcript folded
-   host-side — user prompts, assistant replies with collapsed reasoning,
-   tool calls paired with results, injected context as collapsed blocks) and
-   **Export Zip** (the official `GET /api/session.export` endpoint — the
-   complete durable log plus attachment artifacts; the plugin adds no route,
-   the browser downloads it directly), plus a **Time machine** action: list
-   the session's completed turns (each with a preview of its first human
-   prompt) and fork a copy from any turn through the official
-   `sessions.fork(boundary)` primitive — the child session appears in every
-   connected client's sidebar immediately. Forking needs the source session
-   live in this process (the store's contract); cold sessions get a hint to
-   open them first.
-
-10. **Mobile Access** — a new Settings page. Use the full DSH UI from your
-    phone on the LAN: an authenticated reverse proxy starts on its own port
-    (the main dsh server keeps listening on loopback only). Scan the QR →
-    enter a one-time pairing code (single-use, 10-minute lifetime, per-IP
-    exponential backoff) → receive an HttpOnly device cookie (HMAC-signed,
-    device-bound, 30-day sliding renewal). Paired devices can be revoked
-    individually; "Rotate key" disconnects every device at once
-    (loopback-only action). Off by default. Transport is plain HTTP on the
-    LAN — pair over an encrypted overlay like Tailscale when remote.
-
-    The proxy front-ends both HTTP and WebSocket traffic (dsh's event
-    channels need the upgrade), strips cross-origin headers the upstream
-    would reject, and relays the upstream 101 handshake byte-for-byte. The
-    HTML shell is served with `cache-control: no-store` and carries one
-    small polyfill: `crypto.randomUUID` (browsers expose it only in secure
-    contexts — `http://127.0.0.1` desktop qualifies, a LAN IP does not —
-    and dsh's client mints an RPC id with it on every call, so phones
-    without the shim get a dead session list).
-
-    The Mobile Access settings page also shows a "Current address" card —
-    every reachable LAN URL for this machine (live `os.networkInterfaces()`,
-    never hardcoded) with a copy button. Virtual adapter placeholders a
-    phone can never reach are filtered (VPN TUN 198.18.0.0/15, link-local
-    169.254.0.0/16, CGNAT 100.64.0.0/10), so the pairing QR and the card
-    only ever show real candidates.
-
-11. **Message rail** — a slim rail of colored ticks beside the conversation
-    scrollbar (desktop only): blue = user messages (incl. steering), green =
-    AI replies, positioned proportionally to their flow offset. Click a tick
-    to jump to that message; hover for a content-only excerpt (clock, run
-    stats, and button labels are structurally skipped); the tick nearest the
-    viewport stays highlighted while scrolling; the rail hides while the
-    session More menu is open and on touch/narrow viewports (<760px).
-    The harness's own themed scrollbar skin is left untouched.
-
-12. **Notifications** — a new Settings page. Push dsh events to your phone through
-    Bark (iOS), ntfy (cross-platform), or a generic webhook (Feishu/DingTalk/WeCom
-    custom bots and anything that accepts a JSON POST). Three event sources, all
-    official host services: agent **turn finished** (`session/event` filtered to
-    `turn/end` — the long-task-done signal), **background job settled**
-    (`jobs.onJobDone`, failures included), and **approval waiting** (the
-    `approval/request` waterfall: the bridge notifies, then passes through — the
-    outcome itself is not re-notified), and **context nearly full** (the
-    `contextPressure` projection crossing 85% — hysteresis: one notice per
-    crossing, re-notice only every +10 points, re-armed below 70%). Per-event toggles, a one-click test send,
-    and a mute window (1h / cancel). Delivery is best-effort with a 10s timeout:
-    a failing channel logs once and never blocks the event flow. Listeners live
-    on the plugin fiber (removed on unload); settings are re-read per event, so
-    saving takes effect immediately.
-
-### Mobile (phone-width) adaptation
-
-All of this plugin's own surfaces reflow below 760px: touch-sized buttons,
-horizontally scrollable wide tables (usage/price), a full-screen tool dock
-(file changes / terminal) instead of the resizable side column,
-viewport-scaled QR, the message rail hidden entirely (a pointer-precision
-affordance), and the host Settings dialog itself — a fixed 800px desktop
-modal with a 188px left nav — is re-tagged into a full-screen sheet with a
-top horizontally-scrolling nav strip (a DOM attribute patch, since the
-shell's class names are CSS-module hashed; harness source stays untouched).
-
-## Security notes
-
-- The state file `$DSH_HOME/dsh-base-plugin.json` carries the mobile-access
-  HMAC secret and is written `0o600` (pre-existing files are tightened at
-  boot). Parity with dsh's own `.credentials.yaml`.
-- Pairing: 8-char code (~40 bits), single-use, 10 minutes, per-IP
-  exponential backoff (2^n s, capped 10 min). Cookies are HttpOnly +
-  SameSite=Lax, HMAC-SHA256 signed, device-bound, 30-day sliding renewal.
-- The proxy binds `0.0.0.0` by design (LAN access); the upstream dsh server
-  must stay loopback-only. Rotate the key to instantly invalidate every
-  issued cookie.
-- HTTP fence: every method (GET included — `/git/status` has side effects,
-  `/notify` and `/export/markdown` carry credentials and transcripts) checks
-  same-origin AND a loopback/localhost Host allowlist (a DNS-rebinding page
-  presents Origin === Host, which the origin check alone cannot catch).
-  curl from the machine itself (`Host: 127.0.0.1:…`) passes unchanged.
-- Process spawning is shell-free (`spawn` with argv arrays only; install
-  specs additionally whitelist-matched because Windows runs pnpm through a
-  shell); skill
-  names are validated against the kebab-case contract before any path is
-  joined (no traversal); JSON request bodies are capped at 1 MB.
-- WebSocket upgrade sockets have error/close handlers attached before the
-  handshake gap — a phone radio reset mid-upgrade can never surface an
-  uncaught `'error'` event (which would take the whole dsh host down).
-
-## Development: split sources
-
-The browser half is PROTOCOL-CONSTRAINED to a single file (one bundle, one
-factory per package), but its content is authored split: `src/*.js` (22
-modules, each with a doc header) are concatenated in a fixed order by
-`scripts/build-client.mjs` into `client.js` (which carries a GENERATED stamp).
-Edit `src/`, then rebuild:
+## Quick Start
 
 ```bash
-pnpm build:client     # regenerate client.js (also syntax-checked)
-pnpm check:client     # verify sync (a pre-commit hook auto-rebuilds anyway)
-```
-
-## How it works
-
-- The **node half** (`index.js` entry + `lib/` feature modules: `routes`, `market`, `installer`,
-  `patch`, `git`, `skills-io`, `sessions`, `usage`, `mobile/*` (`server`, `auth`, `qr` + vendored
-  QR, `pwa`), `status`, `lifecycle`, `notify`, `export`, `env`, `state`, `pnpm`, `terminals-api`) serves
-  `/dsh-base-plugin/api/*` on the DSH web server: state, market search, install/uninstall, MCP
-  config save, skills list/detail/create/edit/delete, session inventory/delete, mobile-access
-  control (toggle/QR/devices/revoke/rotate) plus the LAN pairing proxy itself, service
-  stop/restart, git changes, and PTY terminal streaming.
-- The managed block also composes the official PTY rows (`@deepseek-ai/dsh-terminal` + `dsh-terminal-bash`) so the Terminal panel works wherever this plugin is installed.
-- Authoritative state lives in `$DSH_HOME/dsh-base-plugin.json`; the block between `# >>> dsh-base-plugin managed`
-  markers inside `~/.dsh/cordis.patch.yml` is always regenerated from it (edits outside the markers
-  are preserved byte-exact). dsh hot-watches that file, so changes take effect without a restart.
-- The **browser half** (`client.js`) registers UI through the standard slots
-  (`settings.plugins.tab`, `settings.section`) and localizes through the DSH locale service.
-
-## Install (deployment owner)
-
-```bash
-# in the dsh web profile (~/.dsh/profiles/web)
+# 1. Install into the dsh web profile
+cd ~/.dsh/profiles/web
 pnpm add /path/to/dsh-base-plugin
-# then add to ~/.dsh/profiles/web/cordis.patch.yml (NOT ~/.dsh/cordis.patch.yml —
-# the home patch applies to every profile, and dsh-base-plugin resolves only where it
-# is a dependency):
-#   - insert:
-#       - id: dsh-base-plugin
-#         name: dsh-base-plugin
+
+# 2. Add the composition row to the PROFILE-level patch (NOT
+#    ~/.dsh/cordis.patch.yml — the home patch applies to every profile,
+#    while dsh-base-plugin resolves only where it is a dependency)
+cat >> cordis.patch.yml <<'EOF'
+- insert:
+    - id: dsh-base-plugin
+      name: dsh-base-plugin
+EOF
+
+# 3. Restart dsh web — new pages appear in Settings
 ```
 
 Set `GITHUB_TOKEN` in the dsh process environment to raise the market's GitHub API rate limit.
+
+## Usage Examples
+
+**Install a market plugin**: Settings → Plugins → Plugin Market tab → search (Chinese or English) → certified rows carry a "topic verified" badge → click Install → composition rows land in the managed block and hot-load.
+
+**Configure an MCP server**: Settings → MCP → in the YAML editor:
+
+```yaml
+- transport: stdio
+  serverName: my-server
+  command: npx
+  args: [-y, @some/mcp-server]
+```
+
+Saves hot-load; the health panel starts accumulating this server's calls and error rate.
+
+**Fork a session from any turn**: Settings → Sessions → a row's "Time machine" → every completed turn listed → pick one → "Fork here" → the child session appears in every sidebar immediately.
+
+**Optimize a prompt**: session ⋯ menu → Prompt → type a rough idea (Cmd/Ctrl+Enter) → get a structured prompt → one-click copy.
+
+## Project Layout
+
+```
+dsh-base-plugin/
+├── index.js               # host-half entry: state migration, managed block, route registration, notify/proxy wiring
+├── client.js              # browser half (build artifact; single-file protocol constraint)
+├── lib/                   # host feature modules
+│   ├── routes.js          # /dsh-base-plugin/api/* table dispatcher (single-flight / same-origin / Host allowlist)
+│   ├── routes/            # per-domain route modules
+│   ├── market.js          # GitHub market search (cache / single-flight / soft matching)
+│   ├── installer.js       # pnpm install + id-collision fence + spec allowlist
+│   ├── monitor.js         # session monitor data plane (projections + token fold + subagent tree)
+│   ├── mcp-health.js      # MCP health aggregation (two-level aggregate + epoch fence)
+│   ├── file-ops.js        # operation-log fold (write/edit/read/bash)
+│   ├── export.js          # Markdown transcript fold
+│   ├── timemachine.js     # turn listing + official fork
+│   ├── notify.js          # notification bridge (Bark/ntfy/webhook + context guard)
+│   ├── prompt-optimizer.js# prompt optimizer (official llm service)
+│   ├── sessions.js        # session deletion (five-step idempotent) + export/time machine
+│   ├── git.js             # baseline/status/diff (numstat -z)
+│   ├── sysres.js          # system resource sampling (pressure-based memory)
+│   ├── mobile/            # mobile access (proxy/auth/QR/PWA)
+│   └── ...
+├── src/                   # browser-half sources (22 modules, concatenated into client.js)
+├── scripts/
+│   ├── build-client.mjs   # build chain (hooks check / ORDER assertion / byte-identical verify)
+│   ├── check-hooks.mjs    # React hooks-order static check
+│   └── verify-routes.mjs  # route-surface golden snapshot
+└── cordis.patch.yml       # this package's composition layer
+```
+
+## FAQ
+
+**Empty session list on the phone?**
+The mobile proxy ships a `crypto.randomUUID` polyfill (LAN HTTP is not a secure context); if still empty, check that the proxy port is not firewalled.
+
+**Market search rate-limited?**
+Without a token, GitHub allows 10 searches/minute. Set `GITHUB_TOKEN` in the dsh process environment and restart.
+
+**Restart opened a duplicate browser tab?**
+Fixed (the re-exec appends `--no-open`). Upgrade if you are on an older version.
+
+**File Changes says "no changes"?**
+The panel shows the diff **relative to the git baseline** (the last commit) — not a disk inventory. A fully-committed workspace correctly shows empty; click Refresh inside the panel for the latest.
+
+**Operation Log misses files changed via bash?**
+By design: the Operation Log covers the AI's write/edit tool trail; bash-made file changes surface in the Workspace Changes (git) tab — the two tabs are complements.
+
+**A removed MCP server came back?**
+The managed block is always regenerated from `$DSH_HOME/dsh-base-plugin.json`. Remove servers via the Settings page; never hand-edit the managed block of `cordis.patch.yml` (content outside the markers is yours to edit).
+
+## Security Notes
+
+- The state file is written `0o600` (it carries the HMAC secret), same standard as DSH's own credentials
+- Pairing: 8-char code (~40 bits), single-use, per-IP exponential backoff; device cookies are HMAC-SHA256 signed, HttpOnly, 30-day sliding renewal, individually revocable or rotatable all at once
+- HTTP boundary: same-origin checks on every method + a loopback Host allowlist (DNS-rebinding defense); shell-free process execution + spec allowlist; kebab-case skill-name validation (no traversal)
+- Mobile access transports plain HTTP on the LAN — pair over an encrypted overlay like Tailscale when remote
+
+## Development
+
+The browser half is protocol-constrained to a single file but authored split. After editing `src/`:
+
+```bash
+pnpm build:client     # regenerate client.js (hooks check + syntax check included)
+pnpm check:client     # verify byte-identical sync (a pre-commit hook auto-rebuilds)
+```
+
+The build chain carries three guards: a hooks-order static check, byte-identical src↔artifact comparison, and a route-surface golden snapshot (`node scripts/verify-routes.mjs`).
+
+## How It Works (brief)
+
+- The **host half** (`index.js` + `lib/`) serves `/dsh-base-plugin/api/*` on the DSH web server
+- Authoritative state lives in `$DSH_HOME/dsh-base-plugin.json`; the managed block of `~/.dsh/cordis.patch.yml` (between `# >>> dsh-base-plugin managed` markers) is always regenerated from it — dsh hot-watches that file, so changes take effect without a restart
+- The **browser half** (`client.js`) registers UI through standard slots and localizes via the DSH locale service
+- Statistics / health / operation logs fold incrementally from official services and the durable log (seq cursors + single-flight + epoch fences) — polling is near-zero cost
 
 ## License
 
