@@ -51,7 +51,7 @@
  * 用分区横幅代替模块切分。分区顺序：i18n 词典 → store/api/styles
  * 辅助 → MarketTab → McpSection → SkillsSection → plugin apply。
  */
-// GENERATED from src/* by scripts/build-client.mjs — edit src/, then rebuild. stamp:e6308c0c93d1
+// GENERATED from src/* by scripts/build-client.mjs — edit src/, then rebuild. stamp:51a0e57a72a8
 window.__ModuleLoader__.load({
   id: 'dsh-base-plugin',
   factory: function (require) {
@@ -2806,8 +2806,6 @@ window.__ModuleLoader__.load({
       var tab = tabState[0]
       var setTab = tabState[1]
 
-      if (tab === 'history') return h(EditHistoryView, { t: t, kit: kit })
-
       var tabItem = function (key, label) {
         return h('button', {
           className: 'dhb-toolsNavItem', type: 'button',
@@ -2816,12 +2814,16 @@ window.__ModuleLoader__.load({
         }, h('span', { style: { minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, label))
       }
 
+      // tab 行常驻、内容按 tab 切换——绝不能在 history 分支提前 return
+      // 整个视图（那会让 tab 行消失、用户被困在编辑记录里无法返回）。
       return h('div', { className: 'dhb-page' },
         h('div', { className: 'dhb-toolsNav', role: 'tablist', 'aria-label': t('foTabsLabel') },
           tabItem('git', t('foTabGit')),
           tabItem('history', t('foTabHistory')),
         ),
-        h(GitChangesView, { t: t, kit: kit }),
+        tab === 'history'
+          ? h(EditHistoryView, { t: t, kit: kit })
+          : h(GitChangesView, { t: t, kit: kit }),
       )
     }
 

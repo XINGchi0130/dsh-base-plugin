@@ -205,8 +205,6 @@
       var tab = tabState[0]
       var setTab = tabState[1]
 
-      if (tab === 'history') return h(EditHistoryView, { t: t, kit: kit })
-
       var tabItem = function (key, label) {
         return h('button', {
           className: 'dhb-toolsNavItem', type: 'button',
@@ -215,12 +213,16 @@
         }, h('span', { style: { minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, label))
       }
 
+      // tab 行常驻、内容按 tab 切换——绝不能在 history 分支提前 return
+      // 整个视图（那会让 tab 行消失、用户被困在编辑记录里无法返回）。
       return h('div', { className: 'dhb-page' },
         h('div', { className: 'dhb-toolsNav', role: 'tablist', 'aria-label': t('foTabsLabel') },
           tabItem('git', t('foTabGit')),
           tabItem('history', t('foTabHistory')),
         ),
-        h(GitChangesView, { t: t, kit: kit }),
+        tab === 'history'
+          ? h(EditHistoryView, { t: t, kit: kit })
+          : h(GitChangesView, { t: t, kit: kit }),
       )
     }
 
