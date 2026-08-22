@@ -54,6 +54,29 @@
       var width = widthState[0]
       var setWidth = widthState[1]
 
+      // 左缘拖拽调宽（钳制 360–760）。拖拽态的 hook 必须在任何条件
+      // return 之前声明（hooks 规则）——曾放在"snap.panel === null 早退"
+      // 之后，面板一关一开就因 hook 数变化崩掉整个工具坞。
+      var draggingState = React.useState(false)
+      var dragging = draggingState[0]
+      var setDragging = draggingState[1]
+      React.useEffect(function () {
+        if (!dragging || typeof document === 'undefined') return undefined
+        var onMove = function (ev) {
+          var w = window.innerWidth - ev.clientX
+          if (w < 360) w = 360
+          if (w > 760) w = 760
+          setWidth(w)
+        }
+        var onUp = function () { setDragging(false) }
+        document.addEventListener('mousemove', onMove)
+        document.addEventListener('mouseup', onUp)
+        return function () {
+          document.removeEventListener('mousemove', onMove)
+          document.removeEventListener('mouseup', onUp)
+        }
+      }, [dragging])
+
       React.useEffect(function () {
         if (snap.panel === null) return undefined
         var onKey = function (e) { if (e.key === 'Escape') props.controller.close() }
@@ -117,28 +140,6 @@
         },
       }
 
-      // 左缘拖拽调宽：指针 x → 停靠宽度（钳制在 360–760）。拖拽态经
-      // useState——监听器挂进 effect（卸载即摘除；此前拖拽中途关闭面板
-      // 会在 document 上残留到下一次 mouseup）。
-      var draggingState = React.useState(false)
-      var dragging = draggingState[0]
-      var setDragging = draggingState[1]
-      React.useEffect(function () {
-        if (!dragging || typeof document === 'undefined') return undefined
-        var onMove = function (ev) {
-          var w = window.innerWidth - ev.clientX
-          if (w < 360) w = 360
-          if (w > 760) w = 760
-          setWidth(w)
-        }
-        var onUp = function () { setDragging(false) }
-        document.addEventListener('mousemove', onMove)
-        document.addEventListener('mouseup', onUp)
-        return function () {
-          document.removeEventListener('mousemove', onMove)
-          document.removeEventListener('mouseup', onUp)
-        }
-      }, [dragging])
       function startResize(e) {
         if (typeof document === 'undefined') return
         e.preventDefault()
