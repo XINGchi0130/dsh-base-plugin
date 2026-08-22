@@ -15,7 +15,7 @@
  *     加载行为不受影响；--check 时校验该戳判断“改了 src 忘了构建”。
  */
 import { createHash } from 'node:crypto'
-import { readFileSync, writeFileSync } from 'node:fs'
+import { readdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { execFileSync } from 'node:child_process'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -50,6 +50,17 @@ const ORDER = [
   'apply',     // apply 组装层
 ]
 
+// 守卫：src/ 下任何未列入 ORDER 的文件会被静默丢弃（缺函数直到运行
+// 时才 ReferenceError）——构建前断言集合相等。
+const onDisk = readdirSync(join(root, 'src'))
+  .filter(f => f.endsWith('.js'))
+  .map(f => f.replace(/\.js$/, ''))
+const unlisted = onDisk.filter(f => !ORDER.includes(f))
+if (unlisted.length > 0) {
+  console.error(`✗ src/ 存在未列入 ORDER 的文件：${unlisted.join(', ')}——请更新 ORDER`)
+  process.exit(1)
+}
+
 const DOC_HEADER = /^\/\/ ══ .*?\n/
 
 const sources = ORDER.map((name) => {
@@ -75,16 +86,19 @@ const checkOnly = process.argv.includes('--check')
 
 if (checkOnly) {
   const current = readFileSync(clientPath, 'utf8')
-  const m = current.match(/^\/\/ GENERATED .*stamp:([0-9a-f]+)$/m)
-  if (m === null) {
-    console.error('✗ client.js 无生成戳——请先运行 pnpm build:client')
+  // 全文比对（不只是生成戳）：手改 client.js 曾能穿过戳检查静默漂移。
+  if (current !== built) {
+    const m = current.match(/^\/\/ GENERATED .*stamp:([0-9a-f]+)$/m)
+    if (m === null) {
+      console.error('✗ client.js 无生成戳——请先运行 pnpm build:client')
+    } else if (m[1] !== stamp) {
+      console.error(`✗ client.js 与 src/ 不同步（现有 ${m[1]}，应为 ${stamp}）——运行 pnpm build:client`)
+    } else {
+      console.error('✗ client.js 与 src/ 的拼接产物不一致（生成戳匹配但内容被手改）——运行 pnpm build:client')
+    }
     process.exit(1)
   }
-  if (m[1] !== stamp) {
-    console.error(`✗ client.js 与 src/ 不同步（现有 ${m[1]}，应为 ${stamp}）——运行 pnpm build:client`)
-    process.exit(1)
-  }
-  console.log(`✓ client.js 与 src/ 同步（stamp ${stamp}）`)
+  console.log(`✓ client.js 与 src/ 逐字节一致（stamp ${stamp}）`)
   process.exit(0)
 }
 

@@ -259,6 +259,7 @@
       ctx.effect(function () {
         return function () {
           if (disposeStyles !== undefined) disposeStyles()
+          disposeConfirm()
           disposeSvcActions()
           disposeSvcOverlay()
           disposeFooterBackdrop()

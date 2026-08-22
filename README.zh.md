@@ -134,8 +134,13 @@ DeepSeek Harness（DSH）基础插件：插件市场、MCP 服务器管理与技
   绑定设备、30 天滑动续期。
 - 代理按设计监听 `0.0.0.0`（局域网访问）；上游 DSH 服务必须保持仅监听回环。
   轮换密钥可即时作废所有已签发 Cookie。
-- 进程执行全程无 shell（`spawn` 数组参数）；技能名在任何路径拼接前先通过
+- 进程执行全程无 shell（`spawn` 数组参数；安装 spec 另做白名单字符集校验——
+  Windows 下 pnpm 经 shell 运行）；技能名在任何路径拼接前先通过
   kebab-case 契约校验（无路径穿越）；JSON 请求体上限 1 MB。
+- HTTP 边界：所有方法（含 GET——`/git/status` 有副作用、`/notify` 与
+  `/export/markdown` 含凭据与转写）做同源检查 + 回环/localhost Host 白名单
+  （DNS rebinding 页面的 Origin 与 Host 同为攻击者域名，单靠同源检查抓不住）。
+  本机 curl（`Host: 127.0.0.1:…`）不受影响。
 - WebSocket 升级 socket 的 error/close 处理器在握手空窗期之前就位——手机射频
   在升级中途重置连接，也不会以未捕获的 `'error'` 事件形式击穿整个 dsh 宿主进程。
 

@@ -224,7 +224,14 @@ shell's class names are CSS-module hashed; harness source stays untouched).
 - The proxy binds `0.0.0.0` by design (LAN access); the upstream dsh server
   must stay loopback-only. Rotate the key to instantly invalidate every
   issued cookie.
-- Process spawning is shell-free (`spawn` with argv arrays only); skill
+- HTTP fence: every method (GET included — `/git/status` has side effects,
+  `/notify` and `/export/markdown` carry credentials and transcripts) checks
+  same-origin AND a loopback/localhost Host allowlist (a DNS-rebinding page
+  presents Origin === Host, which the origin check alone cannot catch).
+  curl from the machine itself (`Host: 127.0.0.1:…`) passes unchanged.
+- Process spawning is shell-free (`spawn` with argv arrays only; install
+  specs additionally whitelist-matched because Windows runs pnpm through a
+  shell); skill
   names are validated against the kebab-case contract before any path is
   joined (no traversal); JSON request bodies are capped at 1 MB.
 - WebSocket upgrade sockets have error/close handlers attached before the

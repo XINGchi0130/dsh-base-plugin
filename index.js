@@ -82,7 +82,7 @@ function persistMobile() {
 // HTTP API permanently unregistered and the settings pages get SPA HTML.
 export const inject = ['webServer']
 
-export function apply(ctx) {
+export async function apply(ctx) {
   ctxRef = ctx
   // Migrate/seed the state file on first load: loadState falls back to the
   // legacy `dsh-hub.json`, so persisting ITS result (never an empty literal)
@@ -127,7 +127,8 @@ export function apply(ctx) {
     }
     // The persona override row (empty by default) must exist even before
     // the first user mutation. An identical regeneration writes nothing.
-    commit(state)
+    // await（apply 是 async）：writeHomePatch 的失败曾完全静默。
+    await commit(state)
   } catch (error) {
     ctx.logger.warn(`dsh-base-plugin: cannot reconcile the managed patch block: ${String(error)}`)
   }

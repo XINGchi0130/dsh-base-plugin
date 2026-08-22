@@ -51,7 +51,7 @@
  * 用分区横幅代替模块切分。分区顺序：i18n 词典 → store/api/styles
  * 辅助 → MarketTab → McpSection → SkillsSection → plugin apply。
  */
-// GENERATED from src/* by scripts/build-client.mjs — edit src/, then rebuild. stamp:59aeba5f44da
+// GENERATED from src/* by scripts/build-client.mjs — edit src/, then rebuild. stamp:8cc766725441
 window.__ModuleLoader__.load({
   id: 'dsh-base-plugin',
   factory: function (require) {
@@ -384,6 +384,8 @@ window.__ModuleLoader__.load({
       mobileLastSeen: '最近活跃',
       mobilePairedAt: '配对时间',
       mobileApply: '应用',
+      mobileEnabled: '已启用手机访问',
+      mobileDisabled: '已关闭手机访问',
       sessionsIntro: '查看并永久删除本机持久化的会话（含已归档）。删除会销毁完整对话日志，不可恢复；正在运行的会话需先关闭。',
       sessUnavailable: '此主机没有会话持久化服务。',
       noSessions: '暂无会话。',
@@ -744,6 +746,8 @@ window.__ModuleLoader__.load({
       mobileLastSeen: 'Last seen',
       mobilePairedAt: 'Paired',
       mobileApply: 'Apply',
+      mobileEnabled: 'Mobile access enabled',
+      mobileDisabled: 'Mobile access disabled',
       sessionsIntro: 'Inspect and permanently delete persisted sessions (archived included). Deletion destroys the full conversation log and cannot be undone; close a running session before deleting it.',
       sessUnavailable: 'The session persistence service is unavailable on this host.',
       noSessions: 'No sessions yet.',
@@ -1252,6 +1256,20 @@ window.__ModuleLoader__.load({
 
     function settleConfirm(result) {
       if (pendingConfirmResolve !== null) pendingConfirmResolve(result)
+    }
+
+    /** 插件停止时拆除 body 级对话框 DOM 与 document 监听（apply 清理调用）。
+     * 打开中的对话框一并按取消结算——不悬挂任何 Promise。 */
+    function disposeConfirm() {
+      settleConfirm(false)
+      if (confirmDom !== null) {
+        if (confirmDom.keyHandler !== null) {
+          document.removeEventListener('keydown', confirmDom.keyHandler)
+          confirmDom.keyHandler = null
+        }
+        if (confirmDom.root.parentNode !== null) confirmDom.root.parentNode.removeChild(confirmDom.root)
+        confirmDom = null
+      }
     }
 
     /** 注册进 shell.overlay 以维持槽位注册契约；真正的卡片是 body 层
@@ -2699,7 +2717,12 @@ window.__ModuleLoader__.load({
       var load = React.useCallback(function (sid) {
         if (sid === undefined || sid === '') return
         api('/fileops?sessionId=' + encodeURIComponent(sid))
-          .then(function (value) { setData({ status: 'ready', files: value.files ?? [] }) })
+          .then(function (value) {
+            // 新数据落地：清展开态与 diff 缓存（保留窗口外的 opId 已失效）
+            setExpanded({})
+            setDiffCache({})
+            setData({ status: 'ready', files: value.files ?? [] })
+          })
           .catch(function (error) { setData({ status: 'error', error: String(error.message || error) }) })
       }, [])
 
@@ -2771,8 +2794,10 @@ window.__ModuleLoader__.load({
                   h('span', { style: { color: '#c0392b' } }, '−' + file.totalDeleted),
                   h('span', { className: 'dhb-hint' }, file.opsCount + ' ' + t('foOpsCount')
                     + (file.opsCount > file.ops.length ? ' · ' + t('foTruncated', { n: file.opsCount - file.ops.length }) : ''))),
-                file.ops.map(function (op, oi) {
-                  var key = fi + ':' + oi
+                file.ops.map(function (op) {
+                  // 键用稳定 opId（宿主取自事件 seq）：新操作 unshift 后
+                  // 位置索引会整体错位，曾导致展开态/diff 指向错误的操作。
+                  var key = op.opId
                   var open = expanded[key] === true
                   return h('div', { key: key, style: { marginTop: 2 } },
                     h('button', {
@@ -2780,6 +2805,7 @@ window.__ModuleLoader__.load({
                       style: { display: 'flex', gap: 8, width: '100%', textAlign: 'left', border: 'none', background: 'transparent', padding: '2px 0', cursor: 'pointer', fontSize: 12 },
                       onClick: function () {
                         var next = Object.assign({}, expanded)
+                        if (next[key] !== true) fetchDiff(op) // 展开时才取——渲染期不发副作用
                         if (next[key] === true) delete next[key]; else next[key] = true
                         setExpanded(next)
                       },
@@ -2810,7 +2836,6 @@ window.__ModuleLoader__.load({
                       h('span', { className: 'dhb-hint', style: { marginLeft: 'auto', flex: 'none' } }, open ? '▾' : '▸'),
                     ),
                     open ? (function () {
-                      fetchDiff(op)
                       var d = diffCache[op.opId]
                       if (d === undefined) return h('p', { className: 'dhb-hint', style: { margin: '4px 0 0' } }, t('loading'))
                       if (d === null) return h('p', { className: 'dhb-hint', style: { margin: '4px 0 0' } }, t('foDiffEvicted'))
@@ -3259,8 +3284,10 @@ window.__ModuleLoader__.load({
         })
       }
 
-      /** 轮询一个操作直到结算；登记以便卸载时清理。 */
-      var pollStoppers = []
+      /** 轮询一个操作直到结算；登记以便卸载时清理。useRef 而非渲染局部
+       * 变量——组件函数每次渲染新建数组，卸载清理闭包只捕获首渲数组，
+       * 首渲后登记的停止器曾因此永不生效（孤儿轮询器无限 POST）。 */
+      var pollStoppersRef = React.useRef([])
       function pollLoop(key, opKey) {
         var stop = false
         var misses = 0
@@ -3283,7 +3310,7 @@ window.__ModuleLoader__.load({
         }
         tick()
         var stopper = function () { stop = true }
-        pollStoppers.push(stopper)
+        pollStoppersRef.current.push(stopper)
         return stopper
       }
 
@@ -3291,8 +3318,8 @@ window.__ModuleLoader__.load({
       // 已卸载组件发 POST）。
       React.useEffect(function () {
         return function () {
-          for (var i = 0; i < pollStoppers.length; i += 1) pollStoppers[i]()
-          pollStoppers.length = 0
+          for (var i = 0; i < pollStoppersRef.current.length; i += 1) pollStoppersRef.current[i]()
+          pollStoppersRef.current.length = 0
         }
       }, [])
 
@@ -4989,6 +5016,7 @@ window.__ModuleLoader__.load({
 
       /** 从当前滚动容器解绑（幂等）。 */
       function detach() {
+        if (scrollport !== null) scrollport.removeEventListener('scroll', scheduleSyncView)
         if (contentObserver !== null) { contentObserver.disconnect(); contentObserver = null }
         if (resizeObserver !== null) { resizeObserver.disconnect(); resizeObserver = null }
         if (rail !== null && rail.parentNode !== null) rail.parentNode.removeChild(rail)
@@ -5324,6 +5352,7 @@ window.__ModuleLoader__.load({
       ctx.effect(function () {
         return function () {
           if (disposeStyles !== undefined) disposeStyles()
+          disposeConfirm()
           disposeSvcActions()
           disposeSvcOverlay()
           disposeFooterBackdrop()

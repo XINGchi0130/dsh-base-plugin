@@ -94,7 +94,12 @@
       var load = React.useCallback(function (sid) {
         if (sid === undefined || sid === '') return
         api('/fileops?sessionId=' + encodeURIComponent(sid))
-          .then(function (value) { setData({ status: 'ready', files: value.files ?? [] }) })
+          .then(function (value) {
+            // 新数据落地：清展开态与 diff 缓存（保留窗口外的 opId 已失效）
+            setExpanded({})
+            setDiffCache({})
+            setData({ status: 'ready', files: value.files ?? [] })
+          })
           .catch(function (error) { setData({ status: 'error', error: String(error.message || error) }) })
       }, [])
 
@@ -166,8 +171,10 @@
                   h('span', { style: { color: '#c0392b' } }, '−' + file.totalDeleted),
                   h('span', { className: 'dhb-hint' }, file.opsCount + ' ' + t('foOpsCount')
                     + (file.opsCount > file.ops.length ? ' · ' + t('foTruncated', { n: file.opsCount - file.ops.length }) : ''))),
-                file.ops.map(function (op, oi) {
-                  var key = fi + ':' + oi
+                file.ops.map(function (op) {
+                  // 键用稳定 opId（宿主取自事件 seq）：新操作 unshift 后
+                  // 位置索引会整体错位，曾导致展开态/diff 指向错误的操作。
+                  var key = op.opId
                   var open = expanded[key] === true
                   return h('div', { key: key, style: { marginTop: 2 } },
                     h('button', {
@@ -175,6 +182,7 @@
                       style: { display: 'flex', gap: 8, width: '100%', textAlign: 'left', border: 'none', background: 'transparent', padding: '2px 0', cursor: 'pointer', fontSize: 12 },
                       onClick: function () {
                         var next = Object.assign({}, expanded)
+                        if (next[key] !== true) fetchDiff(op) // 展开时才取——渲染期不发副作用
                         if (next[key] === true) delete next[key]; else next[key] = true
                         setExpanded(next)
                       },
@@ -205,7 +213,6 @@
                       h('span', { className: 'dhb-hint', style: { marginLeft: 'auto', flex: 'none' } }, open ? '▾' : '▸'),
                     ),
                     open ? (function () {
-                      fetchDiff(op)
                       var d = diffCache[op.opId]
                       if (d === undefined) return h('p', { className: 'dhb-hint', style: { margin: '4px 0 0' } }, t('loading'))
                       if (d === null) return h('p', { className: 'dhb-hint', style: { margin: '4px 0 0' } }, t('foDiffEvicted'))

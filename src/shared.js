@@ -107,6 +107,20 @@
       if (pendingConfirmResolve !== null) pendingConfirmResolve(result)
     }
 
+    /** 插件停止时拆除 body 级对话框 DOM 与 document 监听（apply 清理调用）。
+     * 打开中的对话框一并按取消结算——不悬挂任何 Promise。 */
+    function disposeConfirm() {
+      settleConfirm(false)
+      if (confirmDom !== null) {
+        if (confirmDom.keyHandler !== null) {
+          document.removeEventListener('keydown', confirmDom.keyHandler)
+          confirmDom.keyHandler = null
+        }
+        if (confirmDom.root.parentNode !== null) confirmDom.root.parentNode.removeChild(confirmDom.root)
+        confirmDom = null
+      }
+    }
+
     /** 注册进 shell.overlay 以维持槽位注册契约；真正的卡片是 body 层
      * 的直接 DOM。 */
     function ConfirmDialog() {

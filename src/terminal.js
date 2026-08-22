@@ -123,8 +123,10 @@
         })
       }
 
-      /** 轮询一个操作直到结算；登记以便卸载时清理。 */
-      var pollStoppers = []
+      /** 轮询一个操作直到结算；登记以便卸载时清理。useRef 而非渲染局部
+       * 变量——组件函数每次渲染新建数组，卸载清理闭包只捕获首渲数组，
+       * 首渲后登记的停止器曾因此永不生效（孤儿轮询器无限 POST）。 */
+      var pollStoppersRef = React.useRef([])
       function pollLoop(key, opKey) {
         var stop = false
         var misses = 0
@@ -147,7 +149,7 @@
         }
         tick()
         var stopper = function () { stop = true }
-        pollStoppers.push(stopper)
+        pollStoppersRef.current.push(stopper)
         return stopper
       }
 
@@ -155,8 +157,8 @@
       // 已卸载组件发 POST）。
       React.useEffect(function () {
         return function () {
-          for (var i = 0; i < pollStoppers.length; i += 1) pollStoppers[i]()
-          pollStoppers.length = 0
+          for (var i = 0; i < pollStoppersRef.current.length; i += 1) pollStoppersRef.current[i]()
+          pollStoppersRef.current.length = 0
         }
       }, [])
 

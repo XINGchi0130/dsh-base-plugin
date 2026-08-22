@@ -200,6 +200,7 @@
 
       /** 从当前滚动容器解绑（幂等）。 */
       function detach() {
+        if (scrollport !== null) scrollport.removeEventListener('scroll', scheduleSyncView)
         if (contentObserver !== null) { contentObserver.disconnect(); contentObserver = null }
         if (resizeObserver !== null) { resizeObserver.disconnect(); resizeObserver = null }
         if (rail !== null && rail.parentNode !== null) rail.parentNode.removeChild(rail)

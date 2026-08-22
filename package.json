@@ -20,7 +20,8 @@
     "README.md",
     "README.zh.md",
     "src/**/*.js",
-    "scripts/build-client.mjs"
+    "scripts/build-client.mjs",
+    "scripts/routes.snapshot.json"
   ],
   "keywords": [
     "dsh",
