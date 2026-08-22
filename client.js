@@ -51,7 +51,7 @@
  * 用分区横幅代替模块切分。分区顺序：i18n 词典 → store/api/styles
  * 辅助 → MarketTab → McpSection → SkillsSection → plugin apply。
  */
-// GENERATED from src/* by scripts/build-client.mjs — edit src/, then rebuild. stamp:837680087f63
+// GENERATED from src/* by scripts/build-client.mjs — edit src/, then rebuild. stamp:7c2a3605c9f3
 window.__ModuleLoader__.load({
   id: 'dsh-base-plugin',
   factory: function (require) {
@@ -263,6 +263,7 @@ window.__ModuleLoader__.load({
       foEmpty: '本会话暂无操作记录——AI 读写文件或执行命令后，这里会按目标分组记录每次操作。',
       foOpsCount: '次操作',
       foTruncated: '仅显示最近 {n} 条',
+      foMoreGroups: '加载更多（还有 {n} 个目标）',
       foDiffEvicted: '该操作的 diff 已超出保留窗口（仅最近 200 条完整保留）。',
       foNoSession: '未选择会话。',
       gitNoChanges: '工作区没有文件变更。',
@@ -621,6 +622,7 @@ window.__ModuleLoader__.load({
       foEmpty: 'No operations in this session yet — once the AI reads, writes, or runs commands, each operation is recorded here grouped by target.',
       foOpsCount: 'operations',
       foTruncated: 'showing the newest {n}',
+      foMoreGroups: 'Load more ({n} more targets)',
       foDiffEvicted: "This op's diff is outside the retention window (only the newest 200 keep full diffs).",
       foNoSession: 'No session selected.',
       gitNoChanges: 'No file changes in the workspace.',
@@ -2678,6 +2680,12 @@ window.__ModuleLoader__.load({
       var data = dataState[0]
       var setData = dataState[1]
 
+      // 文件组懒渲染：默认只挂载前 15 组（20000 条实测 1500 行 DOM 一次
+      // 渲染才是真瓶颈——网络载荷上一轮已摘要化封顶）；点击加载更多。
+      var groupLimitState = React.useState(15)
+      var groupLimit = groupLimitState[0]
+      var setGroupLimit = groupLimitState[1]
+
       // 展开的操作：`<fileIdx>:<opIdx>` → true；diff 缓存 opId → diff|null
       var expandedState = React.useState({})
       var expanded = expandedState[0]
@@ -2753,7 +2761,7 @@ window.__ModuleLoader__.load({
         data.status !== 'ready' ? h('p', { className: 'dhb-desc' }, t('loading'))
         : data.files.length === 0 ? h('p', { className: 'dhb-desc' }, t('foEmpty'))
         : h('div', { className: 'dhb-list' },
-            data.files.map(function (file, fi) {
+            data.files.slice(0, groupLimit).map(function (file, fi) {
               return h('div', { className: 'dhb-card', key: file.path },
                 h('div', { className: 'dhb-cardTitle', title: file.path }, file.path),
                 h('div', { className: 'dhb-cardMeta' },
@@ -2802,6 +2810,14 @@ window.__ModuleLoader__.load({
                 }),
               )
             }),
+            data.files.length > groupLimit
+              ? h('div', { style: { textAlign: 'center', padding: 6 } },
+                  h('button', {
+                    className: 'dhb-btn', type: 'button',
+                    onClick: function () { setGroupLimit(groupLimit + 30) },
+                  }, t('foMoreGroups', { n: data.files.length - groupLimit })),
+                )
+              : null,
           ),
       )
     }

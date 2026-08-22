@@ -77,6 +77,12 @@
       var data = dataState[0]
       var setData = dataState[1]
 
+      // 文件组懒渲染：默认只挂载前 15 组（20000 条实测 1500 行 DOM 一次
+      // 渲染才是真瓶颈——网络载荷上一轮已摘要化封顶）；点击加载更多。
+      var groupLimitState = React.useState(15)
+      var groupLimit = groupLimitState[0]
+      var setGroupLimit = groupLimitState[1]
+
       // 展开的操作：`<fileIdx>:<opIdx>` → true；diff 缓存 opId → diff|null
       var expandedState = React.useState({})
       var expanded = expandedState[0]
@@ -152,7 +158,7 @@
         data.status !== 'ready' ? h('p', { className: 'dhb-desc' }, t('loading'))
         : data.files.length === 0 ? h('p', { className: 'dhb-desc' }, t('foEmpty'))
         : h('div', { className: 'dhb-list' },
-            data.files.map(function (file, fi) {
+            data.files.slice(0, groupLimit).map(function (file, fi) {
               return h('div', { className: 'dhb-card', key: file.path },
                 h('div', { className: 'dhb-cardTitle', title: file.path }, file.path),
                 h('div', { className: 'dhb-cardMeta' },
@@ -201,6 +207,14 @@
                 }),
               )
             }),
+            data.files.length > groupLimit
+              ? h('div', { style: { textAlign: 'center', padding: 6 } },
+                  h('button', {
+                    className: 'dhb-btn', type: 'button',
+                    onClick: function () { setGroupLimit(groupLimit + 30) },
+                  }, t('foMoreGroups', { n: data.files.length - groupLimit })),
+                )
+              : null,
           ),
       )
     }
