@@ -51,7 +51,7 @@
  * 用分区横幅代替模块切分。分区顺序：i18n 词典 → store/api/styles
  * 辅助 → MarketTab → McpSection → SkillsSection → plugin apply。
  */
-// GENERATED from src/* by scripts/build-client.mjs — edit src/, then rebuild. stamp:eef2563a607d
+// GENERATED from src/* by scripts/build-client.mjs — edit src/, then rebuild. stamp:275a6aaa974b
 window.__ModuleLoader__.load({
   id: 'dsh-base-plugin',
   factory: function (require) {
@@ -208,7 +208,9 @@ window.__ModuleLoader__.load({
       monSysProcMem: '进程内存',
       monSysUptime: '运行时长',
       monSysOsUptime: '系统',
-      monSysNote: 'CPU 为差分采样（首答为空，约 4 秒后有值）；进程 CPU 为占单核百分比（100% = 一核跑满，与 top 一致）。',
+      monSysCached: '可回收缓存',
+      monSysPressureNote: '随时可让给应用，不计入压力',
+      monSysNote: 'CPU 为差分采样（首答为空，约 4 秒后有值），进程 CPU 为占单核百分比（与 top 一致）；内存为压力口径（已扣除可回收缓存——macOS 下文件缓存不计为占用）。',
       monTasksUnavailable: '任务与子代理服务均未挂载。',
       monJobsTitle: '任务',
       monJobsRunning: '运行中 {n}',
@@ -555,7 +557,9 @@ window.__ModuleLoader__.load({
       monSysProcMem: 'process memory',
       monSysUptime: 'Uptime',
       monSysOsUptime: 'OS',
-      monSysNote: 'CPU is delta-sampled (empty on first answer, ~4s later it has a value); process CPU is per-core percentage (100% = one full core, like top).',
+      monSysCached: 'Reclaimable cache',
+      monSysPressureNote: 'yielded to apps on demand, not counted as pressure',
+      monSysNote: 'CPU is delta-sampled (empty on first answer, value ~4s later), process CPU is per-core percentage (like top); memory is pressure-based (reclaimable cache excluded — file cache on macOS is not counted as usage).',
       monTasksUnavailable: 'Neither the jobs nor the subagents service is mounted.',
       monJobsTitle: 'Jobs',
       monJobsRunning: '{n} running',
@@ -3425,6 +3429,8 @@ window.__ModuleLoader__.load({
       if (data.status === 'error') return h(Banner, { kind: 'err', text: data.error })
       var v = data.value
 
+      // 压力口径（宿主已扣除可回收缓存页）；缺新字段（旧宿主半）时退回
+      // used/total 原比例——显示语义不变差。
       var memPct = v.totalMem > 0 ? Math.round(v.usedMem / v.totalMem * 100) : null
       var bar = function (pct, danger) {
         return h('div', { style: { width: '100%', height: 8, borderRadius: 4, background: 'var(--dsw-alias-border-l2,#e3e6ec)', overflow: 'hidden', margin: '4px 0' } },
@@ -3444,6 +3450,11 @@ window.__ModuleLoader__.load({
           h('span', { style: { fontSize: 15 } },
             monBytes(v.usedMem) + ' / ' + monBytes(v.totalMem) + (memPct !== null ? ' · ' + memPct + '%' : '')),
           bar(memPct ?? 0, (memPct ?? 0) >= 90),
+          // 可回收缓存行：解释"为什么压力 57% 而物理几乎满"——
+          // macOS 的文件缓存随时让给应用，不是真实占用。
+          typeof v.reclaimableMem === 'number' && v.reclaimableMem > 0
+            ? h('span', { className: 'dhb-hint' }, t('monSysCached') + ' ' + monBytes(v.reclaimableMem) + ' · ' + t('monSysPressureNote'))
+            : null,
           // 进程行拆两行小字：RSS 一行、heap 一行——挤压在一行时
           // "531M · heap 119M / 279M" 在窄面板会折行错位。
           h('span', { className: 'dhb-hint' }, 'dsh ' + t('monSysProcMem') + ' ' + monBytes(v.rss)),

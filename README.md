@@ -68,8 +68,13 @@ phone-width screens (see Mobile below).
    the close button dismisses it. Monitor itself has three tabs — Overview,
    Tasks, and **System** (host CPU via delta-sampled `os.cpus()` times,
    dsh-process CPU via `process.resourceUsage()` deltas — per-core percentage
-   like top; system + process memory, load averages, and uptimes. The System
-   tab works without a session selected).
+   like top; load averages and uptimes. Memory is PRESSURE-based, not
+   `total − os.freemem()`: on macOS free is narrow (file cache counts as
+   used — a healthy machine painted 90% red), so reclaimable pages are
+   subtracted (macOS via `vm_stat` free+speculative+purgeable+inactive with
+   the tool's own page size — 16K on Apple Silicon where sysctl says 4K;
+   Linux via /proc/meminfo `MemAvailable`), with a reclaimable-cache line
+   shown for transparency. The System tab works without a session selected).
 
    **Monitor** is the third panel in the same dock, split into two tabs —
    **Overview** (the session's vital figures at a glance) — turns & steps, LLM vs tool wall time, average

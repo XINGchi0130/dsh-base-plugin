@@ -1,6 +1,6 @@
 {
   "name": "dsh-base-plugin",
-  "version": "0.8.5",
+  "version": "0.8.6",
   "description": "DSH Hub — base plugin: Plugin Market (one-click GitHub installs), MCP server management, and skill browsing in Settings; UI follows the DSH language setting (中文/English)",
   "type": "module",
   "license": "MIT",

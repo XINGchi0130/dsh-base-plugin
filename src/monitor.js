@@ -231,6 +231,8 @@
       if (data.status === 'error') return h(Banner, { kind: 'err', text: data.error })
       var v = data.value
 
+      // 压力口径（宿主已扣除可回收缓存页）；缺新字段（旧宿主半）时退回
+      // used/total 原比例——显示语义不变差。
       var memPct = v.totalMem > 0 ? Math.round(v.usedMem / v.totalMem * 100) : null
       var bar = function (pct, danger) {
         return h('div', { style: { width: '100%', height: 8, borderRadius: 4, background: 'var(--dsw-alias-border-l2,#e3e6ec)', overflow: 'hidden', margin: '4px 0' } },
@@ -250,6 +252,11 @@
           h('span', { style: { fontSize: 15 } },
             monBytes(v.usedMem) + ' / ' + monBytes(v.totalMem) + (memPct !== null ? ' · ' + memPct + '%' : '')),
           bar(memPct ?? 0, (memPct ?? 0) >= 90),
+          // 可回收缓存行：解释"为什么压力 57% 而物理几乎满"——
+          // macOS 的文件缓存随时让给应用，不是真实占用。
+          typeof v.reclaimableMem === 'number' && v.reclaimableMem > 0
+            ? h('span', { className: 'dhb-hint' }, t('monSysCached') + ' ' + monBytes(v.reclaimableMem) + ' · ' + t('monSysPressureNote'))
+            : null,
           // 进程行拆两行小字：RSS 一行、heap 一行——挤压在一行时
           // "531M · heap 119M / 279M" 在窄面板会折行错位。
           h('span', { className: 'dhb-hint' }, 'dsh ' + t('monSysProcMem') + ' ' + monBytes(v.rss)),
