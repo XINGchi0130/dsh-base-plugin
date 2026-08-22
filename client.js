@@ -51,7 +51,7 @@
  * 用分区横幅代替模块切分。分区顺序：i18n 词典 → store/api/styles
  * 辅助 → MarketTab → McpSection → SkillsSection → plugin apply。
  */
-// GENERATED from src/* by scripts/build-client.mjs — edit src/, then rebuild. stamp:03bd77510dce
+// GENERATED from src/* by scripts/build-client.mjs — edit src/, then rebuild. stamp:17e824382053
 window.__ModuleLoader__.load({
   id: 'dsh-base-plugin',
   factory: function (require) {
@@ -199,6 +199,16 @@ window.__ModuleLoader__.load({
       monPanelTitle: '监控标签页',
       monTabOverview: '概览',
       monTabTasks: '任务',
+      monTabSystem: '系统',
+      monSysCpu: 'CPU',
+      monSysCpuOf: '({n} 核)',
+      monSysProcCpu: 'dsh 进程',
+      monSysLoad: '负载(1/5/15分)',
+      monSysMem: '内存',
+      monSysProcMem: '进程内存',
+      monSysUptime: '运行时长',
+      monSysOsUptime: '系统',
+      monSysNote: 'CPU 为差分采样（首答为空，约 4 秒后有值）；进程 CPU 为占单核百分比（100% = 一核跑满，与 top 一致）。',
       monTasksUnavailable: '任务与子代理服务均未挂载。',
       monJobsTitle: '任务',
       monJobsRunning: '运行中 {n}',
@@ -536,6 +546,16 @@ window.__ModuleLoader__.load({
       monPanelTitle: 'Monitor tabs',
       monTabOverview: 'Overview',
       monTabTasks: 'Tasks',
+      monTabSystem: 'System',
+      monSysCpu: 'CPU',
+      monSysCpuOf: '({n} cores)',
+      monSysProcCpu: 'dsh process',
+      monSysLoad: 'load (1/5/15m)',
+      monSysMem: 'Memory',
+      monSysProcMem: 'process memory',
+      monSysUptime: 'Uptime',
+      monSysOsUptime: 'OS',
+      monSysNote: 'CPU is delta-sampled (empty on first answer, ~4s later it has a value); process CPU is per-core percentage (100% = one full core, like top).',
       monTasksUnavailable: 'Neither the jobs nor the subagents service is mounted.',
       monJobsTitle: 'Jobs',
       monJobsRunning: '{n} running',
@@ -3364,8 +3384,74 @@ window.__ModuleLoader__.load({
       return h('div', { className: 'dhb-list' }, jobsCard, subCard)
     }
 
+    /** 字节 → "8.4G" / "512M"。 */
+    function monBytes(n) {
+      if (typeof n !== 'number' || !Number.isFinite(n)) return '—'
+      return monTokens(n) // 与 token 同一套 K/M 缩放（1000 进制近似展示足够）
+    }
+
+    /** 系统标签页：CPU（整机/本进程）、内存（系统/进程）、负载、运行时长。
+     * 数据独立于会话——无会话上下文也可查看。CPU 首答 null（差分采样
+     * 需两帧），5s 轮询下第二帧起有值。 */
+    function MonSystemTab(props) {
+      var t = props.t
+      var dataState = React.useState({ status: 'idle', value: null })
+      var data = dataState[0]
+      var setData = dataState[1]
+
+      React.useEffect(function () {
+        var load = function () {
+          api('/sysres').then(function (value) {
+            setData({ status: 'ready', value: value })
+          }).catch(function (error) {
+            setData({ status: 'error', error: String(error.message || error) })
+          })
+        }
+        load()
+        var timer = setInterval(load, 5000)
+        return function () { clearInterval(timer) }
+      }, [])
+
+      if (data.status === 'loading' || data.status === 'idle') {
+        return h('p', { className: 'dhb-desc' }, t('loading'))
+      }
+      if (data.status === 'error') return h(Banner, { kind: 'err', text: data.error })
+      var v = data.value
+
+      var memPct = v.totalMem > 0 ? Math.round(v.usedMem / v.totalMem * 100) : null
+      var bar = function (pct, danger) {
+        return h('div', { style: { width: '100%', height: 8, borderRadius: 4, background: 'var(--dsw-alias-border-l2,#e3e6ec)', overflow: 'hidden', margin: '4px 0' } },
+          h('div', { style: { width: Math.min(100, pct) + '%', height: '100%', background: danger ? '#c0392b' : '#2f6fed', transition: 'width .3s' } }))
+      }
+
+      return h('div', { className: 'dhb-list' },
+        h(MonCard, { title: t('monSysCpu') },
+          h('span', { style: { fontSize: 15 } },
+            (v.cpuPct !== null ? v.cpuPct + '%' : '—') + ' ' + t('monSysCpuOf', { n: v.cpus })),
+          bar(v.cpuPct ?? 0, (v.cpuPct ?? 0) >= 85),
+          h('span', { className: 'dhb-hint' },
+            t('monSysProcCpu') + ' ' + (v.procCpuPct !== null ? v.procCpuPct + '%' : '—')
+            + ' · ' + t('monSysLoad') + ' ' + v.loadavg.join(' / ')),
+        ),
+        h(MonCard, { title: t('monSysMem') },
+          h('span', { style: { fontSize: 15 } },
+            monBytes(v.usedMem) + ' / ' + monBytes(v.totalMem) + (memPct !== null ? ' · ' + memPct + '%' : '')),
+          bar(memPct ?? 0, (memPct ?? 0) >= 90),
+          h('span', { className: 'dhb-hint' },
+            'dsh ' + t('monSysProcMem') + ' ' + monBytes(v.rss)
+            + ' · heap ' + monBytes(v.heapUsed) + ' / ' + monBytes(v.heapTotal)),
+        ),
+        h(MonCard, { title: t('monSysUptime') },
+          h('span', { className: 'dhb-hint' },
+            t('monSysOsUptime') + ' ' + monDuration(v.osUptimeSec * 1000)
+            + ' · dsh ' + monDuration(v.procUptimeSec * 1000)),
+        ),
+        h('p', { className: 'dhb-hint' }, t('monSysNote')),
+      )
+    }
+
     /**
-     * 监控面板：两个标签页——「概览」（整日志统计 + token）与「任务」
+     * 监控面板：标签页——「概览」（整日志统计 + token）、「任务」与「系统」
      * （后台作业 + 子代理树）。经宿主 /monitor 单请求轮询（5s 自动刷新，
      * token 折叠走宿主增量游标）；会话切换（sessionId 变化）自动重载；
      * 切换会话不保留 tab 选择之外的任何状态。
@@ -3402,7 +3488,8 @@ window.__ModuleLoader__.load({
         return function () { clearInterval(timer) }
       }, [sessionId, load])
 
-      if (sessionId === undefined || sessionId === '') {
+      var noSession = sessionId === undefined || sessionId === ''
+      if (noSession && tab !== 'system') {
         return h('div', { className: 'dhb-page' }, h('p', { className: 'dhb-desc' }, t('monNoSession')))
       }
 
@@ -3418,7 +3505,7 @@ window.__ModuleLoader__.load({
       }
 
       return h('div', { className: 'dhb-page' },
-        h('div', { className: 'dhb-row', style: { justifyContent: 'space-between' } },
+        noSession ? null : h('div', { className: 'dhb-row', style: { justifyContent: 'space-between' } },
           h('span', { className: 'dhb-hint' },
             p !== null ? (p.live === true ? t('monLive') : t('monCold')) : ''),
           h('button', { className: 'dhb-btn', type: 'button', onClick: function () { load(sessionId) } }, t('refresh')),
@@ -3426,13 +3513,16 @@ window.__ModuleLoader__.load({
         h('div', { className: 'dhb-toolsNav', role: 'tablist', 'aria-label': t('monPanelTitle') },
           tabItem('overview', t('monTabOverview')),
           tabItem('tasks', t('monTabTasks')),
+          tabItem('system', t('monTabSystem')),
         ),
-        data.status === 'loading' ? h('p', { className: 'dhb-desc' }, t('loading'))
-        : data.status === 'error' ? h(Banner, { kind: 'err', text: data.error })
-        : tab === 'tasks'
-          ? h(MonTasksTab, { t: t, payload: p })
-          : h(MonOverviewTab, { t: t, payload: p }),
-        h('p', { className: 'dhb-hint' }, t('monIntro')),
+        tab === 'system'
+          ? h(MonSystemTab, { t: t })
+          : data.status === 'loading' ? h('p', { className: 'dhb-desc' }, t('loading'))
+          : data.status === 'error' ? h(Banner, { kind: 'err', text: data.error })
+          : tab === 'tasks'
+            ? h(MonTasksTab, { t: t, payload: p })
+            : h(MonOverviewTab, { t: t, payload: p }),
+        tab === 'system' ? null : h('p', { className: 'dhb-hint' }, t('monIntro')),
       )
     }
 

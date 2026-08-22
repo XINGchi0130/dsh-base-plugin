@@ -190,8 +190,74 @@
       return h('div', { className: 'dhb-list' }, jobsCard, subCard)
     }
 
+    /** 字节 → "8.4G" / "512M"。 */
+    function monBytes(n) {
+      if (typeof n !== 'number' || !Number.isFinite(n)) return '—'
+      return monTokens(n) // 与 token 同一套 K/M 缩放（1000 进制近似展示足够）
+    }
+
+    /** 系统标签页：CPU（整机/本进程）、内存（系统/进程）、负载、运行时长。
+     * 数据独立于会话——无会话上下文也可查看。CPU 首答 null（差分采样
+     * 需两帧），5s 轮询下第二帧起有值。 */
+    function MonSystemTab(props) {
+      var t = props.t
+      var dataState = React.useState({ status: 'idle', value: null })
+      var data = dataState[0]
+      var setData = dataState[1]
+
+      React.useEffect(function () {
+        var load = function () {
+          api('/sysres').then(function (value) {
+            setData({ status: 'ready', value: value })
+          }).catch(function (error) {
+            setData({ status: 'error', error: String(error.message || error) })
+          })
+        }
+        load()
+        var timer = setInterval(load, 5000)
+        return function () { clearInterval(timer) }
+      }, [])
+
+      if (data.status === 'loading' || data.status === 'idle') {
+        return h('p', { className: 'dhb-desc' }, t('loading'))
+      }
+      if (data.status === 'error') return h(Banner, { kind: 'err', text: data.error })
+      var v = data.value
+
+      var memPct = v.totalMem > 0 ? Math.round(v.usedMem / v.totalMem * 100) : null
+      var bar = function (pct, danger) {
+        return h('div', { style: { width: '100%', height: 8, borderRadius: 4, background: 'var(--dsw-alias-border-l2,#e3e6ec)', overflow: 'hidden', margin: '4px 0' } },
+          h('div', { style: { width: Math.min(100, pct) + '%', height: '100%', background: danger ? '#c0392b' : '#2f6fed', transition: 'width .3s' } }))
+      }
+
+      return h('div', { className: 'dhb-list' },
+        h(MonCard, { title: t('monSysCpu') },
+          h('span', { style: { fontSize: 15 } },
+            (v.cpuPct !== null ? v.cpuPct + '%' : '—') + ' ' + t('monSysCpuOf', { n: v.cpus })),
+          bar(v.cpuPct ?? 0, (v.cpuPct ?? 0) >= 85),
+          h('span', { className: 'dhb-hint' },
+            t('monSysProcCpu') + ' ' + (v.procCpuPct !== null ? v.procCpuPct + '%' : '—')
+            + ' · ' + t('monSysLoad') + ' ' + v.loadavg.join(' / ')),
+        ),
+        h(MonCard, { title: t('monSysMem') },
+          h('span', { style: { fontSize: 15 } },
+            monBytes(v.usedMem) + ' / ' + monBytes(v.totalMem) + (memPct !== null ? ' · ' + memPct + '%' : '')),
+          bar(memPct ?? 0, (memPct ?? 0) >= 90),
+          h('span', { className: 'dhb-hint' },
+            'dsh ' + t('monSysProcMem') + ' ' + monBytes(v.rss)
+            + ' · heap ' + monBytes(v.heapUsed) + ' / ' + monBytes(v.heapTotal)),
+        ),
+        h(MonCard, { title: t('monSysUptime') },
+          h('span', { className: 'dhb-hint' },
+            t('monSysOsUptime') + ' ' + monDuration(v.osUptimeSec * 1000)
+            + ' · dsh ' + monDuration(v.procUptimeSec * 1000)),
+        ),
+        h('p', { className: 'dhb-hint' }, t('monSysNote')),
+      )
+    }
+
     /**
-     * 监控面板：两个标签页——「概览」（整日志统计 + token）与「任务」
+     * 监控面板：标签页——「概览」（整日志统计 + token）、「任务」与「系统」
      * （后台作业 + 子代理树）。经宿主 /monitor 单请求轮询（5s 自动刷新，
      * token 折叠走宿主增量游标）；会话切换（sessionId 变化）自动重载；
      * 切换会话不保留 tab 选择之外的任何状态。
@@ -228,7 +294,8 @@
         return function () { clearInterval(timer) }
       }, [sessionId, load])
 
-      if (sessionId === undefined || sessionId === '') {
+      var noSession = sessionId === undefined || sessionId === ''
+      if (noSession && tab !== 'system') {
         return h('div', { className: 'dhb-page' }, h('p', { className: 'dhb-desc' }, t('monNoSession')))
       }
 
@@ -244,7 +311,7 @@
       }
 
       return h('div', { className: 'dhb-page' },
-        h('div', { className: 'dhb-row', style: { justifyContent: 'space-between' } },
+        noSession ? null : h('div', { className: 'dhb-row', style: { justifyContent: 'space-between' } },
           h('span', { className: 'dhb-hint' },
             p !== null ? (p.live === true ? t('monLive') : t('monCold')) : ''),
           h('button', { className: 'dhb-btn', type: 'button', onClick: function () { load(sessionId) } }, t('refresh')),
@@ -252,12 +319,15 @@
         h('div', { className: 'dhb-toolsNav', role: 'tablist', 'aria-label': t('monPanelTitle') },
           tabItem('overview', t('monTabOverview')),
           tabItem('tasks', t('monTabTasks')),
+          tabItem('system', t('monTabSystem')),
         ),
-        data.status === 'loading' ? h('p', { className: 'dhb-desc' }, t('loading'))
-        : data.status === 'error' ? h(Banner, { kind: 'err', text: data.error })
-        : tab === 'tasks'
-          ? h(MonTasksTab, { t: t, payload: p })
-          : h(MonOverviewTab, { t: t, payload: p }),
-        h('p', { className: 'dhb-hint' }, t('monIntro')),
+        tab === 'system'
+          ? h(MonSystemTab, { t: t })
+          : data.status === 'loading' ? h('p', { className: 'dhb-desc' }, t('loading'))
+          : data.status === 'error' ? h(Banner, { kind: 'err', text: data.error })
+          : tab === 'tasks'
+            ? h(MonTasksTab, { t: t, payload: p })
+            : h(MonOverviewTab, { t: t, payload: p }),
+        tab === 'system' ? null : h('p', { className: 'dhb-hint' }, t('monIntro')),
       )
     }

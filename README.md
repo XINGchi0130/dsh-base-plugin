@@ -63,7 +63,11 @@ phone-width screens (see Mobile below).
    panel's TOP bar carries the breadcrumb (session title › active panel)
    and the close button, with a horizontal tool nav row beneath it —
    switching between File Changes, Terminal, and Monitor in place. Esc or
-   the close button dismisses it.
+   the close button dismisses it. Monitor itself has three tabs — Overview,
+   Tasks, and **System** (host CPU via delta-sampled `os.cpus()` times,
+   dsh-process CPU via `process.resourceUsage()` deltas — per-core percentage
+   like top; system + process memory, load averages, and uptimes. The System
+   tab works without a session selected).
 
    **Monitor** is the third panel in the same dock, split into two tabs —
    **Overview** (the session's vital figures at a glance) — turns & steps, LLM vs tool wall time, average
