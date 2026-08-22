@@ -48,7 +48,7 @@ phone-width screens (see Mobile below).
    (new/modified/deleted/renamed with per-file colored diffs, strictly
    read-only). The menu entry appears only when a git binary exists; a
    workspace without a repo is auto-initialized with a baseline commit
-   (inline identity, never touches global git config), so changes are always
+   (inline identity, never touches global git config; a minimal .gitignore excluding node_modules/ is placed first when absent, keeping dependency trees out of the baseline), so changes are always
    relative to a baseline. **Operation Log** is the AI's operation TRAIL —
    when, which tool, which target, ±how big, success or failure — folded
    incrementally from the session log. write/edit record ±line counts (hunks
