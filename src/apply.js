@@ -259,8 +259,29 @@
         )
       })
 
+      // 浏览器通知渠道的事件泵：启用且渠道=browser 时 30s 轮询宿主事件
+      // 环形缓冲，逐条触发 Notification（页面开着才收——浏览器通知的
+      // 固有边界，README 已注明；其他渠道走宿主侧推送无此限制）。
+      var ntfTimer = null
+      var ntfSince = 0
+      function ntfPump() {
+        if (typeof Notification === 'undefined' || Notification.permission !== 'granted') return
+        api('/notify').then(function (cfg) {
+          if (cfg === undefined || cfg === null || cfg.enabled !== true || cfg.channel !== 'browser') return
+          return api('/notify/events?since=' + ntfSince).then(function (r) {
+            for (var i = 0; i < (r.events ?? []).length; i += 1) {
+              var ev = r.events[i]
+              try { new Notification(ev.title, { body: ev.body }) } catch (err) { /* 极端环境 */ }
+              if (ev.at > ntfSince) ntfSince = ev.at
+            }
+          })
+        }).catch(function () { /* 泵失败静默，下轮再试 */ })
+      }
+      ntfTimer = setInterval(ntfPump, 30000)
+
       ctx.effect(function () {
         return function () {
+          if (ntfTimer !== null) clearInterval(ntfTimer)
           if (disposeStyles !== undefined) disposeStyles()
           disposeConfirm() // body 级对话框 DOM 拆除（shared.js）
           serviceController.dispose()

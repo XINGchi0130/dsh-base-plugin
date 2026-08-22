@@ -14,7 +14,7 @@ An enhancement plugin for [DeepSeek Harness](https://github.com/deepseek-ai/deep
 | **System Prompt** | Settings → System Prompt | Edit the global persona (effective for every session); `{{model}}`/`{{cwd}}` variables; hot-reload on save |
 | **Usage** | Settings → Usage | Token totals across every session, per-model cost estimates (editable prices), 31-day trend, top sessions |
 | **Sessions** | Settings → Sessions | Every persisted session in one list (filter/search); delete (rows vanish from every sidebar live); export MD/Zip; **time machine** (fork from any turn) |
-| **Notifications** | Settings → Notifications | Turn finished / job settled / approval waiting / context nearly full → Bark / ntfy / webhook push to your phone |
+| **Notifications** | Settings → Notifications | Turn finished / job settled / approval waiting / context nearly full → **browser notifications** (zero-config, one-click grant) / Bark / ntfy / webhook |
 | **Mobile Access** | Settings → Mobile Access | Pair by QR on the LAN and use the full DSH UI from your phone (HMAC device cookies + exponential backoff) |
 | **File Changes** | session ⋯ menu | Two tabs: **Workspace Changes** (git baseline diff, strictly read-only) + **Operation Log** (AI read/write/bash trail with ±lines and success/failure) |
 | **Terminal** | session ⋯ menu | Multiple PTY terminals: Enter to run, Ctrl+C interrupt, streaming output |

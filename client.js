@@ -51,7 +51,7 @@
  * 用分区横幅代替模块切分。分区顺序：i18n 词典 → store/api/styles
  * 辅助 → MarketTab → McpSection → SkillsSection → plugin apply。
  */
-// GENERATED from src/* by scripts/build-client.mjs — edit src/, then rebuild. stamp:f393af181f2b
+// GENERATED from src/* by scripts/build-client.mjs — edit src/, then rebuild. stamp:266040e55787
 window.__ModuleLoader__.load({
   id: 'dsh-base-plugin',
   factory: function (require) {
@@ -249,6 +249,22 @@ window.__ModuleLoader__.load({
       ntfIntro: '把 dsh 的事件推到手机：回合结束、后台任务完结、审批等待。支持 Bark（iOS）、ntfy（跨平台）与通用 webhook（飞书/钉钉/企业微信自定义机器人等）。',
       ntfEnable: '启用通知桥',
       ntfChannelLabel: '渠道',
+      ntfChannelBrowser: '浏览器通知',
+      ntfPermLabel: '浏览器通知权限',
+      ntfPermBtn: '授权浏览器通知',
+      ntfPermGrantedBtn: '已授权 ✓',
+      ntfPermGranted: '授权成功——事件将弹出浏览器通知。',
+      ntfPermDenied: '授权被拒——请在浏览器地址栏锁图标里允许通知。',
+      ntfPermUnsupported: '此浏览器不支持 Notification API。',
+      ntfPermHint: '弹窗出现在桌面浏览器；页面需保持打开（后台标签即可）。',
+      ntfChannelBrowser: 'Browser notifications',
+      ntfPermLabel: 'Browser notification permission',
+      ntfPermBtn: 'Grant permission',
+      ntfPermGrantedBtn: 'Granted ✓',
+      ntfPermGranted: 'Granted — events will pop as browser notifications.',
+      ntfPermDenied: 'Denied — allow notifications via the lock icon in the address bar.',
+      ntfPermUnsupported: 'This browser does not support the Notification API.',
+      ntfPermHint: 'Popups appear on the desktop browser; keep the page open (a background tab is fine).',
       ntfChannelBark: 'Bark',
       ntfChannelNtfy: 'ntfy',
       ntfChannelWebhook: 'Webhook',
@@ -623,6 +639,22 @@ window.__ModuleLoader__.load({
       ntfIntro: 'Push dsh events to your phone: turn finished, background job settled, approval waiting. Channels: Bark (iOS), ntfy (cross-platform), and a generic webhook (Feishu/DingTalk/WeCom custom bots and friends).',
       ntfEnable: 'Enable the notification bridge',
       ntfChannelLabel: 'Channel',
+      ntfChannelBrowser: '浏览器通知',
+      ntfPermLabel: '浏览器通知权限',
+      ntfPermBtn: '授权浏览器通知',
+      ntfPermGrantedBtn: '已授权 ✓',
+      ntfPermGranted: '授权成功——事件将弹出浏览器通知。',
+      ntfPermDenied: '授权被拒——请在浏览器地址栏锁图标里允许通知。',
+      ntfPermUnsupported: '此浏览器不支持 Notification API。',
+      ntfPermHint: '弹窗出现在桌面浏览器；页面需保持打开（后台标签即可）。',
+      ntfChannelBrowser: 'Browser notifications',
+      ntfPermLabel: 'Browser notification permission',
+      ntfPermBtn: 'Grant permission',
+      ntfPermGrantedBtn: 'Granted ✓',
+      ntfPermGranted: 'Granted — events will pop as browser notifications.',
+      ntfPermDenied: 'Denied — allow notifications via the lock icon in the address bar.',
+      ntfPermUnsupported: 'This browser does not support the Notification API.',
+      ntfPermHint: 'Popups appear on the desktop browser; keep the page open (a background tab is fine).',
       ntfChannelBark: 'Bark',
       ntfChannelNtfy: 'ntfy',
       ntfChannelWebhook: 'Webhook',
@@ -2506,8 +2538,9 @@ window.__ModuleLoader__.load({
 
     /** 渠道定义：值 + 标签键 + 所需字段。 */
     var NOTIFY_CHANNELS = [
+      { value: 'browser', labelKey: 'ntfChannelBrowser', fields: [] },
       { value: 'bark', labelKey: 'ntfChannelBark', fields: ['url', 'barkKey'] },
-      { value: 'ntfy', labelKey: 'ntfChannelNtfy', fields: ['url', 'ntfyTopic'] },
+      { value: 'ntfy', labelKey: 'ntfChannelNtfy', fields: ['url', 'ntfTopic'] },
       { value: 'webhook', labelKey: 'ntfChannelWebhook', fields: ['url'] },
     ]
 
@@ -2624,6 +2657,22 @@ window.__ModuleLoader__.load({
               }),
             ),
           ),
+          // browser 渠道：浏览器通知授权（代替外部服务配置——零门槛）
+          cfg.channel === 'browser'
+            ? h('div', { className: 'dhb-field' },
+                h('span', { className: 'dhb-label' }, t('ntfPermLabel')),
+                h('button', {
+                  className: 'dhb-btn', type: 'button',
+                  onClick: function () {
+                    if (typeof Notification === 'undefined') { setMsg({ kind: 'err', text: t('ntfPermUnsupported') }); return }
+                    Notification.requestPermission().then(function (p) {
+                      setMsg({ kind: p === 'granted' ? 'ok' : 'err', text: p === 'granted' ? t('ntfPermGranted') : t('ntfPermDenied') })
+                    })
+                  },
+                }, typeof Notification !== 'undefined' && Notification.permission === 'granted' ? t('ntfPermGrantedBtn') : t('ntfPermBtn')),
+                h('span', { className: 'dhb-hint' }, t('ntfPermHint')),
+              )
+            : null,
           // 按渠道显隐的字段
           needs('url')
             ? h('div', { className: 'dhb-field' },
@@ -5624,8 +5673,29 @@ window.__ModuleLoader__.load({
         )
       })
 
+      // 浏览器通知渠道的事件泵：启用且渠道=browser 时 30s 轮询宿主事件
+      // 环形缓冲，逐条触发 Notification（页面开着才收——浏览器通知的
+      // 固有边界，README 已注明；其他渠道走宿主侧推送无此限制）。
+      var ntfTimer = null
+      var ntfSince = 0
+      function ntfPump() {
+        if (typeof Notification === 'undefined' || Notification.permission !== 'granted') return
+        api('/notify').then(function (cfg) {
+          if (cfg === undefined || cfg === null || cfg.enabled !== true || cfg.channel !== 'browser') return
+          return api('/notify/events?since=' + ntfSince).then(function (r) {
+            for (var i = 0; i < (r.events ?? []).length; i += 1) {
+              var ev = r.events[i]
+              try { new Notification(ev.title, { body: ev.body }) } catch (err) { /* 极端环境 */ }
+              if (ev.at > ntfSince) ntfSince = ev.at
+            }
+          })
+        }).catch(function () { /* 泵失败静默，下轮再试 */ })
+      }
+      ntfTimer = setInterval(ntfPump, 30000)
+
       ctx.effect(function () {
         return function () {
+          if (ntfTimer !== null) clearInterval(ntfTimer)
           if (disposeStyles !== undefined) disposeStyles()
           disposeConfirm() // body 级对话框 DOM 拆除（shared.js）
           serviceController.dispose()

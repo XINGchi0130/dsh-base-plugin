@@ -11,6 +11,7 @@
   "GET /dsh-base-plugin/api/monitor",
   "GET /dsh-base-plugin/api/monitor/available",
   "GET /dsh-base-plugin/api/notify",
+  "GET /dsh-base-plugin/api/notify/events",
   "GET /dsh-base-plugin/api/prompt-opt/available",
   "GET /dsh-base-plugin/api/service/info",
   "GET /dsh-base-plugin/api/sessions",

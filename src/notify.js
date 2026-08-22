@@ -3,8 +3,9 @@
 
     /** 渠道定义：值 + 标签键 + 所需字段。 */
     var NOTIFY_CHANNELS = [
+      { value: 'browser', labelKey: 'ntfChannelBrowser', fields: [] },
       { value: 'bark', labelKey: 'ntfChannelBark', fields: ['url', 'barkKey'] },
-      { value: 'ntfy', labelKey: 'ntfChannelNtfy', fields: ['url', 'ntfyTopic'] },
+      { value: 'ntfy', labelKey: 'ntfChannelNtfy', fields: ['url', 'ntfTopic'] },
       { value: 'webhook', labelKey: 'ntfChannelWebhook', fields: ['url'] },
     ]
 
@@ -121,6 +122,22 @@
               }),
             ),
           ),
+          // browser 渠道：浏览器通知授权（代替外部服务配置——零门槛）
+          cfg.channel === 'browser'
+            ? h('div', { className: 'dhb-field' },
+                h('span', { className: 'dhb-label' }, t('ntfPermLabel')),
+                h('button', {
+                  className: 'dhb-btn', type: 'button',
+                  onClick: function () {
+                    if (typeof Notification === 'undefined') { setMsg({ kind: 'err', text: t('ntfPermUnsupported') }); return }
+                    Notification.requestPermission().then(function (p) {
+                      setMsg({ kind: p === 'granted' ? 'ok' : 'err', text: p === 'granted' ? t('ntfPermGranted') : t('ntfPermDenied') })
+                    })
+                  },
+                }, typeof Notification !== 'undefined' && Notification.permission === 'granted' ? t('ntfPermGrantedBtn') : t('ntfPermBtn')),
+                h('span', { className: 'dhb-hint' }, t('ntfPermHint')),
+              )
+            : null,
           // 按渠道显隐的字段
           needs('url')
             ? h('div', { className: 'dhb-field' },
