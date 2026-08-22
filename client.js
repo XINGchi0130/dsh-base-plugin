@@ -51,7 +51,7 @@
  * 用分区横幅代替模块切分。分区顺序：i18n 词典 → store/api/styles
  * 辅助 → MarketTab → McpSection → SkillsSection → plugin apply。
  */
-// GENERATED from src/* by scripts/build-client.mjs — edit src/, then rebuild. stamp:7c2a3605c9f3
+// GENERATED from src/* by scripts/build-client.mjs — edit src/, then rebuild. stamp:59aeba5f44da
 window.__ModuleLoader__.load({
   id: 'dsh-base-plugin',
   factory: function (require) {
@@ -264,6 +264,7 @@ window.__ModuleLoader__.load({
       foOpsCount: '次操作',
       foTruncated: '仅显示最近 {n} 条',
       foMoreGroups: '加载更多（还有 {n} 个目标）',
+      foRan: '执行',
       foDiffEvicted: '该操作的 diff 已超出保留窗口（仅最近 200 条完整保留）。',
       foNoSession: '未选择会话。',
       gitNoChanges: '工作区没有文件变更。',
@@ -623,6 +624,7 @@ window.__ModuleLoader__.load({
       foOpsCount: 'operations',
       foTruncated: 'showing the newest {n}',
       foMoreGroups: 'Load more ({n} more targets)',
+      foRan: 'ran',
       foDiffEvicted: "This op's diff is outside the retention window (only the newest 200 keep full diffs).",
       foNoSession: 'No session selected.',
       gitNoChanges: 'No file changes in the workspace.',
@@ -2791,9 +2793,17 @@ window.__ModuleLoader__.load({
                         },
                       }, op.tool),
                       op.turn !== null ? h('span', { className: 'dhb-hint', style: { flex: 'none' } }, '#' + op.turn) : null,
+                      // 目标主体：read/write 显示文件尾段路径（title 悬浮全路径）
+                      // ——分组标题在滚动后不可见，行内必须自带路径。
                       op.kind === 'command'
                         ? h('span', { className: 'dhb-hint', style: { flex: 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 160 }, title: op.cwd !== undefined && op.cwd !== null ? op.cwd : '' },
                             op.cwd !== undefined && op.cwd !== null ? op.cwd.split('/').filter(Boolean).pop() : '')
+                        : h('span', {
+                            style: { flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
+                            title: file.path,
+                          }, file.path.split('/').filter(Boolean).slice(-2).join('/')),
+                      op.kind === 'command'
+                        ? h('span', { className: 'dhb-hint', style: { flex: 'none' } }, t('foRan'))
                         : h('span', { style: { flex: 'none', color: '#1e7e34' } }, '+' + op.added),
                       op.kind === 'command' ? null : h('span', { style: { flex: 'none', color: '#c0392b' } }, '−' + op.deleted),
                       op.failed === true ? h('span', { className: 'dhb-hint', style: { color: '#c0392b' } }, '⚠') : null,

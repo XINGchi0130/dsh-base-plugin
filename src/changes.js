@@ -188,9 +188,17 @@
                         },
                       }, op.tool),
                       op.turn !== null ? h('span', { className: 'dhb-hint', style: { flex: 'none' } }, '#' + op.turn) : null,
+                      // 目标主体：read/write 显示文件尾段路径（title 悬浮全路径）
+                      // ——分组标题在滚动后不可见，行内必须自带路径。
                       op.kind === 'command'
                         ? h('span', { className: 'dhb-hint', style: { flex: 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 160 }, title: op.cwd !== undefined && op.cwd !== null ? op.cwd : '' },
                             op.cwd !== undefined && op.cwd !== null ? op.cwd.split('/').filter(Boolean).pop() : '')
+                        : h('span', {
+                            style: { flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
+                            title: file.path,
+                          }, file.path.split('/').filter(Boolean).slice(-2).join('/')),
+                      op.kind === 'command'
+                        ? h('span', { className: 'dhb-hint', style: { flex: 'none' } }, t('foRan'))
                         : h('span', { style: { flex: 'none', color: '#1e7e34' } }, '+' + op.added),
                       op.kind === 'command' ? null : h('span', { style: { flex: 'none', color: '#c0392b' } }, '−' + op.deleted),
                       op.failed === true ? h('span', { className: 'dhb-hint', style: { color: '#c0392b' } }, '⚠') : null,
