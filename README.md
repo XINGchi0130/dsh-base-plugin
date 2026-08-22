@@ -38,8 +38,10 @@ phone-width screens (see Mobile below).
    persona — and saves hot-load. `{{model}}`/`{{cwd}}` variables are supported.
 5. **Service Stop/Restart** — compact buttons beside Settings at the sidebar foot. Stop asks
    the launcher for a graceful exit (sessions flush first). Restart spawns a detached helper
-   that re-execs the same invocation (execArgv included) once the old pid is gone; the page
-   polls and reloads itself when the new process answers.
+   that re-execs the same invocation (execArgv included, plus `--no-open` so the restarted
+   process does NOT hand the URL to the browser again — the official startup opens the
+   default browser by default, which turned every restart into a duplicate tab; the already
+   open page polls and reloads itself) once the old pid is gone.
 6. **File Changes panel** — an entry in the session header's top-right ⋯ menu
    opening a right-docked panel with the session workspace's git changes
    (new/modified/deleted/renamed with per-file colored diffs, strictly
