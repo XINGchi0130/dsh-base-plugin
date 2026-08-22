@@ -63,8 +63,8 @@
      * 读——查看变更绝不碰工作区。只消费 `kit.sessionId` 与
      * `kit.useSessions`（cwd），因此在覆盖层的合成 kit 后同样可用。
      */
-    /** 编辑记录 tab：按文件分组的 write/edit 操作时间线（最新在前，
-     * 每行可展开迷你 diff；数据来自宿主对 tool/result meta.diffs 的折叠）。
+    /** 操作记录 tab：按目标分组的操作轨迹（最新在前：时间/工具/轮次/
+     * ±行数/成败；数据来自宿主对会话日志的增量折叠——无 diff，纯轨迹）。
      * 与「工作区变更」互补：本 tab 是 AI 经写工具的动作历史，git tab 是
      * 磁盘当前状态对基线的差异（经 bash 的改动只出现在 git tab）。 */
     function EditHistoryView(props) {
@@ -218,7 +218,7 @@
       var data = dataState[0]
       var setData = dataState[1]
 
-      // expanded: { [path]: { status, diff } }
+      // per-file diff cache: { [path]: { status, diff } }
       var diffState = React.useState({})
       var diffs = diffState[0]
       var setDiffs = diffState[1]

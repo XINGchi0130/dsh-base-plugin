@@ -117,23 +117,32 @@
         },
       }
 
-      // 左缘拖拽调宽：指针 x → 停靠宽度（钳制在 360–760）。监听器只在
-      // 拖拽期间挂在 document 上。
-      function startResize(e) {
-        if (typeof document === 'undefined') return
-        e.preventDefault()
+      // 左缘拖拽调宽：指针 x → 停靠宽度（钳制在 360–760）。拖拽态经
+      // useState——监听器挂进 effect（卸载即摘除；此前拖拽中途关闭面板
+      // 会在 document 上残留到下一次 mouseup）。
+      var draggingState = React.useState(false)
+      var dragging = draggingState[0]
+      var setDragging = draggingState[1]
+      React.useEffect(function () {
+        if (!dragging || typeof document === 'undefined') return undefined
         var onMove = function (ev) {
           var w = window.innerWidth - ev.clientX
           if (w < 360) w = 360
           if (w > 760) w = 760
           setWidth(w)
         }
-        var onUp = function () {
+        var onUp = function () { setDragging(false) }
+        document.addEventListener('mousemove', onMove)
+        document.addEventListener('mouseup', onUp)
+        return function () {
           document.removeEventListener('mousemove', onMove)
           document.removeEventListener('mouseup', onUp)
         }
-        document.addEventListener('mousemove', onMove)
-        document.addEventListener('mouseup', onUp)
+      }, [dragging])
+      function startResize(e) {
+        if (typeof document === 'undefined') return
+        e.preventDefault()
+        setDragging(true)
       }
 
       return h('div', { className: 'dhb-toolsDock', style: { width: width + 'px' } },

@@ -51,7 +51,7 @@
  * 用分区横幅代替模块切分。分区顺序：i18n 词典 → store/api/styles
  * 辅助 → MarketTab → McpSection → SkillsSection → plugin apply。
  */
-// GENERATED from src/* by scripts/build-client.mjs — edit src/, then rebuild. stamp:ea0658a67320
+// GENERATED from src/* by scripts/build-client.mjs — edit src/, then rebuild. stamp:5278991da2e4
 window.__ModuleLoader__.load({
   id: 'dsh-base-plugin',
   factory: function (require) {
@@ -246,6 +246,7 @@ window.__ModuleLoader__.load({
       ntfEventApprovals: '审批等待（需要你批准工具调用）',
       ntfEventContext: '上下文将满（≥85%，建议开新会话）',
       ntfTestBtn: '发送测试',
+      ntfTestHint: '测试使用的是「已保存」的配置——修改后请先保存再测试。',
       ntfTestOk: '测试通知已发出——手机上应该收到了。',
       ntfQuietBtn: '静音 1 小时',
       ntfQuietCancel: '取消静音',
@@ -600,6 +601,7 @@ window.__ModuleLoader__.load({
       ntfEventApprovals: 'Approval waiting (a tool call needs your decision)',
       ntfEventContext: 'Context nearly full (≥85% — consider a new session)',
       ntfTestBtn: 'Send test',
+      ntfTestHint: 'The test uses the SAVED config — save your edits before testing.',
       ntfTestOk: 'Test notification sent — your phone should have it.',
       ntfQuietBtn: 'Mute 1 hour',
       ntfQuietCancel: 'Unmute',
@@ -2600,7 +2602,11 @@ window.__ModuleLoader__.load({
           ),
           h('div', { className: 'dhb-row' },
             h('button', { className: 'dhb-btn dhb-btnPrimary', type: 'button', disabled: busy, onClick: onSave }, busy ? t('saving') : t('save')),
-            h('button', { className: 'dhb-btn', type: 'button', disabled: busy, onClick: onTest }, t('ntfTestBtn')),
+            h('button', {
+              className: 'dhb-btn', type: 'button', disabled: busy,
+              title: t('ntfTestHint'),
+              onClick: onTest,
+            }, t('ntfTestBtn')),
             quietActive
               ? h('button', { className: 'dhb-btn', type: 'button', disabled: busy, onClick: function () { onQuiet(0) } }, t('ntfQuietCancel'))
               : h('button', { className: 'dhb-btn', type: 'button', disabled: busy, onClick: function () { onQuiet(60) } }, t('ntfQuietBtn')),
@@ -2674,8 +2680,8 @@ window.__ModuleLoader__.load({
      * 读——查看变更绝不碰工作区。只消费 `kit.sessionId` 与
      * `kit.useSessions`（cwd），因此在覆盖层的合成 kit 后同样可用。
      */
-    /** 编辑记录 tab：按文件分组的 write/edit 操作时间线（最新在前，
-     * 每行可展开迷你 diff；数据来自宿主对 tool/result meta.diffs 的折叠）。
+    /** 操作记录 tab：按目标分组的操作轨迹（最新在前：时间/工具/轮次/
+     * ±行数/成败；数据来自宿主对会话日志的增量折叠——无 diff，纯轨迹）。
      * 与「工作区变更」互补：本 tab 是 AI 经写工具的动作历史，git tab 是
      * 磁盘当前状态对基线的差异（经 bash 的改动只出现在 git tab）。 */
     function EditHistoryView(props) {
@@ -2829,7 +2835,7 @@ window.__ModuleLoader__.load({
       var data = dataState[0]
       var setData = dataState[1]
 
-      // expanded: { [path]: { status, diff } }
+      // per-file diff cache: { [path]: { status, diff } }
       var diffState = React.useState({})
       var diffs = diffState[0]
       var setDiffs = diffState[1]
@@ -4575,23 +4581,32 @@ window.__ModuleLoader__.load({
         },
       }
 
-      // 左缘拖拽调宽：指针 x → 停靠宽度（钳制在 360–760）。监听器只在
-      // 拖拽期间挂在 document 上。
-      function startResize(e) {
-        if (typeof document === 'undefined') return
-        e.preventDefault()
+      // 左缘拖拽调宽：指针 x → 停靠宽度（钳制在 360–760）。拖拽态经
+      // useState——监听器挂进 effect（卸载即摘除；此前拖拽中途关闭面板
+      // 会在 document 上残留到下一次 mouseup）。
+      var draggingState = React.useState(false)
+      var dragging = draggingState[0]
+      var setDragging = draggingState[1]
+      React.useEffect(function () {
+        if (!dragging || typeof document === 'undefined') return undefined
         var onMove = function (ev) {
           var w = window.innerWidth - ev.clientX
           if (w < 360) w = 360
           if (w > 760) w = 760
           setWidth(w)
         }
-        var onUp = function () {
+        var onUp = function () { setDragging(false) }
+        document.addEventListener('mousemove', onMove)
+        document.addEventListener('mouseup', onUp)
+        return function () {
           document.removeEventListener('mousemove', onMove)
           document.removeEventListener('mouseup', onUp)
         }
-        document.addEventListener('mousemove', onMove)
-        document.addEventListener('mouseup', onUp)
+      }, [dragging])
+      function startResize(e) {
+        if (typeof document === 'undefined') return
+        e.preventDefault()
+        setDragging(true)
       }
 
       return h('div', { className: 'dhb-toolsDock', style: { width: width + 'px' } },

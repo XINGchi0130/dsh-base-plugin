@@ -161,7 +161,11 @@
           ),
           h('div', { className: 'dhb-row' },
             h('button', { className: 'dhb-btn dhb-btnPrimary', type: 'button', disabled: busy, onClick: onSave }, busy ? t('saving') : t('save')),
-            h('button', { className: 'dhb-btn', type: 'button', disabled: busy, onClick: onTest }, t('ntfTestBtn')),
+            h('button', {
+              className: 'dhb-btn', type: 'button', disabled: busy,
+              title: t('ntfTestHint'),
+              onClick: onTest,
+            }, t('ntfTestBtn')),
             quietActive
               ? h('button', { className: 'dhb-btn', type: 'button', disabled: busy, onClick: function () { onQuiet(0) } }, t('ntfQuietCancel'))
               : h('button', { className: 'dhb-btn', type: 'button', disabled: busy, onClick: function () { onQuiet(60) } }, t('ntfQuietBtn')),
