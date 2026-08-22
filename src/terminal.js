@@ -168,7 +168,7 @@
         var arr = pollStoppersRef.current
         for (var i = arr.length - 1; i >= 0; i -= 1) {
           if (arr[i].key === terminalKey) {
-            arr[i].stop()
+            arr[i]() // stopper 本身就是停止函数（stopper.key 只是标记属主）
             arr.splice(i, 1)
           }
         }

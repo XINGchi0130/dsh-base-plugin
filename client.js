@@ -51,7 +51,7 @@
  * 用分区横幅代替模块切分。分区顺序：i18n 词典 → store/api/styles
  * 辅助 → MarketTab → McpSection → SkillsSection → plugin apply。
  */
-// GENERATED from src/* by scripts/build-client.mjs — edit src/, then rebuild. stamp:8174b85aa0d5
+// GENERATED from src/* by scripts/build-client.mjs — edit src/, then rebuild. stamp:ab3deac05bbe
 window.__ModuleLoader__.load({
   id: 'dsh-base-plugin',
   factory: function (require) {
@@ -3372,7 +3372,7 @@ window.__ModuleLoader__.load({
         var arr = pollStoppersRef.current
         for (var i = arr.length - 1; i >= 0; i -= 1) {
           if (arr[i].key === terminalKey) {
-            arr[i].stop()
+            arr[i]() // stopper 本身就是停止函数（stopper.key 只是标记属主）
             arr.splice(i, 1)
           }
         }
