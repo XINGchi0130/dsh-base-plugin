@@ -75,6 +75,44 @@ for (const file of readdirSync(join(root, 'src'))) {
   }
 }
 
+
+
+// ── 词典 lint：重复键检测（粘贴事故防线——中英两套贴进同一词典曾令
+// 中文界面显示英文）+ 键引用粗检（i18n 键在 src 其余文件无引用即死键，
+// 动态拼接键需在 DYNAMIC_KEYS 白单）。──
+{
+  const i18n = readFileSync(join(root, 'src', 'i18n.js'), 'utf8')
+  const dictKeys = (name) => {
+    const start = i18n.indexOf('var ' + name + ' = {')
+    if (start === -1) return null
+    let i = i18n.indexOf('{', start), depth = 0, j = i
+    for (; j < i18n.length; j++) {
+      if (i18n[j] === '{') depth++
+      else if (i18n[j] === '}') { depth--; if (depth === 0) break }
+    }
+    const body = i18n.slice(i, j + 1)
+    const re = /^ {6}([A-Za-z0-9_]+):/gm
+    const out = []
+    let m
+    while ((m = re.exec(body))) out.push(m[1])
+    return out
+  }
+  const zh = dictKeys('ZH') ?? []
+  const en = dictKeys('EN') ?? []
+  const dup = (a) => a.filter((k, i) => a.indexOf(k) !== i)
+  const dz = dup(zh), de = dup(en)
+  if (dz.length || de.length) {
+    console.error(`✗ 词典重复键：ZH[${dz.join(',')}] EN[${de.join(',')}] —— 粘贴事故（后者静默覆盖前者）`)
+    process.exit(1)
+  }
+  const onlyZh = zh.filter(k => !en.includes(k))
+  const onlyEn = en.filter(k => !zh.includes(k))
+  if (onlyZh.length || onlyEn.length) {
+    console.error(`✗ 双语不对齐：仅ZH[${onlyZh.join(',')}] 仅EN[${onlyEn.join(',')}]`)
+    process.exit(1)
+  }
+}
+
 if (violations > 0) {
   console.error(`✗ hooks 顺序检查：${violations} 处违例`)
   process.exit(1)

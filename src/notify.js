@@ -1,11 +1,11 @@
-// ══ notify ══ 通知设置节 NotifySection：渠道（Bark/ntfy/webhook）、事件开关、测试与静音。
+// ══ notify ══ 通知设置节 NotifySection：渠道（浏览器默认/Bark/ntfy/webhook）、事件开关、测试与静音。
     // ── 通知设置节（通知桥控制）─────────────────────────────────────────
 
     /** 渠道定义：值 + 标签键 + 所需字段。 */
     var NOTIFY_CHANNELS = [
       { value: 'browser', labelKey: 'ntfChannelBrowser', fields: [] },
       { value: 'bark', labelKey: 'ntfChannelBark', fields: ['url', 'barkKey'] },
-      { value: 'ntfy', labelKey: 'ntfChannelNtfy', fields: ['url', 'ntfTopic'] },
+      { value: 'ntfy', labelKey: 'ntfChannelNtfy', fields: ['url', 'ntfyTopic'] }, // fields=状态字段名（needs 判据），非 i18n 键
       { value: 'webhook', labelKey: 'ntfChannelWebhook', fields: ['url'] },
     ]
 
@@ -66,10 +66,10 @@
         setBusy(true)
         setMsg(null)
         post('/notify/test', {})
-          .then(function () {
-            // browser 渠道：不等 30s 事件泵——立即直接弹一条（宿主测试
-            // 已确认桥通；弹窗本身就是这条渠道的"送达"）。
-            if (cfg.channel === 'browser') {
+          .then(function (result) {
+            // 按宿主实际使用的渠道分支（表单与已保存配置可能不同——
+            // 曾出现 bark 已存 + 表单 browser 的双投递）。
+            if (result.channel === 'browser') {
               if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
                 try { new Notification('DSH 通知测试', { body: t('ntfTestBrowserBody') }) } catch (err) { /* 极端环境 */ }
                 setMsg({ kind: 'ok', text: t('ntfTestOkBrowser') })
@@ -147,7 +147,7 @@
                       setMsg({ kind: p === 'granted' ? 'ok' : 'err', text: p === 'granted' ? t('ntfPermGranted') : t('ntfPermDenied') })
                     })
                   },
-                }, typeof Notification !== 'undefined' && Notification.permission === 'granted' ? t('ntfPermGrantedBtn') : t('ntfPermBtn')),
+                }, typeof Notification !== 'undefined' && Notification.permission === 'granted' ? t('ntfPermGrantedBtn') : (typeof Notification !== 'undefined' && Notification.permission === 'denied' ? t('ntfPermDeniedState') : t('ntfPermBtn'))),
                 h('span', { className: 'dhb-hint' }, t('ntfPermHint')),
               )
             : null,

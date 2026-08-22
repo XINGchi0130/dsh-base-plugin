@@ -268,38 +268,49 @@
       // 3. /notify 配置查询本身是门：禁用或非 browser 渠道时连
       //    /notify/events 都不发（避免每 30s 一发空转请求）。
       var ntfTimer = null
-      var ntfSince = Date.now()
-      var NTF_PUMP_KEY = 'dsh-base-plugin:notify-pump'
+      // 游标只用宿主返回的 seq（跨机时钟不可比较——宿主 at/客户端
+      // Date.now 混用曾在时钟偏差的手机上静默丢通知）。null = 首轮：
+      // 先拉一次对齐 cursor，不弹历史。
+      var ntfCursor = null
+      var NTF_PUMP_KEY = 'dsh-base-plugin:notify-cursor'
+      function ntfApplyResult(r) {
+        var events = r.events ?? []
+        for (var i = 0; i < events.length; i += 1) {
+          var ev = events[i]
+          // tag 去重：多标签并发泵时浏览器层合并同 tag 弹窗
+          try { new Notification(ev.title, { body: ev.body, tag: 'dshbp-' + ev.seq }) } catch (err2) { /* 极端环境 */ }
+        }
+        if (typeof r.cursor === 'number') {
+          ntfCursor = r.cursor
+          try { window.localStorage.setItem(NTF_PUMP_KEY, String(ntfCursor)) } catch (err3) { /* 独立游标降级 */ }
+        }
+      }
       function ntfPump() {
         if (typeof Notification === 'undefined' || Notification.permission !== 'granted') return
         api('/notify').then(function (cfg) {
           if (cfg === undefined || cfg === null || cfg.enabled !== true || cfg.channel !== 'browser') return null
-          // 多标签仲裁：读共享的最近处理游标，比自己的新则采纳（别的
-          // 标签刚处理过这些事件）。
-          try {
-            var shared = Number(window.localStorage.getItem(NTF_PUMP_KEY) ?? '0')
-            if (shared > ntfSince) ntfSince = shared
-          } catch (err) { /* localStorage 不可用则退化为独立游标 */ }
-          return api('/notify/events?since=' + ntfSince).then(function (r) {
-            var events = r.events ?? []
-            var latest = ntfSince
-            for (var i = 0; i < events.length; i += 1) {
-              var ev = events[i]
-              try { new Notification(ev.title, { body: ev.body }) } catch (err2) { /* 极端环境 */ }
-              if (ev.at > latest) latest = ev.at
-            }
-            if (latest > ntfSince) {
-              ntfSince = latest
-              try { window.localStorage.setItem(NTF_PUMP_KEY, String(latest)) } catch (err3) { /* 同上 */ }
-            }
-          })
+          if (ntfCursor === null) {
+            // 首轮对齐：采纳跨标签共享 cursor（别的标签已在收），没有
+            // 则拉当前 cursor 不弹历史。
+            try { ntfCursor = Number(window.localStorage.getItem(NTF_PUMP_KEY) ?? '0') || 0 } catch (err) { ntfCursor = 0 }
+          } else {
+            try {
+              var shared = Number(window.localStorage.getItem(NTF_PUMP_KEY) ?? '0')
+              if (shared > ntfCursor) ntfCursor = shared
+            } catch (err4) { /* 降级独立 */ }
+          }
+          return api('/notify/events?since=' + ntfCursor).then(ntfApplyResult)
         }).catch(function () { /* 泵失败静默，下轮再试 */ })
       }
+      // 回前台立即补一次泵（Chrome 对后台标签节流 30s→~60s+）。
+      var ntfVis = function () { if (document.visibilityState === 'visible') ntfPump() }
+      document.addEventListener('visibilitychange', ntfVis)
       ntfTimer = setInterval(ntfPump, 30000)
 
       ctx.effect(function () {
         return function () {
           if (ntfTimer !== null) clearInterval(ntfTimer)
+          document.removeEventListener('visibilitychange', ntfVis)
           if (disposeStyles !== undefined) disposeStyles()
           disposeConfirm() // body 级对话框 DOM 拆除（shared.js）
           serviceController.dispose()

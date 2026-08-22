@@ -51,7 +51,7 @@
  * 用分区横幅代替模块切分。分区顺序：i18n 词典 → store/api/styles
  * 辅助 → MarketTab → McpSection → SkillsSection → plugin apply。
  */
-// GENERATED from src/* by scripts/build-client.mjs — edit src/, then rebuild. stamp:c57f00aaa532
+// GENERATED from src/* by scripts/build-client.mjs — edit src/, then rebuild. stamp:8174b85aa0d5
 window.__ModuleLoader__.load({
   id: 'dsh-base-plugin',
   factory: function (require) {
@@ -230,12 +230,10 @@ window.__ModuleLoader__.load({
       monJobsColdNote: '任务是进程内的——会话未在当前进程打开时不显示。',
       monSubagentsTitle: '子代理',
       monSubTotal: '共 {n} 个',
-      monSubRunning: '运行中 {n}',
       monNoSubagents: '无子代理。',
       monSubUnreadable: '子会话日志不可读',
       monSubContinuable: '可续聊',
       monSubOneShot: '一次性',
-      monSubStateRunning: '运行中',
       monSubInactive: '已结束',
       monSubFilterAll: '全部',
       monSubFilterRunning: '运行中',
@@ -246,7 +244,7 @@ window.__ModuleLoader__.load({
       monSubResumeHint: '复制会话 ID（在会话页搜索可继续此子代理的对话）',
       monSubUnreadableGroup: '不可读（{n}）',
       sectionNotify: '通知',
-      ntfIntro: '把 dsh 的事件推到手机：回合结束、后台任务完结、审批等待。支持 Bark（iOS）、ntfy（跨平台）与通用 webhook（飞书/钉钉/企业微信自定义机器人等）。',
+      ntfIntro: '事件通知：默认浏览器通知（点一下授权即用，零配置），或 Bark / ntfy / webhook 推到手机。事件：回合结束、任务完结、审批等待、上下文将满。',
       ntfEnable: '启用通知桥',
       ntfChannelLabel: '渠道',
       ntfChannelBrowser: '浏览器通知',
@@ -256,15 +254,8 @@ window.__ModuleLoader__.load({
       ntfPermGranted: '授权成功——事件将弹出浏览器通知。',
       ntfPermDenied: '授权被拒——请在浏览器地址栏锁图标里允许通知。',
       ntfPermUnsupported: '此浏览器不支持 Notification API。',
-      ntfPermHint: '弹窗出现在桌面浏览器；页面需保持打开（后台标签即可）。',
-      ntfChannelBrowser: 'Browser notifications',
-      ntfPermLabel: 'Browser notification permission',
-      ntfPermBtn: 'Grant permission',
-      ntfPermGrantedBtn: 'Granted ✓',
-      ntfPermGranted: 'Granted — events will pop as browser notifications.',
-      ntfPermDenied: 'Denied — allow notifications via the lock icon in the address bar.',
-      ntfPermUnsupported: 'This browser does not support the Notification API.',
-      ntfPermHint: 'Popups appear on the desktop browser; keep the page open (a background tab is fine).',
+      ntfPermHint: '弹窗出现在桌面浏览器；页面需保持打开（后台标签即可；切回页面会立即补拉一次）。',
+      ntfPermDeniedState: '已拒绝——请在浏览器地址栏锁图标中允许通知',
       ntfChannelBark: 'Bark',
       ntfChannelNtfy: 'ntfy',
       ntfChannelWebhook: 'Webhook',
@@ -623,12 +614,10 @@ window.__ModuleLoader__.load({
       monJobsColdNote: 'Jobs live in-process — hidden while the session is not open here.',
       monSubagentsTitle: 'Subagents',
       monSubTotal: '{n} total',
-      monSubRunning: '{n} running',
       monNoSubagents: 'No subagents.',
       monSubUnreadable: 'child log unreadable',
       monSubContinuable: 'continuable',
       monSubOneShot: 'one-shot',
-      monSubStateRunning: 'running',
       monSubInactive: 'done',
       monSubFilterAll: 'All',
       monSubFilterRunning: 'Running',
@@ -639,17 +628,9 @@ window.__ModuleLoader__.load({
       monSubResumeHint: 'Copy session ID (search it on the Sessions page to continue this subagent)',
       monSubUnreadableGroup: 'unreadable ({n})',
       sectionNotify: 'Notifications',
-      ntfIntro: 'Push dsh events to your phone: turn finished, background job settled, approval waiting. Channels: Bark (iOS), ntfy (cross-platform), and a generic webhook (Feishu/DingTalk/WeCom custom bots and friends).',
+      ntfIntro: 'Event notifications: browser notifications by default (zero-config, one click to grant), or Bark / ntfy / webhook to your phone. Events: turn finished, job settled, approval waiting, context nearly full.',
       ntfEnable: 'Enable the notification bridge',
       ntfChannelLabel: 'Channel',
-      ntfChannelBrowser: '浏览器通知',
-      ntfPermLabel: '浏览器通知权限',
-      ntfPermBtn: '授权浏览器通知',
-      ntfPermGrantedBtn: '已授权 ✓',
-      ntfPermGranted: '授权成功——事件将弹出浏览器通知。',
-      ntfPermDenied: '授权被拒——请在浏览器地址栏锁图标里允许通知。',
-      ntfPermUnsupported: '此浏览器不支持 Notification API。',
-      ntfPermHint: '弹窗出现在桌面浏览器；页面需保持打开（后台标签即可）。',
       ntfChannelBrowser: 'Browser notifications',
       ntfPermLabel: 'Browser notification permission',
       ntfPermBtn: 'Grant permission',
@@ -657,7 +638,8 @@ window.__ModuleLoader__.load({
       ntfPermGranted: 'Granted — events will pop as browser notifications.',
       ntfPermDenied: 'Denied — allow notifications via the lock icon in the address bar.',
       ntfPermUnsupported: 'This browser does not support the Notification API.',
-      ntfPermHint: 'Popups appear on the desktop browser; keep the page open (a background tab is fine).',
+      ntfPermHint: 'Popups appear on the desktop browser; keep the page open (a background tab is fine; returning to the tab catches up immediately).',
+      ntfPermDeniedState: 'Denied — allow notifications via the lock icon in the address bar',
       ntfChannelBark: 'Bark',
       ntfChannelNtfy: 'ntfy',
       ntfChannelWebhook: 'Webhook',
@@ -2546,7 +2528,7 @@ window.__ModuleLoader__.load({
     var NOTIFY_CHANNELS = [
       { value: 'browser', labelKey: 'ntfChannelBrowser', fields: [] },
       { value: 'bark', labelKey: 'ntfChannelBark', fields: ['url', 'barkKey'] },
-      { value: 'ntfy', labelKey: 'ntfChannelNtfy', fields: ['url', 'ntfTopic'] },
+      { value: 'ntfy', labelKey: 'ntfChannelNtfy', fields: ['url', 'ntfyTopic'] }, // fields=状态字段名（needs 判据），非 i18n 键
       { value: 'webhook', labelKey: 'ntfChannelWebhook', fields: ['url'] },
     ]
 
@@ -2607,10 +2589,10 @@ window.__ModuleLoader__.load({
         setBusy(true)
         setMsg(null)
         post('/notify/test', {})
-          .then(function () {
-            // browser 渠道：不等 30s 事件泵——立即直接弹一条（宿主测试
-            // 已确认桥通；弹窗本身就是这条渠道的"送达"）。
-            if (cfg.channel === 'browser') {
+          .then(function (result) {
+            // 按宿主实际使用的渠道分支（表单与已保存配置可能不同——
+            // 曾出现 bark 已存 + 表单 browser 的双投递）。
+            if (result.channel === 'browser') {
               if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
                 try { new Notification('DSH 通知测试', { body: t('ntfTestBrowserBody') }) } catch (err) { /* 极端环境 */ }
                 setMsg({ kind: 'ok', text: t('ntfTestOkBrowser') })
@@ -2688,7 +2670,7 @@ window.__ModuleLoader__.load({
                       setMsg({ kind: p === 'granted' ? 'ok' : 'err', text: p === 'granted' ? t('ntfPermGranted') : t('ntfPermDenied') })
                     })
                   },
-                }, typeof Notification !== 'undefined' && Notification.permission === 'granted' ? t('ntfPermGrantedBtn') : t('ntfPermBtn')),
+                }, typeof Notification !== 'undefined' && Notification.permission === 'granted' ? t('ntfPermGrantedBtn') : (typeof Notification !== 'undefined' && Notification.permission === 'denied' ? t('ntfPermDeniedState') : t('ntfPermBtn'))),
                 h('span', { className: 'dhb-hint' }, t('ntfPermHint')),
               )
             : null,
@@ -3708,9 +3690,9 @@ window.__ModuleLoader__.load({
       var done = children.filter(function (s) { return s.activity !== 'running' })
         .sort(function (a, b) { return (b.output ?? 0) - (a.output ?? 0) })
 
-      var visibleDone = expanded || filter === 'running' ? done : done.slice(0, 5)
+      var visibleDone = expanded ? done : done.slice(0, 5)
       var hiddenCount = done.length - Math.min(done.length, expanded ? done.length : 5)
-      // 筛选运行中时已结束整组隐藏
+      // 筛选运行中时已结束整组隐藏（并重置展开态，防切回 all 悬挂全展开）
       if (filter === 'running') { visibleDone = []; hiddenCount = 0 }
 
       var timeOf = function (ms) {
@@ -3805,7 +3787,7 @@ window.__ModuleLoader__.load({
               h('button', { className: 'dhb-btn', type: 'button', style: { fontSize: 11, height: 20, padding: '0 10px' }, onClick: function () { setExpanded(true) } },
                 t('monSubMore', { n: hiddenCount }) + ' ▾'))
           : null,
-        expanded && done.length > 5
+        expanded && filter === 'all' && done.length > 5
           ? h('div', { style: { textAlign: 'center', padding: 4 } },
               h('button', { className: 'dhb-btn', type: 'button', style: { fontSize: 11, height: 20, padding: '0 10px' }, onClick: function () { setExpanded(false) } },
                 t('monSubCollapse')))
@@ -5699,38 +5681,49 @@ window.__ModuleLoader__.load({
       // 3. /notify 配置查询本身是门：禁用或非 browser 渠道时连
       //    /notify/events 都不发（避免每 30s 一发空转请求）。
       var ntfTimer = null
-      var ntfSince = Date.now()
-      var NTF_PUMP_KEY = 'dsh-base-plugin:notify-pump'
+      // 游标只用宿主返回的 seq（跨机时钟不可比较——宿主 at/客户端
+      // Date.now 混用曾在时钟偏差的手机上静默丢通知）。null = 首轮：
+      // 先拉一次对齐 cursor，不弹历史。
+      var ntfCursor = null
+      var NTF_PUMP_KEY = 'dsh-base-plugin:notify-cursor'
+      function ntfApplyResult(r) {
+        var events = r.events ?? []
+        for (var i = 0; i < events.length; i += 1) {
+          var ev = events[i]
+          // tag 去重：多标签并发泵时浏览器层合并同 tag 弹窗
+          try { new Notification(ev.title, { body: ev.body, tag: 'dshbp-' + ev.seq }) } catch (err2) { /* 极端环境 */ }
+        }
+        if (typeof r.cursor === 'number') {
+          ntfCursor = r.cursor
+          try { window.localStorage.setItem(NTF_PUMP_KEY, String(ntfCursor)) } catch (err3) { /* 独立游标降级 */ }
+        }
+      }
       function ntfPump() {
         if (typeof Notification === 'undefined' || Notification.permission !== 'granted') return
         api('/notify').then(function (cfg) {
           if (cfg === undefined || cfg === null || cfg.enabled !== true || cfg.channel !== 'browser') return null
-          // 多标签仲裁：读共享的最近处理游标，比自己的新则采纳（别的
-          // 标签刚处理过这些事件）。
-          try {
-            var shared = Number(window.localStorage.getItem(NTF_PUMP_KEY) ?? '0')
-            if (shared > ntfSince) ntfSince = shared
-          } catch (err) { /* localStorage 不可用则退化为独立游标 */ }
-          return api('/notify/events?since=' + ntfSince).then(function (r) {
-            var events = r.events ?? []
-            var latest = ntfSince
-            for (var i = 0; i < events.length; i += 1) {
-              var ev = events[i]
-              try { new Notification(ev.title, { body: ev.body }) } catch (err2) { /* 极端环境 */ }
-              if (ev.at > latest) latest = ev.at
-            }
-            if (latest > ntfSince) {
-              ntfSince = latest
-              try { window.localStorage.setItem(NTF_PUMP_KEY, String(latest)) } catch (err3) { /* 同上 */ }
-            }
-          })
+          if (ntfCursor === null) {
+            // 首轮对齐：采纳跨标签共享 cursor（别的标签已在收），没有
+            // 则拉当前 cursor 不弹历史。
+            try { ntfCursor = Number(window.localStorage.getItem(NTF_PUMP_KEY) ?? '0') || 0 } catch (err) { ntfCursor = 0 }
+          } else {
+            try {
+              var shared = Number(window.localStorage.getItem(NTF_PUMP_KEY) ?? '0')
+              if (shared > ntfCursor) ntfCursor = shared
+            } catch (err4) { /* 降级独立 */ }
+          }
+          return api('/notify/events?since=' + ntfCursor).then(ntfApplyResult)
         }).catch(function () { /* 泵失败静默，下轮再试 */ })
       }
+      // 回前台立即补一次泵（Chrome 对后台标签节流 30s→~60s+）。
+      var ntfVis = function () { if (document.visibilityState === 'visible') ntfPump() }
+      document.addEventListener('visibilitychange', ntfVis)
       ntfTimer = setInterval(ntfPump, 30000)
 
       ctx.effect(function () {
         return function () {
           if (ntfTimer !== null) clearInterval(ntfTimer)
+          document.removeEventListener('visibilitychange', ntfVis)
           if (disposeStyles !== undefined) disposeStyles()
           disposeConfirm() // body 级对话框 DOM 拆除（shared.js）
           serviceController.dispose()

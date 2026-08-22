@@ -190,9 +190,9 @@
       var done = children.filter(function (s) { return s.activity !== 'running' })
         .sort(function (a, b) { return (b.output ?? 0) - (a.output ?? 0) })
 
-      var visibleDone = expanded || filter === 'running' ? done : done.slice(0, 5)
+      var visibleDone = expanded ? done : done.slice(0, 5)
       var hiddenCount = done.length - Math.min(done.length, expanded ? done.length : 5)
-      // 筛选运行中时已结束整组隐藏
+      // 筛选运行中时已结束整组隐藏（并重置展开态，防切回 all 悬挂全展开）
       if (filter === 'running') { visibleDone = []; hiddenCount = 0 }
 
       var timeOf = function (ms) {
@@ -287,7 +287,7 @@
               h('button', { className: 'dhb-btn', type: 'button', style: { fontSize: 11, height: 20, padding: '0 10px' }, onClick: function () { setExpanded(true) } },
                 t('monSubMore', { n: hiddenCount }) + ' ▾'))
           : null,
-        expanded && done.length > 5
+        expanded && filter === 'all' && done.length > 5
           ? h('div', { style: { textAlign: 'center', padding: 4 } },
               h('button', { className: 'dhb-btn', type: 'button', style: { fontSize: 11, height: 20, padding: '0 10px' }, onClick: function () { setExpanded(false) } },
                 t('monSubCollapse')))
