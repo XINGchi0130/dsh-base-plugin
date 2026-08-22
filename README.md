@@ -56,8 +56,20 @@ phone-width screens (see Mobile below).
    covered. The left edge drags to resize (the frame follows live); the
    panel's TOP bar carries the breadcrumb (session title › active panel)
    and the close button, with a horizontal tool nav row beneath it —
-   switching between File Changes and Terminal in place. Esc or the close
-   button dismisses it.
+   switching between File Changes, Terminal, and Monitor in place. Esc or
+   the close button dismisses it.
+
+   **Monitor** is the third panel in the same dock: the session's vital
+   figures at a glance — turns & steps, LLM vs tool wall time, average
+   first-token latency, decode throughput (tok/s), cache-hit rate, and
+   input/output token totals (reasoning tokens too when present). Stats
+   come from the official `sessionStats` whole-log projection
+   (`@deepseek-ai/dsh-session-stats` — live sessions via the projection
+   registry, cold ones via the projection cache), so figures match the
+   composer stats line exactly and survive paging/compaction; token totals
+   fold incrementally from the durable log (a per-session seq cursor makes
+   the 5-second auto-refresh cheap). The entry appears when both data
+   sources are mounted.
 
 8. **Usage** — a Settings section right after Models (order 11): aggregated token usage over
    every session log (input / cache-read / cache-write / output / reasoning — exact

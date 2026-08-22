@@ -51,7 +51,7 @@
  * 用分区横幅代替模块切分。分区顺序：i18n 词典 → store/api/styles
  * 辅助 → MarketTab → McpSection → SkillsSection → plugin apply。
  */
-// GENERATED from src/* by scripts/build-client.mjs — edit src/, then rebuild. stamp:0fdb9c884588
+// GENERATED from src/* by scripts/build-client.mjs — edit src/, then rebuild. stamp:57cd06b48be8
 window.__ModuleLoader__.load({
   id: 'dsh-base-plugin',
   factory: function (require) {
@@ -161,6 +161,26 @@ window.__ModuleLoader__.load({
       svcRestartFailed: '等待超时：请手动启动 dsh（{cmd}），然后刷新本页。',
       svcUnavailable: '宿主半边为旧版本：重启 dsh 一次后这两个按钮可用。',
       tabChanges: '文件变更',
+      tabMonitor: '监控',
+      monNoSession: '未选择会话——从会话头部的 ⋯ 菜单打开监控。',
+      monUnavailable: '该会话暂无统计数据。发出第一条消息后即可看到。',
+      monLive: '会话进行中',
+      monCold: '未在当前进程打开（读自持久化日志）',
+      monRounds: '轮次与步骤',
+      monTurns: '轮',
+      monSteps: '步',
+      monRequests: '{n} 次模型请求',
+      monTimes: '耗时',
+      monLlmLabel: '模型',
+      monToolLabel: '工具',
+      monTtftLabel: '首 token 平均',
+      monTokenTitle: 'Token 用量',
+      monInput: '输入',
+      monOutput: '输出',
+      monCacheHit: '缓存命中',
+      monCacheWrite: '缓存写入',
+      monReasoning: '思考',
+      monIntro: '统计来自官方整日志投影与 token 折叠，每 5 秒自动刷新；点击刷新立即更新。',
       gitNoChanges: '工作区没有文件变更。',
       gitSearchPlaceholder: '搜索文件路径…',
       gitNoMatch: '没有匹配的文件。',
@@ -402,6 +422,26 @@ window.__ModuleLoader__.load({
       svcRestartFailed: 'Timed out: start dsh manually ({cmd}), then refresh this page.',
       svcUnavailable: 'Host half is an older version: restart dsh once to enable these buttons.',
       tabChanges: 'File Changes',
+      tabMonitor: 'Monitor',
+      monNoSession: 'No session selected — open Monitor from the session header ⋯ menu.',
+      monUnavailable: 'No stats for this session yet. Send the first message to see figures.',
+      monLive: 'session in progress',
+      monCold: 'not open in this process (read from the durable log)',
+      monRounds: 'Turns & Steps',
+      monTurns: 'turns',
+      monSteps: 'steps',
+      monRequests: '{n} model requests',
+      monTimes: 'Wall time',
+      monLlmLabel: 'LLM',
+      monToolLabel: 'tools',
+      monTtftLabel: 'avg first token',
+      monTokenTitle: 'Token usage',
+      monInput: 'input',
+      monOutput: 'output',
+      monCacheHit: 'cache hit',
+      monCacheWrite: 'cache write',
+      monReasoning: 'reasoning',
+      monIntro: 'Figures come from the official whole-log projection plus a token fold; auto-refreshes every 5s — click refresh for an immediate update.',
       gitNoChanges: 'No file changes in the workspace.',
       gitSearchPlaceholder: 'Search file paths…',
       gitNoMatch: 'No matching files.',
@@ -2694,6 +2734,129 @@ window.__ModuleLoader__.load({
       )
     }
 
+    // ── 监控面板（会话运行概况）──────────────────────────────────────────
+
+    /** ms 时长 → "36m24s" / "37.3s" / "412ms"。 */
+    function monDuration(ms) {
+      if (typeof ms !== 'number' || !Number.isFinite(ms) || ms < 0) return '—'
+      if (ms < 1000) return Math.round(ms) + 'ms'
+      var s = ms / 1000
+      if (s < 60) return (Math.round(s * 10) / 10) + 's'
+      var m = Math.floor(s / 60)
+      var rest = Math.round(s - m * 60)
+      if (m < 60) return m + 'm' + (rest < 10 ? '0' : '') + rest + 's'
+      var h = Math.floor(m / 60)
+      return h + 'h' + (m - h * 60) + 'm'
+    }
+
+    /** token 大数 → "107K" / "33.7M"。 */
+    function monTokens(n) {
+      if (typeof n !== 'number' || !Number.isFinite(n)) return '—'
+      var scaled = function (v) { return v >= 100 ? String(Math.round(v)) : String(Math.round(v * 10) / 10) }
+      if (n < 1000) return String(Math.round(n))
+      if (n < 1000000) return scaled(n / 1000) + 'K'
+      return scaled(n / 1000000) + 'M'
+    }
+
+    /** 指标卡：标题 + 值行（children）。 */
+    function MonCard(props) {
+      return h('div', { className: 'dhb-card' },
+        h('div', { className: 'dhb-cardTitle' }, props.title),
+        h('div', { className: 'dhb-cardMeta', style: { flexDirection: 'column', alignItems: 'flex-start', gap: 2 } }, props.children),
+      )
+    }
+
+    /**
+     * 监控面板：经宿主 /monitor 读官方 sessionStats 投影（轮/步、LLM/
+     * 工具墙钟、首 token、解码吞吐）+ token 折叠（输入/输出/缓存命中）。
+     * 打开期间每 5s 自动刷新（token 折叠是增量游标，轮询很轻）；手动
+     * 刷新按钮随时可用。会话切换（sessionId 变化）自动重载。
+     */
+    function MonitorView(props) {
+      var t = props.t
+      var kit = props.kit
+      useLocaleVersion()
+
+      var sessionId = kit !== undefined ? kit.sessionId : undefined
+
+      var dataState = React.useState({ status: 'idle', payload: null })
+      var data = dataState[0]
+      var setData = dataState[1]
+
+      var load = React.useCallback(function (sid) {
+        if (sid === undefined || sid === '') return
+        // 代计数：会话切换/快速刷新时，晚到的旧响应不得覆盖新数据。
+        setData(function (prev) { return { status: prev.payload === null ? 'loading' : 'refreshing', payload: prev.payload } })
+        api('/monitor?sessionId=' + encodeURIComponent(sid))
+          .then(function (value) { setData({ status: 'ready', payload: value }) })
+          .catch(function (error) { setData({ status: 'error', payload: null, error: String(error.message || error) }) })
+      }, [])
+
+      React.useEffect(function () {
+        load(sessionId)
+        // 自动刷新：面板在前台时每 5s 拉一次（token 折叠走宿主增量游标）。
+        if (sessionId === undefined || sessionId === '') return undefined
+        var timer = setInterval(function () { load(sessionId) }, 5000)
+        return function () { clearInterval(timer) }
+      }, [sessionId, load])
+
+      if (sessionId === undefined || sessionId === '') {
+        return h('div', { className: 'dhb-page' }, h('p', { className: 'dhb-desc' }, t('monNoSession')))
+      }
+
+      var p = data.payload
+      var s = p !== null && p.stats !== null ? p.stats : null
+      var tok = p !== null ? p.tokens : null
+
+      // 派生速率：首 token 平均 = ttftMs/ttftSteps；解码 = decodeTokens/(decodeMs/1000)。
+      var ttftAvg = s !== null && s.ttftSteps > 0 ? s.ttftMs / s.ttftSteps : null
+      var tokPerSec = s !== null && s.decodeMs > 0 ? s.decodeTokens / (s.decodeMs / 1000) : null
+      // 缓存命中 = cacheRead / (cacheRead + input)（不含 cacheWrite 写入侧）。
+      var cacheHit = null
+      if (tok !== null && (tok.cacheRead + tok.input) > 0) {
+        cacheHit = Math.round(tok.cacheRead / (tok.cacheRead + tok.input) * 100)
+      }
+
+      return h('div', { className: 'dhb-page' },
+        h('div', { className: 'dhb-row', style: { justifyContent: 'space-between' } },
+          h('span', { className: 'dhb-hint' },
+            p !== null ? (p.live === true ? t('monLive') : t('monCold')) : ''),
+          h('button', { className: 'dhb-btn', type: 'button', onClick: function () { load(sessionId) } }, t('refresh')),
+        ),
+        data.status === 'loading' ? h('p', { className: 'dhb-desc' }, t('loading'))
+        : data.status === 'error' ? h(Banner, { kind: 'err', text: data.error })
+        : p !== null && p.available !== true && p.requests === 0
+          ? h('p', { className: 'dhb-desc' }, t('monUnavailable'))
+          : h('div', { className: 'dhb-list' },
+              // 轮次与步骤
+              h(MonCard, { title: t('monRounds') },
+                h('span', { style: { fontSize: 15 } },
+                  (s !== null ? s.turns : '—') + ' ' + t('monTurns') + ' · ' + (s !== null ? s.steps : '—') + ' ' + t('monSteps')),
+                h('span', { className: 'dhb-hint' }, t('monRequests', { n: p !== null ? p.requests : 0 })),
+              ),
+              // 耗时
+              h(MonCard, { title: t('monTimes') },
+                h('span', null, t('monLlmLabel') + ' ' + monDuration(s !== null ? s.llmMs : null)
+                  + ' · ' + t('monToolLabel') + ' ' + monDuration(s !== null ? s.toolMs : null)),
+                h('span', { className: 'dhb-hint' }, t('monTtftLabel') + ' ' + (ttftAvg !== null ? monDuration(ttftAvg) : '—')
+                  + (tokPerSec !== null ? ' · ' + (Math.round(tokPerSec * 10) / 10) + ' tok/s' : '')),
+              ),
+              // token 用量
+              h(MonCard, { title: t('monTokenTitle') },
+                h('span', null, t('monInput') + ' ' + (tok !== null ? monTokens(tok.input) : '—')
+                  + ' · ' + t('monOutput') + ' ' + (tok !== null ? monTokens(tok.output) : '—')),
+                h('span', { className: 'dhb-hint' },
+                  t('monCacheHit') + ' ' + (cacheHit !== null ? cacheHit + '%' : '—')
+                  + ' · ' + t('monCacheWrite') + ' ' + (tok !== null ? monTokens(tok.cacheWrite) : '—')),
+                tok !== null && tok.reasoning > 0
+                  ? h('span', { className: 'dhb-hint' }, t('monReasoning') + ' ' + monTokens(tok.reasoning))
+                  : null,
+              ),
+            ),
+        h('p', { className: 'dhb-hint' }, t('monIntro')),
+      )
+    }
+
     // ── 模型用量设置节 ─────────────────────────────────────────────────────
 
     /** 每模型系列的图表配色（按模型 id 稳定映射）。 */
@@ -3148,9 +3311,9 @@ window.__ModuleLoader__.load({
         if (props.tools !== undefined) props.tools.open(panel, sessionId, title, cwd)
       }
 
-      // 无可用面板（无 git 二进制、无终端服务）：⋯ 菜单会是空的——
-      // 干脆不渲染按钮。
-      if (caps.changes !== true && caps.terminal !== true) return null
+      // 无可用面板（无 git 二进制、无终端服务、无监控数据源）：⋯ 菜单
+      // 会是空的——干脆不渲染按钮。
+      if (caps.changes !== true && caps.terminal !== true && caps.monitor !== true) return null
 
       return h('div', { className: 'dhb-smWrap' },
         h('button', {
@@ -3174,6 +3337,10 @@ window.__ModuleLoader__.load({
             className: 'dhb-smItem', type: 'button', role: 'menuitem',
             onClick: function () { onOpenTool('terminal') },
           }, h(TerminalIcon, { size: 14 }), h('span', null, t('tabTerminal'))) : null,
+          caps.monitor === true ? h('button', {
+            className: 'dhb-smItem', type: 'button', role: 'menuitem',
+            onClick: function () { onOpenTool('monitor') },
+          }, h(MonitorIcon, { size: 14 }), h('span', null, t('tabMonitor'))) : null,
         ) : null,
       )
     }
@@ -3302,6 +3469,17 @@ window.__ModuleLoader__.load({
       },
         h('polyline', { points: '4 17 10 11 4 5' }),
         h('line', { x1: 12, y1: 19, x2: 20, y2: 19 }))
+    }
+
+    /** 监控面板字形（心电脉冲线）。 */
+    function MonitorIcon(props) {
+      var size = props.size === undefined ? 15 : props.size
+      return h('svg', {
+        width: size, height: size, viewBox: '0 0 24 24',
+        fill: 'none', stroke: 'currentColor', strokeWidth: 2,
+        strokeLinecap: 'round', strokeLinejoin: 'round', 'aria-hidden': 'true',
+      },
+        h('polyline', { points: '2 12 6 12 9 4 15 20 18 12 22 12' }))
     }
 
     /**
@@ -3503,10 +3681,11 @@ window.__ModuleLoader__.load({
       if (snap.panel === null) return null
 
       // A panel whose capability vanished (probe raced negative, service
-      // went away) falls back to the other one; neither → close.
+      // went away) falls back to another available one; none → close.
       var panel = snap.panel
-      if (panel === 'changes' && caps.changes !== true) panel = caps.terminal === true ? 'terminal' : null
-      else if (panel === 'terminal' && caps.terminal !== true) panel = caps.changes === true ? 'changes' : null
+      if (panel === 'changes' && caps.changes !== true) panel = caps.terminal === true ? 'terminal' : (caps.monitor === true ? 'monitor' : null)
+      else if (panel === 'terminal' && caps.terminal !== true) panel = caps.changes === true ? 'changes' : (caps.monitor === true ? 'monitor' : null)
+      else if (panel === 'monitor' && caps.monitor !== true) panel = caps.changes === true ? 'changes' : (caps.terminal === true ? 'terminal' : null)
       if (panel === null) return null
 
       var sessionLabel = snap.sessionTitle !== ''
@@ -3515,6 +3694,7 @@ window.__ModuleLoader__.load({
 
       var changesIcon = h(FileDiffIcon, { size: 15 })
       var terminalIcon = h(TerminalIcon, { size: 15 })
+      var monitorIcon = h(MonitorIcon, { size: 15 })
 
       var navItem = function (key, label, icon) {
         return h('button', {
@@ -3567,11 +3747,14 @@ window.__ModuleLoader__.load({
           h('div', { className: 'dhb-toolsNav', role: 'tablist', 'aria-label': t('sessionMore') },
             caps.changes === true ? navItem('changes', t('tabChanges'), changesIcon) : null,
             caps.terminal === true ? navItem('terminal', t('tabTerminal'), terminalIcon) : null,
+            caps.monitor === true ? navItem('monitor', t('tabMonitor'), monitorIcon) : null,
           ),
           h('div', { className: 'dhb-toolsBody' },
             panel === 'terminal'
               ? h(TerminalView, { t: t, kit: fakeKit })
-              : h(ChangesView, { t: t, kit: fakeKit }),
+              : panel === 'monitor'
+                ? h(MonitorView, { t: t, kit: fakeKit })
+                : h(ChangesView, { t: t, kit: fakeKit }),
           ),
         ),
       )
@@ -4000,16 +4183,23 @@ window.__ModuleLoader__.load({
       // （见 installChatRail）。
       var disposeChatRail = installChatRail(t)
 
-      // ⋯ 菜单各工具面板的可用性，从宿主半探测（git 二进制/终端服务
-      // 是否挂载）。用 store 而非 apply 时常量：探测结果可能晚于菜单
-      // 挂载返回。
-      var capabilities = createStore({ changes: false, terminal: false })
+      // ⋯ 菜单各工具面板的可用性，从宿主半探测（git 二进制/终端服务/
+      // 监控数据源是否挂载）。用 store 而非 apply 时常量：探测结果可能
+      // 晚于菜单挂载返回。合并式更新（读改写）——多个探测并发落地时
+      // 任何一个都不得覆盖其余字段。
+      var capabilities = createStore({ changes: false, terminal: false, monitor: false })
+      var mergeCaps = function (patch) {
+        capabilities.set(Object.assign({}, capabilities.getSnapshot(), patch))
+      }
       api('/git/available')
-        .then(function (value) { capabilities.set({ changes: value.available === true, terminal: capabilities.getSnapshot().terminal }) })
+        .then(function (value) { mergeCaps({ changes: value.available === true }) })
         .catch(function () { /* older host half: entry stays hidden */ })
       api('/terminal/available')
-        .then(function (value) { capabilities.set({ changes: capabilities.getSnapshot().changes, terminal: value.available === true }) })
+        .then(function (value) { mergeCaps({ terminal: value.available === true }) })
         .catch(function () { /* terminals service not mounted: entry stays hidden */ })
+      api('/monitor/available')
+        .then(function (value) { mergeCaps({ monitor: value.available === true }) })
+        .catch(function () { /* monitor sources not mounted: entry stays hidden */ })
 
       // 会话头部 ⋯ 菜单（工具面板入口）——用右对齐的 utilities 行
       // （titleRow 右端），不用标题旁的 actions 组：视觉上是头部右上角、

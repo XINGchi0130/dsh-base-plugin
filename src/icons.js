@@ -53,6 +53,17 @@
         h('line', { x1: 12, y1: 19, x2: 20, y2: 19 }))
     }
 
+    /** 监控面板字形（心电脉冲线）。 */
+    function MonitorIcon(props) {
+      var size = props.size === undefined ? 15 : props.size
+      return h('svg', {
+        width: size, height: size, viewBox: '0 0 24 24',
+        fill: 'none', stroke: 'currentColor', strokeWidth: 2,
+        strokeLinecap: 'round', strokeLinejoin: 'round', 'aria-hidden': 'true',
+      },
+        h('polyline', { points: '2 12 6 12 9 4 15 20 18 12 22 12' }))
+    }
+
     /**
      * 画在 footerActions 内部的不透明背垫：绝对定位垫层、固定宽裕的
      * 上探下探（下盖过官方设置行、上盖过滚动容器底缘）。无测量循环

@@ -33,16 +33,23 @@
       // （见 installChatRail）。
       var disposeChatRail = installChatRail(t)
 
-      // ⋯ 菜单各工具面板的可用性，从宿主半探测（git 二进制/终端服务
-      // 是否挂载）。用 store 而非 apply 时常量：探测结果可能晚于菜单
-      // 挂载返回。
-      var capabilities = createStore({ changes: false, terminal: false })
+      // ⋯ 菜单各工具面板的可用性，从宿主半探测（git 二进制/终端服务/
+      // 监控数据源是否挂载）。用 store 而非 apply 时常量：探测结果可能
+      // 晚于菜单挂载返回。合并式更新（读改写）——多个探测并发落地时
+      // 任何一个都不得覆盖其余字段。
+      var capabilities = createStore({ changes: false, terminal: false, monitor: false })
+      var mergeCaps = function (patch) {
+        capabilities.set(Object.assign({}, capabilities.getSnapshot(), patch))
+      }
       api('/git/available')
-        .then(function (value) { capabilities.set({ changes: value.available === true, terminal: capabilities.getSnapshot().terminal }) })
+        .then(function (value) { mergeCaps({ changes: value.available === true }) })
         .catch(function () { /* older host half: entry stays hidden */ })
       api('/terminal/available')
-        .then(function (value) { capabilities.set({ changes: capabilities.getSnapshot().changes, terminal: value.available === true }) })
+        .then(function (value) { mergeCaps({ terminal: value.available === true }) })
         .catch(function () { /* terminals service not mounted: entry stays hidden */ })
+      api('/monitor/available')
+        .then(function (value) { mergeCaps({ monitor: value.available === true }) })
+        .catch(function () { /* monitor sources not mounted: entry stays hidden */ })
 
       // 会话头部 ⋯ 菜单（工具面板入口）——用右对齐的 utilities 行
       // （titleRow 右端），不用标题旁的 actions 组：视觉上是头部右上角、
