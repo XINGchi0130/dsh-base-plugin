@@ -156,6 +156,7 @@ export async function apply(ctx) {
     try {
       mobileHandle = await startMobileProxy({
         port: mobile.port,
+        upstreamPort: typeof ctx.webServer?.port === 'number' ? ctx.webServer.port : undefined,
         auth: ensureAuth(),
         onStateChange: persistMobile,
         version: 'dsh-base-plugin',
