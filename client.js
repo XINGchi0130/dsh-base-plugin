@@ -51,7 +51,7 @@
  * 用分区横幅代替模块切分。分区顺序：i18n 词典 → store/api/styles
  * 辅助 → MarketTab → McpSection → SkillsSection → plugin apply。
  */
-// GENERATED from src/* by scripts/build-client.mjs — edit src/, then rebuild. stamp:742b24b5fd2c
+// GENERATED from src/* by scripts/build-client.mjs — edit src/, then rebuild. stamp:6be0a0a56078
 window.__ModuleLoader__.load({
   id: 'dsh-base-plugin',
   factory: function (require) {
@@ -357,6 +357,10 @@ window.__ModuleLoader__.load({
       badgeGhost: '仅残留数据',
       badgeDraft: '新会话草稿',
       draftHint: '「新建会话」会为工作区预创建一个占位会话以便秒开；此会话从未对话。未被使用时会被自动回收（活跃状态随之消失），之后可删除。',
+      sessExportMd: '导出 MD',
+      sessExportMdHint: '下载可读的 Markdown 转写（用户/助手/工具调用）',
+      sessExportZip: '导出 Zip',
+      sessExportZipHint: '官方全量导出：完整日志与附件，zip 包',
       sessDelete: '删除',
       sessDeleting: '删除中…',
       sessSearchPlaceholder: '搜索会话（标题 / ID / 项目路径）',
@@ -665,6 +669,10 @@ window.__ModuleLoader__.load({
       badgeGhost: 'metadata only',
       badgeDraft: 'new-chat draft',
       draftHint: '"New Session" keeps a placeholder session per workspace for instant open; this one has never been conversed. Unused ones are reclaimed automatically (the live flag drops soon after), and can be deleted then.',
+      sessExportMd: 'Export MD',
+      sessExportMdHint: 'Download a readable Markdown transcript (user/assistant/tool calls)',
+      sessExportZip: 'Export Zip',
+      sessExportZipHint: 'Official full export: the complete log with attachments, as a zip',
       sessDelete: 'Delete',
       sessDeleting: 'Deleting…',
       sessSearchPlaceholder: 'Search sessions (title / id / project path)',
@@ -2007,6 +2015,22 @@ window.__ModuleLoader__.load({
                 : null,
               h('div', { className: 'dhb-hint', style: { wordBreak: 'break-all' } }, item.id),
               h('div', { className: 'dhb-cardActions' },
+                // 导出：MD（宿主折叠的可读转写）与 Zip（官方全量端点）。
+                // window.open 触发浏览器原生下载；官方端点在无会话时自答错误页。
+                h('button', {
+                  className: 'dhb-btn', type: 'button',
+                  title: t('sessExportMdHint'),
+                  onClick: function () {
+                    window.open('/dsh-base-plugin/api/export/markdown?sessionId=' + encodeURIComponent(item.id), '_blank')
+                  },
+                }, t('sessExportMd')),
+                h('button', {
+                  className: 'dhb-btn', type: 'button',
+                  title: t('sessExportZipHint'),
+                  onClick: function () {
+                    window.open('/api/session.export?sessionId=' + encodeURIComponent(item.id), '_blank')
+                  },
+                }, t('sessExportZip')),
                 h('button', {
                   className: 'dhb-btn dhb-btnDanger',
                   type: 'button',

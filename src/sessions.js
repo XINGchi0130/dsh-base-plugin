@@ -158,6 +158,22 @@
                 : null,
               h('div', { className: 'dhb-hint', style: { wordBreak: 'break-all' } }, item.id),
               h('div', { className: 'dhb-cardActions' },
+                // 导出：MD（宿主折叠的可读转写）与 Zip（官方全量端点）。
+                // window.open 触发浏览器原生下载；官方端点在无会话时自答错误页。
+                h('button', {
+                  className: 'dhb-btn', type: 'button',
+                  title: t('sessExportMdHint'),
+                  onClick: function () {
+                    window.open('/dsh-base-plugin/api/export/markdown?sessionId=' + encodeURIComponent(item.id), '_blank')
+                  },
+                }, t('sessExportMd')),
+                h('button', {
+                  className: 'dhb-btn', type: 'button',
+                  title: t('sessExportZipHint'),
+                  onClick: function () {
+                    window.open('/api/session.export?sessionId=' + encodeURIComponent(item.id), '_blank')
+                  },
+                }, t('sessExportZip')),
                 h('button', {
                   className: 'dhb-btn dhb-btnDanger',
                   type: 'button',

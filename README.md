@@ -97,7 +97,13 @@ phone-width screens (see Mobile below).
    projection-cache row, the durable log directory itself (jsonl backend
    only), and best-effort the archive-set entry. Ghost rows (archived ids
    whose log is already gone) delete as a pure metadata sweep. Deleting a
-   session destroys its full conversation log and cannot be undone.
+   session destroys its full conversation log and cannot be undone. Each row
+   also exports: **Export MD** (a readable Markdown transcript folded
+   host-side — user prompts, assistant replies with collapsed reasoning,
+   tool calls paired with results, injected context as collapsed blocks) and
+   **Export Zip** (the official `GET /api/session.export` endpoint — the
+   complete durable log plus attachment artifacts; the plugin adds no route,
+   the browser downloads it directly).
 
 10. **Mobile Access** — a new Settings page. Use the full DSH UI from your
     phone on the LAN: an authenticated reverse proxy starts on its own port
@@ -193,7 +199,7 @@ pnpm check:client     # verify sync (a pre-commit hook auto-rebuilds anyway)
 
 - The **node half** (`index.js` entry + `lib/` feature modules: `routes`, `market`, `installer`,
   `patch`, `git`, `skills-io`, `sessions`, `usage`, `mobile/*` (`server`, `auth`, `qr` + vendored
-  QR, `pwa`), `status`, `lifecycle`, `notify`, `env`, `state`, `pnpm`, `terminals-api`) serves
+  QR, `pwa`), `status`, `lifecycle`, `notify`, `export`, `env`, `state`, `pnpm`, `terminals-api`) serves
   `/dsh-base-plugin/api/*` on the DSH web server: state, market search, install/uninstall, MCP
   config save, skills list/detail/create/edit/delete, session inventory/delete, mobile-access
   control (toggle/QR/devices/revoke/rotate) plus the LAN pairing proxy itself, service
