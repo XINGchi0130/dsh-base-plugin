@@ -439,7 +439,9 @@
       var tabItem = function (key, label) {
         return h('button', {
           className: 'dhb-toolsNavItem', type: 'button',
+          role: 'tab',
           'data-active': tab === key ? '1' : '0',
+          'aria-selected': tab === key,
           onClick: function () { setTab(key) },
         }, h('span', { style: { minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, label))
       }

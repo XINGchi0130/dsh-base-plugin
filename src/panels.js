@@ -105,11 +105,20 @@
         var layer = document.querySelector('[data-shell-overlay]')
         var frame = layer !== null ? layer.parentElement : null
         if (frame === null || frame === undefined) return undefined
-        var vw = typeof window !== 'undefined' ? window.innerWidth : 0
-        var effective = vw > 0 && width > vw - 56 ? vw - 56 : width
+        var apply = function () {
+          var vw = typeof window !== 'undefined' ? window.innerWidth : 0
+          var effective = vw > 0 && width > vw - 56 ? vw - 56 : width
+          frame.style.marginRight = effective + 'px'
+        }
         var prev = frame.style.marginRight
-        frame.style.marginRight = effective + 'px'
-        return function () { frame.style.marginRight = prev }
+        apply()
+        // 窗口缩放重算：margin 只依赖 [panel, width] 会在 resize 后停
+        // 在旧值（面板被 max-width 钳住，聊天列被过度挤窄）。
+        if (typeof window !== 'undefined') window.addEventListener('resize', apply)
+        return function () {
+          if (typeof window !== 'undefined') window.removeEventListener('resize', apply)
+          frame.style.marginRight = prev
+        }
       }, [snap.panel, width])
 
       if (snap.panel === null) return null
@@ -135,7 +144,9 @@
       var navItem = function (key, label, icon) {
         return h('button', {
           className: 'dhb-toolsNavItem', type: 'button',
+          role: 'tab',
           'data-active': panel === key ? '1' : '0',
+          'aria-selected': panel === key,
           onClick: function () { props.controller.switch(key) },
         }, icon, h('span', { style: { minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, label))
       }

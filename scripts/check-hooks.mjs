@@ -1,7 +1,11 @@
 #!/usr/bin/env node
 /**
- * hooks 顺序静态检查：组件函数内任何"条件 return / 循环 / 条件块"之后
- * 不得再出现 React.useState/useEffect/useRef/useCallback/useMemo 调用。
+ * hooks 顺序静态检查（rules-of-hooks 的保守近似，本项目风格专用）：
+ *  1. 组件函数体内任何“条件 return”之后不得再出现 hook 调用；
+ *  2. 缩进深于函数顶层语句（本项目 6 空格）的 hook 调用直接违例——
+ *     条件块、循环体、回调闭包（.then/map 回调）里的 hook 都必然更深，
+ *     一条缩进规则全覆盖（注意：把 hook 调用换行到续行会误报——本
+ *     项目风格 hook 一行一调）。
  *
  * 背景：工具坞面板曾因拖拽 hook 落在 `if (snap.panel === null) return
  * null` 之后而整体崩溃（第四次"快速修复引入回归"）。构建链不加 React
@@ -18,9 +22,26 @@ const root = join(dirname(fileURLToPath(import.meta.url)), '..')
 const HOOK_RE = /React\.(useState|useEffect|useRef|useCallback|useMemo|useSyncExternalStore|useLayoutEffect)\s*\(/
 // 保守条件 return 判定：行首缩进 + if(...) return / return X（非表达式续行）
 // 只认函数体语句级的 return（本项目组件体为 6 空格缩进；回调/表达式内
-// 的 return 缩进更深，不算早退）。
-const COND_RETURN = /^ {6}(?:if\s*\([^)]*\)\s*return\b|return\b)/
-const LOOP_OR_COND = /^\s*(?:for\s*\(|while\s*\(|if\s*\(|switch\s*\()/
+// 的 return 缩进更深，不算早退）。条件括号用深度配对而非 [^)]*——后者
+// 遇 `if (String(x).length > 3) return null` 即失配漏报。
+const condReturnOf = (line) => {
+  if (!/^ {6}return\b/.test(line)) return false
+  const ifAt = line.indexOf('if')
+  if (ifAt === -1) return true // 裸 return（6 缩进语句级）也是早退
+  let depth = 0
+  let seenOpen = false
+  for (let i = ifAt; i < line.length; i += 1) {
+    const ch = line[i]
+    if (ch === '(') { depth += 1; seenOpen = true }
+    else if (ch === ')') {
+      depth -= 1
+      if (seenOpen && depth === 0) return /\breturn\b/.test(line.slice(i + 1))
+    }
+  }
+  return false
+}
+// hook 只允许出现在函数顶层语句（6 空格缩进）；更深 = 条件块/循环体/回调。
+const HOOK_DEEP = /^ {7,}React\.(?:useState|useEffect|useRef|useCallback|useMemo|useSyncExternalStore|useLayoutEffect)\s*\(/
 
 let violations = 0
 
@@ -31,9 +52,11 @@ function componentBodies(src) {
   let current = null
   let depth = 0
   for (const line of lines) {
-    const startMatch = /^ {4}function (\w+)\s*\(/.exec(line)
+    // 组件入口两种形态：`function X(...)` 声明与 `var X = function (...)`
+    // （箭头组件项目内未用；表达式组件同样以 4 空格 var 声明行起）。
+    const startMatch = /^ {4}(?:function (\w+)|var (\w+) = function)\s*\(/.exec(line)
     if (current === null && startMatch !== null) {
-      current = { name: startMatch[1], lines: [], started: false }
+      current = { name: startMatch[1] ?? startMatch[2], lines: [], started: false }
     }
     if (current !== null) {
       current.lines.push(line)
@@ -44,7 +67,7 @@ function componentBodies(src) {
       // 字符串里的花括号会扰动深度——本项目风格极少；深度回到函数声明行的
       // 基线（约 0）且已开始即结束。保守：只在看到下一个 4 缩进 function
       // 或文件尾时结束。
-      const nextFn = /^ {4}function /.test(line) && current.lines.length > 1
+      const nextFn = (/^ {4}(?:function |var \w+ = function )/.test(line)) && current.lines.length > 1
       if ((nextFn && depth <= 0) || (current.started && depth <= 0 && current.lines.length > 3)) {
         bodies.push(current)
         current = null
@@ -63,7 +86,12 @@ for (const file of readdirSync(join(root, 'src'))) {
     let returned = false
         for (let i = 0; i < body.lines.length; i += 1) {
       const line = body.lines[i]
-      if (COND_RETURN.test(line)) returned = true
+      if (condReturnOf(line)) returned = true
+      // 缩进深于函数顶层（6 空格）的 hook：条件块/循环体/回调闭包。
+      if (HOOK_DEEP.test(line)) {
+        console.error(`✗ src/${file} ${body.name}: 第 ${i + 1} 行 hook 出现在嵌套块内 → ${line.trim().slice(0, 60)}`)
+        violations += 1
+      }
             if (HOOK_RE.test(line)) {
         // hook 在任何条件 return 之后 → 违例
         if (returned) {

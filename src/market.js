@@ -57,7 +57,7 @@
       var refreshState = React.useCallback(function () {
         api('/state').then(function (value) {
           setData(function (prev) {
-            return Object.assign({}, prev, { plugins: value.plugins, busy: value.busy })
+            return Object.assign({}, prev, { plugins: value.plugins ?? [], busy: value.busy === true })
           })
         }).catch(function () { /* banner already covers market errors */ })
       }, [])

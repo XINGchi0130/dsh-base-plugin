@@ -84,13 +84,18 @@
       var setGroupLimit = groupLimitState[1]
 
 
+      // 代际防护（monitor.js 的 loadGen 模式）：15s 轮询 + 在途请求下，
+      // 切换会话后旧会话的响应不得落地覆盖新会话的数据。
+      var loadGen = React.useRef(0)
       var load = React.useCallback(function (sid) {
         if (sid === undefined || sid === '') return
+        var gen = loadGen.current = loadGen.current + 1
         api('/fileops?sessionId=' + encodeURIComponent(sid))
           .then(function (value) {
+            if (gen !== loadGen.current) return
             setData({ status: 'ready', files: value.files ?? [] })
           })
-          .catch(function (error) { setData({ status: 'error', error: String(error.message || error) }) })
+          .catch(function (error) { if (gen !== loadGen.current) return; setData({ status: 'error', error: String(error.message || error) }) })
       }, [])
 
       React.useEffect(function () {
@@ -233,11 +238,17 @@
       var diffs = diffState[0]
       var setDiffs = diffState[1]
 
+      // 代际防护（P2：seg/limit/cwd 快速切换时两个在途 /git/log 响应
+      // 乱序落地会让 tab 高亮与列表错配且不自愈——git 视图无轮询，错态
+      // 保持到下次手动操作；照搬 monitor.js 的 loadGen 模式）。
+      var loadGen = React.useRef(0)
       var load = React.useCallback(function (dir, scope, lim) {
         if (dir === '') return
+        var gen = loadGen.current = loadGen.current + 1
         setData(function (prev) { return Object.assign({}, prev, { status: 'loading', error: '' }) })
         api('/git/log?cwd=' + encodeURIComponent(dir) + '&scope=' + scope + '&limit=' + lim)
           .then(function (value) {
+            if (gen !== loadGen.current) return
             // 新的一页到了——上一轮展开的 diff 全部过期，丢弃。
             setDiffs({})
             setData({
@@ -251,6 +262,7 @@
             })
           })
           .catch(function (error) {
+            if (gen !== loadGen.current) return
             setData(function (prev) {
               return Object.assign({}, prev, { status: 'error', error: String(error.message || error) })
             })
@@ -299,6 +311,10 @@
           })
           .catch(function (error) {
             setDiffs(function (prev) {
+              // 与 then 路径同守卫：用户在途收起后，失败响应不得复活已
+              // 收起的行（幽灵展开的 catch 侧变体）。
+              var cur = prev[hash]
+              if (cur === undefined || cur.status !== 'loading') return prev
               var copy = Object.assign({}, prev)
               copy[hash] = { status: 'error', diff: String(error.message || error) }
               return copy
@@ -393,7 +409,9 @@
       var tabItem = function (key, label) {
         return h('button', {
           className: 'dhb-toolsNavItem', type: 'button',
+          role: 'tab',
           'data-active': tab === key ? '1' : '0',
+          'aria-selected': tab === key,
           onClick: function () { setTab(key) },
         }, h('span', { style: { minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, label))
       }

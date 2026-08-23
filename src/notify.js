@@ -71,7 +71,7 @@
             // 曾出现 bark 已存 + 表单 browser 的双投递）。
             if (result.channel === 'browser') {
               if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
-                try { new Notification('DSH 通知测试', { body: t('ntfTestBrowserBody') }) } catch (err) { /* 极端环境 */ }
+                try { new Notification(t('ntfTestTitle'), { body: t('ntfTestBrowserBody') }) } catch (err) { /* 极端环境 */ }
                 setMsg({ kind: 'ok', text: t('ntfTestOkBrowser') })
               } else {
                 setMsg({ kind: 'err', text: t('ntfPermNeeded') })

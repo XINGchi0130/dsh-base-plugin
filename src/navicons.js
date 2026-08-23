@@ -99,17 +99,25 @@
         return function () {}
       }
       var scheduled = false
+      var disposed = false
+      var rafId = null
       var schedule = function () {
-        if (scheduled) return
+        if (scheduled || disposed) return
         scheduled = true
         if (typeof requestAnimationFrame === 'function') {
-          requestAnimationFrame(function () { scheduled = false; patchSettingsNavIcons(t) })
+          rafId = requestAnimationFrame(function () { scheduled = false; rafId = null; if (!disposed) patchSettingsNavIcons(t) })
         } else {
-          setTimeout(function () { scheduled = false; patchSettingsNavIcons(t) }, 16)
+          setTimeout(function () { scheduled = false; if (!disposed) patchSettingsNavIcons(t) }, 16)
         }
       }
       var observer = new MutationObserver(schedule)
       observer.observe(document.body, { childList: true, subtree: true })
       schedule()
-      return function () { observer.disconnect() }
+      // dispose 取消已排队的 rAF 并让迟到回调空转（rail.js 的收尾标准）：
+      // 否则插件停止后已入队的那趟 DOM 补丁仍会执行一次。
+      return function () {
+        disposed = true
+        observer.disconnect()
+        if (rafId !== null && typeof cancelAnimationFrame === 'function') cancelAnimationFrame(rafId)
+      }
     }

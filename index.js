@@ -24,7 +24,7 @@
  */
 import { chmodSync, existsSync, mkdirSync } from 'node:fs'
 import { dshHome, statePath } from './lib/env.js'
-import { commit } from './lib/patch.js'
+import { commit, mutateState } from './lib/patch.js'
 import { installNotifyBridge, notifyFrom } from './lib/notify.js'
 import { registerRoutes } from './lib/routes.js'
 import { loadState, saveState } from './lib/state.js'
@@ -59,11 +59,11 @@ function ensureAuth() {
  * them); the routes own `enabled` + `port` (toggle writes them). Syncing
  * only the auth fields means a later persist can never resurrect a stale
  * enabled/port over the toggle's fresh write (which would silently re-arm
- * the proxy on next boot). */
+ * the proxy on next boot). 经 mutateState 互斥临界区：与 install 的
+ * commit 窗口并发时同步直写会被旧快照覆盖（secret/devices 静默回滚）。 */
 function persistMobile() {
-  if (authInstance === null) return
-  try {
-    const state = loadState()
+  if (authInstance === null) return Promise.resolve()
+  return mutateState(function (state) {
     const live = authInstance.state
     if (state.mobile === null) {
       state.mobile = { enabled: false, port: live.port, secret: live.secret, devices: live.devices }
@@ -71,10 +71,9 @@ function persistMobile() {
       state.mobile.secret = live.secret
       state.mobile.devices = live.devices
     }
-    saveState(state)
-  } catch (error) {
-    ctxRef.logger.warn(`dsh-base-plugin: mobile state persist failed: ${String(error)}`)
-  }
+  }).catch(function (error) {
+    if (ctxRef !== null) ctxRef.logger.warn(`dsh-base-plugin: mobile state persist failed: ${String(error)}`)
+  })
 }
 
 // Hard dependency: routes must register the moment the web server exists.

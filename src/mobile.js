@@ -40,7 +40,7 @@
       var refresh = React.useCallback(function () {
         api('/mobile').then(function (value) {
           if (value !== null && typeof value === 'object') {
-            setData({ status: 'ready', enabled: value.enabled === true, running: value.running === true, port: value.port, addresses: value.addresses, pair: value.pair, urls: value.urls, qr: value.qr, devices: value.devices })
+            setData({ status: 'ready', enabled: value.enabled === true, running: value.running === true, port: value.port, addresses: value.addresses ?? [], pair: value.pair ?? null, urls: value.urls ?? [], qr: typeof value.qr === 'string' ? value.qr : '', devices: value.devices ?? [] })
             if (typeof value.port === 'number') setPortDraft(String(value.port))
           }
         }).catch(function (error) {
@@ -116,7 +116,7 @@
             data.enabled && Number(portDraft) !== data.port
               ? h('button', { className: 'dhb-btn', type: 'button', disabled: busy, onClick: function () { onToggle(true) } }, t('mobileApply'))
               : null,
-            h('span', { className: 'dhb-badge', 'data-phase': data.running ? 'active' : 'failed' }, data.running ? 'running' : 'stopped'),
+            h('span', { className: 'dhb-badge', 'data-phase': data.running ? 'active' : 'failed' }, t(data.running ? 'mobileRunning' : 'mobileStopped')),
           ),
         ),
         // 当前地址卡片：局域网 IP 是会无声漂移的东西（DHCP 重分配），
@@ -131,6 +131,7 @@
                     h('code', { style: { fontSize: 13, wordBreak: 'break-all' } }, url),
                     h('button', {
                       className: 'dhb-btn', type: 'button',
+                      'aria-label': t('poCopy'),
                       onClick: function () {
                         copyText(url)
                           .then(function () { setMsg({ kind: 'ok', text: url + ' → ⧉' }) })

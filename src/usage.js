@@ -204,7 +204,7 @@
           h('input', { className: 'dhb-usDate', type: 'date', value: range.start, onChange: function (e) { onDateChange('start', e.target.value) } }),
           h('span', { className: 'dhb-hint' }, t('usageRangeEnd')),
           h('input', { className: 'dhb-usDate', type: 'date', value: range.end, onChange: function (e) { onDateChange('end', e.target.value) } }),
-          h('button', { className: 'dhb-btn', type: 'button', title: t('refresh'), onClick: function () { load(range, false) } }, '↻'),
+          h('button', { className: 'dhb-btn', type: 'button', title: t('refresh'), 'aria-label': t('refresh'), onClick: function () { load(range, false) } }, '↻'),
           h('button', { className: 'dhb-btn', type: 'button', onClick: function () { applyQuick('today') } }, t('usageRangeToday')),
           h('button', { className: 'dhb-btn', type: 'button', onClick: function () { applyQuick('yesterday') } }, t('usageRangeYesterday')),
           h('button', { className: 'dhb-btn', type: 'button', onClick: function () { applyQuick(7) } }, t('usageRange7d')),

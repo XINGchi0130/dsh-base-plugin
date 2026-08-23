@@ -49,6 +49,13 @@
               if (isComposing(e)) return // IME Enter = confirm candidate, not submit
               if (e.key === 'Enter') submit()
               else if (e.key === 'c' && (e.ctrlKey || e.metaKey)) {
+                // macOS 上 Cmd+C 是复制：输入框里有选区时不拦截（否则
+                // 选中文字按 Cmd+C 变成向 PTY 发 ^C，复制路径被打断）。
+                // Ctrl+C 无复制语义，始终视为中断。
+                var el = e.target
+                var hasSelection = typeof el.selectionStart === 'number'
+                  && typeof el.selectionEnd === 'number' && el.selectionStart !== el.selectionEnd
+                if (e.metaKey && hasSelection) return
                 e.preventDefault()
                 onInterrupt(term.key)
               }
@@ -130,27 +137,35 @@
       function pollLoop(key, opKey) {
         var stop = false
         var misses = 0
+        var stopper = null
+        // 自然结算时从登记数组里摘除自己——stopper 只增不减会让数组随
+        // 命令数线性增长（长会话下全部滞留到卸载才清）。
+        var unregister = function () {
+          var arr = pollStoppersRef.current
+          var at = arr.indexOf(stopper)
+          if (at !== -1) arr.splice(at, 1)
+        }
         var tick = function () {
           if (stop) return
           post('/terminal/read', { sessionId: sessionId, terminalId: key, opKey: opKey })
             .then(function (value) {
               misses = 0
               appendOutput(key, value.delta)
-              if (value.done === true) return // op settled; loop ends
+              if (value.done === true) { unregister(); return } // op settled; loop ends
               setTimeout(tick, 700)
             })
             .catch(function () {
               // 退避；连续失败（宿主消失/插件被移除）后结束循环，
               // 不再永久轮询。
               misses += 1
-              if (misses >= 20) return
+              if (misses >= 20) { unregister(); return }
               setTimeout(tick, 1500)
             })
         }
-        tick()
-        var stopper = function () { stop = true }
+        stopper = function () { stop = true }
         stopper.key = key
         pollStoppersRef.current.push(stopper)
+        tick()
         return stopper
       }
 
@@ -272,8 +287,9 @@
               h('span', null, term.name),
               isClosing
                 ? h('span', { className: 'dhb-tmSpin', role: 'status', title: t('termClosing', { name: term.name }) })
-                : h('span', {
-                    className: 'dhb-tmX', type: 'button', role: 'button',
+                : h('button', {
+                    className: 'dhb-tmX', type: 'button',
+                    'aria-label': t('termClose'),
                     title: t('termClose'),
                     onClick: function (e) { e.stopPropagation(); onCloseTerm(term) },
                   }, '×'),

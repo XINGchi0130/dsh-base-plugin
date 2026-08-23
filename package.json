@@ -21,6 +21,8 @@
     "README.zh.md",
     "src/**/*.js",
     "scripts/build-client.mjs",
+    "scripts/check-hooks.mjs",
+    "scripts/verify-routes.mjs",
     "scripts/routes.snapshot.json"
   ],
   "keywords": [

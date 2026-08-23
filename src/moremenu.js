@@ -26,9 +26,17 @@
           }
           setOpen(false)
         }
+        // Esc 关闭（键盘可达性——外点关闭只覆盖鼠标路径）。
+        var onKey = function (e) {
+          if (e.key === 'Escape') setOpen(false)
+        }
         if (typeof document !== 'undefined') {
           document.addEventListener('mousedown', onDoc)
-          return function () { document.removeEventListener('mousedown', onDoc) }
+          document.addEventListener('keydown', onKey)
+          return function () {
+            document.removeEventListener('mousedown', onDoc)
+            document.removeEventListener('keydown', onKey)
+          }
         }
         return undefined
       }, [open])

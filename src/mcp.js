@@ -32,7 +32,7 @@
           .catch(function () { setHealth({ status: 'error', servers: [] }) })
         api('/state').then(function (value) {
           var yamlText = typeof value.mcpYaml === 'string' ? value.mcpYaml : null
-          setData(function (prev) { return { status: 'ready', servers: value.mcpServers, mcpYaml: yamlText } })
+          setData(function (prev) { return { status: 'ready', servers: value.mcpServers ?? [], mcpYaml: yamlText } })
           if (yamlText !== null) {
             setEditor(function (prev) { return prev.dirty ? prev : { text: yamlText, dirty: false } })
           }

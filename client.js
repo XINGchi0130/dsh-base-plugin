@@ -51,7 +51,7 @@
  * 用分区横幅代替模块切分。分区顺序：i18n 词典 → store/api/styles
  * 辅助 → MarketTab → McpSection → SkillsSection → plugin apply。
  */
-// GENERATED from src/* by scripts/build-client.mjs — edit src/, then rebuild. stamp:4a3778453270
+// GENERATED from src/* by scripts/build-client.mjs — edit src/, then rebuild. stamp:986ea655af52
 window.__ModuleLoader__.load({
   id: 'dsh-base-plugin',
   factory: function (require) {
@@ -229,12 +229,9 @@ window.__ModuleLoader__.load({
       monJobStatus: '{status}',
       monJobsColdNote: '任务是进程内的——会话未在当前进程打开时不显示。',
       monSubagentsTitle: '子代理',
-      monSubTotal: '共 {n} 个',
       monNoSubagents: '无子代理。',
       monSubUnreadable: '子会话日志不可读',
       monSubContinuable: '可续聊',
-      monSubOneShot: '一次性',
-      monSubInactive: '已结束',
       monSubFilterAll: '全部',
       monSubFilterRunning: '运行中',
       monSubDoneGroup: '已结束',
@@ -275,6 +272,7 @@ window.__ModuleLoader__.load({
       ntfTestHint: '测试使用的是「已保存」的配置——修改后请先保存再测试。',
       ntfTestOk: '测试通知已发出——目标渠道应该收到了。',
       ntfTestOkBrowser: '测试通知已弹出（若没看到，检查系统通知权限）。',
+      ntfTestTitle: 'DSH 通知测试',
       ntfTestBrowserBody: '如果你看到这条弹窗，浏览器通知已配置成功。',
       ntfPermNeeded: '尚未授权浏览器通知——先点上方「授权浏览器通知」。',
       ntfQuietBtn: '静音 1 小时',
@@ -415,6 +413,8 @@ window.__ModuleLoader__.load({
       mobileLastSeen: '最近活跃',
       mobilePairedAt: '配对时间',
       mobileApply: '应用',
+      mobileRunning: '运行中',
+      mobileStopped: '已停止',
       mobileEnabled: '已启用手机访问',
       mobileDisabled: '已关闭手机访问',
       sessionsIntro: '查看并永久删除本机持久化的会话（含已归档）。删除会销毁完整对话日志，不可恢复；正在运行的会话需先关闭。',
@@ -622,12 +622,9 @@ window.__ModuleLoader__.load({
       monJobStatus: '{status}',
       monJobsColdNote: 'Jobs live in-process — hidden while the session is not open here.',
       monSubagentsTitle: 'Subagents',
-      monSubTotal: '{n} total',
       monNoSubagents: 'No subagents.',
       monSubUnreadable: 'child log unreadable',
       monSubContinuable: 'continuable',
-      monSubOneShot: 'one-shot',
-      monSubInactive: 'done',
       monSubFilterAll: 'All',
       monSubFilterRunning: 'Running',
       monSubDoneGroup: 'Finished',
@@ -668,6 +665,7 @@ window.__ModuleLoader__.load({
       ntfTestHint: 'The test uses the SAVED config — save your edits before testing.',
       ntfTestOk: 'Test notification sent — the target channel should have it.',
       ntfTestOkBrowser: 'Test notification popped (if not visible, check OS notification permission).',
+      ntfTestTitle: 'DSH notification test',
       ntfTestBrowserBody: 'If you can read this popup, browser notifications work.',
       ntfPermNeeded: 'Browser notification not granted yet — click the grant button above first.',
       ntfQuietBtn: 'Mute 1 hour',
@@ -808,6 +806,8 @@ window.__ModuleLoader__.load({
       mobileLastSeen: 'Last seen',
       mobilePairedAt: 'Paired',
       mobileApply: 'Apply',
+      mobileRunning: 'running',
+      mobileStopped: 'stopped',
       mobileEnabled: 'Mobile access enabled',
       mobileDisabled: 'Mobile access disabled',
       sessionsIntro: 'Inspect and permanently delete persisted sessions (archived included). Deletion destroys the full conversation log and cannot be undone; close a running session before deleting it.',
@@ -1121,7 +1121,7 @@ window.__ModuleLoader__.load({
       '.dhb-usRange{display:flex;align-items:center;gap:6px;flex-wrap:wrap}',
       '.dhb-usDate{padding:4px 8px;border-radius:8px;border:1px solid var(--dsw-alias-border-l1,#d0d4dd);background:var(--dsw-alias-bg-base,#fff);color:var(--dsw-alias-label-secondary,#3f4550);font-size:12px;font-family:inherit}',
       '.dhb-usPriceIn{width:90px;padding:4px 8px;border-radius:7px;border:1px solid var(--dsw-alias-border-l1,#d0d4dd);background:var(--dsw-alias-bg-base,#fff);color:var(--dsw-alias-label-secondary,#3f4550);font-size:12px}',
-      '.dhb-svcOverlay{position:fixed;inset:0;z-index:1000;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.32);backdrop-filter:blur(1px)}',
+      '.dhb-svcOverlay{position:fixed;inset:0;z-index:1000;display:flex;align-items:center;justify-content:center;background:var(--dsw-alias-bg-mask-1,rgba(0,0,0,.32));backdrop-filter:blur(1px)}',
       '.dhb-toolsDock{position:fixed;top:0;right:0;bottom:0;z-index:1500;display:flex;max-width:calc(100vw - 56px);background:var(--dsw-alias-bg-base,#fff);border-left:1px solid var(--dsw-alias-border-l2,#e3e6ec);box-shadow:-6px 0 18px rgba(0,0,0,.10)}',
       '.dhb-toolsResize{flex:none;width:5px;cursor:col-resize;background:transparent;transition:background .15s}',
       '.dhb-toolsResize:hover{background:var(--dsw-alias-interactive-bg-hover,rgba(127,127,127,.18))}',
@@ -1438,7 +1438,7 @@ window.__ModuleLoader__.load({
       var refreshState = React.useCallback(function () {
         api('/state').then(function (value) {
           setData(function (prev) {
-            return Object.assign({}, prev, { plugins: value.plugins, busy: value.busy })
+            return Object.assign({}, prev, { plugins: value.plugins ?? [], busy: value.busy === true })
           })
         }).catch(function () { /* banner already covers market errors */ })
       }, [])
@@ -1631,7 +1631,7 @@ window.__ModuleLoader__.load({
           .catch(function () { setHealth({ status: 'error', servers: [] }) })
         api('/state').then(function (value) {
           var yamlText = typeof value.mcpYaml === 'string' ? value.mcpYaml : null
-          setData(function (prev) { return { status: 'ready', servers: value.mcpServers, mcpYaml: yamlText } })
+          setData(function (prev) { return { status: 'ready', servers: value.mcpServers ?? [], mcpYaml: yamlText } })
           if (yamlText !== null) {
             setEditor(function (prev) { return prev.dirty ? prev : { text: yamlText, dirty: false } })
           }
@@ -2395,7 +2395,7 @@ window.__ModuleLoader__.load({
       var refresh = React.useCallback(function () {
         api('/mobile').then(function (value) {
           if (value !== null && typeof value === 'object') {
-            setData({ status: 'ready', enabled: value.enabled === true, running: value.running === true, port: value.port, addresses: value.addresses, pair: value.pair, urls: value.urls, qr: value.qr, devices: value.devices })
+            setData({ status: 'ready', enabled: value.enabled === true, running: value.running === true, port: value.port, addresses: value.addresses ?? [], pair: value.pair ?? null, urls: value.urls ?? [], qr: typeof value.qr === 'string' ? value.qr : '', devices: value.devices ?? [] })
             if (typeof value.port === 'number') setPortDraft(String(value.port))
           }
         }).catch(function (error) {
@@ -2471,7 +2471,7 @@ window.__ModuleLoader__.load({
             data.enabled && Number(portDraft) !== data.port
               ? h('button', { className: 'dhb-btn', type: 'button', disabled: busy, onClick: function () { onToggle(true) } }, t('mobileApply'))
               : null,
-            h('span', { className: 'dhb-badge', 'data-phase': data.running ? 'active' : 'failed' }, data.running ? 'running' : 'stopped'),
+            h('span', { className: 'dhb-badge', 'data-phase': data.running ? 'active' : 'failed' }, t(data.running ? 'mobileRunning' : 'mobileStopped')),
           ),
         ),
         // 当前地址卡片：局域网 IP 是会无声漂移的东西（DHCP 重分配），
@@ -2486,6 +2486,7 @@ window.__ModuleLoader__.load({
                     h('code', { style: { fontSize: 13, wordBreak: 'break-all' } }, url),
                     h('button', {
                       className: 'dhb-btn', type: 'button',
+                      'aria-label': t('poCopy'),
                       onClick: function () {
                         copyText(url)
                           .then(function () { setMsg({ kind: 'ok', text: url + ' → ⧉' }) })
@@ -2615,7 +2616,7 @@ window.__ModuleLoader__.load({
             // 曾出现 bark 已存 + 表单 browser 的双投递）。
             if (result.channel === 'browser') {
               if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
-                try { new Notification('DSH 通知测试', { body: t('ntfTestBrowserBody') }) } catch (err) { /* 极端环境 */ }
+                try { new Notification(t('ntfTestTitle'), { body: t('ntfTestBrowserBody') }) } catch (err) { /* 极端环境 */ }
                 setMsg({ kind: 'ok', text: t('ntfTestOkBrowser') })
               } else {
                 setMsg({ kind: 'err', text: t('ntfPermNeeded') })
@@ -2834,13 +2835,18 @@ window.__ModuleLoader__.load({
       var setGroupLimit = groupLimitState[1]
 
 
+      // 代际防护（monitor.js 的 loadGen 模式）：15s 轮询 + 在途请求下，
+      // 切换会话后旧会话的响应不得落地覆盖新会话的数据。
+      var loadGen = React.useRef(0)
       var load = React.useCallback(function (sid) {
         if (sid === undefined || sid === '') return
+        var gen = loadGen.current = loadGen.current + 1
         api('/fileops?sessionId=' + encodeURIComponent(sid))
           .then(function (value) {
+            if (gen !== loadGen.current) return
             setData({ status: 'ready', files: value.files ?? [] })
           })
-          .catch(function (error) { setData({ status: 'error', error: String(error.message || error) }) })
+          .catch(function (error) { if (gen !== loadGen.current) return; setData({ status: 'error', error: String(error.message || error) }) })
       }, [])
 
       React.useEffect(function () {
@@ -2983,11 +2989,17 @@ window.__ModuleLoader__.load({
       var diffs = diffState[0]
       var setDiffs = diffState[1]
 
+      // 代际防护（P2：seg/limit/cwd 快速切换时两个在途 /git/log 响应
+      // 乱序落地会让 tab 高亮与列表错配且不自愈——git 视图无轮询，错态
+      // 保持到下次手动操作；照搬 monitor.js 的 loadGen 模式）。
+      var loadGen = React.useRef(0)
       var load = React.useCallback(function (dir, scope, lim) {
         if (dir === '') return
+        var gen = loadGen.current = loadGen.current + 1
         setData(function (prev) { return Object.assign({}, prev, { status: 'loading', error: '' }) })
         api('/git/log?cwd=' + encodeURIComponent(dir) + '&scope=' + scope + '&limit=' + lim)
           .then(function (value) {
+            if (gen !== loadGen.current) return
             // 新的一页到了——上一轮展开的 diff 全部过期，丢弃。
             setDiffs({})
             setData({
@@ -3001,6 +3013,7 @@ window.__ModuleLoader__.load({
             })
           })
           .catch(function (error) {
+            if (gen !== loadGen.current) return
             setData(function (prev) {
               return Object.assign({}, prev, { status: 'error', error: String(error.message || error) })
             })
@@ -3049,6 +3062,10 @@ window.__ModuleLoader__.load({
           })
           .catch(function (error) {
             setDiffs(function (prev) {
+              // 与 then 路径同守卫：用户在途收起后，失败响应不得复活已
+              // 收起的行（幽灵展开的 catch 侧变体）。
+              var cur = prev[hash]
+              if (cur === undefined || cur.status !== 'loading') return prev
               var copy = Object.assign({}, prev)
               copy[hash] = { status: 'error', diff: String(error.message || error) }
               return copy
@@ -3143,7 +3160,9 @@ window.__ModuleLoader__.load({
       var tabItem = function (key, label) {
         return h('button', {
           className: 'dhb-toolsNavItem', type: 'button',
+          role: 'tab',
           'data-active': tab === key ? '1' : '0',
+          'aria-selected': tab === key,
           onClick: function () { setTab(key) },
         }, h('span', { style: { minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, label))
       }
@@ -3459,6 +3478,13 @@ window.__ModuleLoader__.load({
               if (isComposing(e)) return // IME Enter = confirm candidate, not submit
               if (e.key === 'Enter') submit()
               else if (e.key === 'c' && (e.ctrlKey || e.metaKey)) {
+                // macOS 上 Cmd+C 是复制：输入框里有选区时不拦截（否则
+                // 选中文字按 Cmd+C 变成向 PTY 发 ^C，复制路径被打断）。
+                // Ctrl+C 无复制语义，始终视为中断。
+                var el = e.target
+                var hasSelection = typeof el.selectionStart === 'number'
+                  && typeof el.selectionEnd === 'number' && el.selectionStart !== el.selectionEnd
+                if (e.metaKey && hasSelection) return
                 e.preventDefault()
                 onInterrupt(term.key)
               }
@@ -3540,27 +3566,35 @@ window.__ModuleLoader__.load({
       function pollLoop(key, opKey) {
         var stop = false
         var misses = 0
+        var stopper = null
+        // 自然结算时从登记数组里摘除自己——stopper 只增不减会让数组随
+        // 命令数线性增长（长会话下全部滞留到卸载才清）。
+        var unregister = function () {
+          var arr = pollStoppersRef.current
+          var at = arr.indexOf(stopper)
+          if (at !== -1) arr.splice(at, 1)
+        }
         var tick = function () {
           if (stop) return
           post('/terminal/read', { sessionId: sessionId, terminalId: key, opKey: opKey })
             .then(function (value) {
               misses = 0
               appendOutput(key, value.delta)
-              if (value.done === true) return // op settled; loop ends
+              if (value.done === true) { unregister(); return } // op settled; loop ends
               setTimeout(tick, 700)
             })
             .catch(function () {
               // 退避；连续失败（宿主消失/插件被移除）后结束循环，
               // 不再永久轮询。
               misses += 1
-              if (misses >= 20) return
+              if (misses >= 20) { unregister(); return }
               setTimeout(tick, 1500)
             })
         }
-        tick()
-        var stopper = function () { stop = true }
+        stopper = function () { stop = true }
         stopper.key = key
         pollStoppersRef.current.push(stopper)
+        tick()
         return stopper
       }
 
@@ -3682,8 +3716,9 @@ window.__ModuleLoader__.load({
               h('span', null, term.name),
               isClosing
                 ? h('span', { className: 'dhb-tmSpin', role: 'status', title: t('termClosing', { name: term.name }) })
-                : h('span', {
-                    className: 'dhb-tmX', type: 'button', role: 'button',
+                : h('button', {
+                    className: 'dhb-tmX', type: 'button',
+                    'aria-label': t('termClose'),
                     title: t('termClose'),
                     onClick: function (e) { e.stopPropagation(); onCloseTerm(term) },
                   }, '×'),
@@ -4145,7 +4180,9 @@ window.__ModuleLoader__.load({
       var tabItem = function (key, label) {
         return h('button', {
           className: 'dhb-toolsNavItem', type: 'button',
+          role: 'tab',
           'data-active': tab === key ? '1' : '0',
+          'aria-selected': tab === key,
           onClick: function () { setTab(key) },
         }, h('span', { style: { minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, label))
       }
@@ -4471,7 +4508,7 @@ window.__ModuleLoader__.load({
           h('input', { className: 'dhb-usDate', type: 'date', value: range.start, onChange: function (e) { onDateChange('start', e.target.value) } }),
           h('span', { className: 'dhb-hint' }, t('usageRangeEnd')),
           h('input', { className: 'dhb-usDate', type: 'date', value: range.end, onChange: function (e) { onDateChange('end', e.target.value) } }),
-          h('button', { className: 'dhb-btn', type: 'button', title: t('refresh'), onClick: function () { load(range, false) } }, '↻'),
+          h('button', { className: 'dhb-btn', type: 'button', title: t('refresh'), 'aria-label': t('refresh'), onClick: function () { load(range, false) } }, '↻'),
           h('button', { className: 'dhb-btn', type: 'button', onClick: function () { applyQuick('today') } }, t('usageRangeToday')),
           h('button', { className: 'dhb-btn', type: 'button', onClick: function () { applyQuick('yesterday') } }, t('usageRangeYesterday')),
           h('button', { className: 'dhb-btn', type: 'button', onClick: function () { applyQuick(7) } }, t('usageRange7d')),
@@ -4690,9 +4727,17 @@ window.__ModuleLoader__.load({
           }
           setOpen(false)
         }
+        // Esc 关闭（键盘可达性——外点关闭只覆盖鼠标路径）。
+        var onKey = function (e) {
+          if (e.key === 'Escape') setOpen(false)
+        }
         if (typeof document !== 'undefined') {
           document.addEventListener('mousedown', onDoc)
-          return function () { document.removeEventListener('mousedown', onDoc) }
+          document.addEventListener('keydown', onKey)
+          return function () {
+            document.removeEventListener('mousedown', onDoc)
+            document.removeEventListener('keydown', onKey)
+          }
         }
         return undefined
       }, [open])
@@ -5140,11 +5185,20 @@ window.__ModuleLoader__.load({
         var layer = document.querySelector('[data-shell-overlay]')
         var frame = layer !== null ? layer.parentElement : null
         if (frame === null || frame === undefined) return undefined
-        var vw = typeof window !== 'undefined' ? window.innerWidth : 0
-        var effective = vw > 0 && width > vw - 56 ? vw - 56 : width
+        var apply = function () {
+          var vw = typeof window !== 'undefined' ? window.innerWidth : 0
+          var effective = vw > 0 && width > vw - 56 ? vw - 56 : width
+          frame.style.marginRight = effective + 'px'
+        }
         var prev = frame.style.marginRight
-        frame.style.marginRight = effective + 'px'
-        return function () { frame.style.marginRight = prev }
+        apply()
+        // 窗口缩放重算：margin 只依赖 [panel, width] 会在 resize 后停
+        // 在旧值（面板被 max-width 钳住，聊天列被过度挤窄）。
+        if (typeof window !== 'undefined') window.addEventListener('resize', apply)
+        return function () {
+          if (typeof window !== 'undefined') window.removeEventListener('resize', apply)
+          frame.style.marginRight = prev
+        }
       }, [snap.panel, width])
 
       if (snap.panel === null) return null
@@ -5170,7 +5224,9 @@ window.__ModuleLoader__.load({
       var navItem = function (key, label, icon) {
         return h('button', {
           className: 'dhb-toolsNavItem', type: 'button',
+          role: 'tab',
           'data-active': panel === key ? '1' : '0',
+          'aria-selected': panel === key,
           onClick: function () { props.controller.switch(key) },
         }, icon, h('span', { style: { minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, label))
       }
@@ -5321,19 +5377,27 @@ window.__ModuleLoader__.load({
         return function () {}
       }
       var scheduled = false
+      var disposed = false
+      var rafId = null
       var schedule = function () {
-        if (scheduled) return
+        if (scheduled || disposed) return
         scheduled = true
         if (typeof requestAnimationFrame === 'function') {
-          requestAnimationFrame(function () { scheduled = false; patchSettingsNavIcons(t) })
+          rafId = requestAnimationFrame(function () { scheduled = false; rafId = null; if (!disposed) patchSettingsNavIcons(t) })
         } else {
-          setTimeout(function () { scheduled = false; patchSettingsNavIcons(t) }, 16)
+          setTimeout(function () { scheduled = false; if (!disposed) patchSettingsNavIcons(t) }, 16)
         }
       }
       var observer = new MutationObserver(schedule)
       observer.observe(document.body, { childList: true, subtree: true })
       schedule()
-      return function () { observer.disconnect() }
+      // dispose 取消已排队的 rAF 并让迟到回调空转（rail.js 的收尾标准）：
+      // 否则插件停止后已入队的那趟 DOM 补丁仍会执行一次。
+      return function () {
+        disposed = true
+        observer.disconnect()
+        if (rafId !== null && typeof cancelAnimationFrame === 'function') cancelAnimationFrame(rafId)
+      }
     }
 
     // ── 会话滚动条消息刻度轨道 ────────────────────────────────────────────
