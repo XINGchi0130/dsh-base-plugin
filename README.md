@@ -16,7 +16,7 @@ An enhancement plugin for [DeepSeek Harness](https://github.com/deepseek-ai/deep
 | **Sessions** | Settings → Sessions | Every persisted session in one list (filter/search); delete (rows vanish from every sidebar live); export MD/Zip; **time machine** (fork from any turn) |
 | **Notifications** | Settings → Notifications | Turn finished / job settled / approval waiting / context nearly full → **browser notifications** (zero-config; the page must stay open — a background tab is fine, catches up on return) / Bark / ntfy / webhook |
 | **Mobile Access** | Settings → Mobile Access | Pair by QR on the LAN and use the full DSH UI from your phone (HMAC device cookies + exponential backoff) |
-| **File Changes** | session ⋯ menu | Two tabs: **Workspace Changes** (git baseline diff, strictly read-only) + **Operation Log** (AI read/write/bash trail with ±lines and success/failure) |
+| **File Changes** | session ⋯ menu | Three tabs: **Workspace Changes** (git baseline diff, strictly read-only) + **Commit History** (local-unpushed / remote-pushed segments; click a commit to expand its diff) + **Operation Log** (AI read/write/bash trail with ±lines and success/failure) |
 | **Terminal** | session ⋯ menu | Multiple PTY terminals: Enter to run, Ctrl+C interrupt, streaming output |
 | **Monitor** | session ⋯ menu | Three tabs: **Overview** (turns/timing/tokens/context pressure), **Tasks** (background jobs + subagent tree), **System** (CPU/memory/load, pressure-based) |
 | **Prompt** | session ⋯ menu | Type a rough idea → the default model rewrites it into a structured prompt; one-click copy |

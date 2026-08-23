@@ -51,7 +51,7 @@
  * 用分区横幅代替模块切分。分区顺序：i18n 词典 → store/api/styles
  * 辅助 → MarketTab → McpSection → SkillsSection → plugin apply。
  */
-// GENERATED from src/* by scripts/build-client.mjs — edit src/, then rebuild. stamp:ab3deac05bbe
+// GENERATED from src/* by scripts/build-client.mjs — edit src/, then rebuild. stamp:4a3778453270
 window.__ModuleLoader__.load({
   id: 'dsh-base-plugin',
   factory: function (require) {
@@ -286,7 +286,16 @@ window.__ModuleLoader__.load({
       ntfSecurityNote: '提示：Bark/ntfy 官方服务经公网中转；webhook URL 与设备 key 等同于凭据，请勿泄露。',
       foTabsLabel: '文件变更标签页',
       foTabGit: '工作区变更',
+      foTabCommits: '提交历史',
       foTabHistory: '操作记录',
+      gcLocalSeg: '本地未推送',
+      gcRemoteSeg: '远程已推送',
+      gcCommitsCount: '{n} 个提交',
+      gcBranchLabel: '分支 {branch}',
+      gcNoRemoteHint: '（仓库未配置远程——所有提交都在本地）',
+      gcEmptyLocal: '没有未推送的本地提交。',
+      gcEmptyRemote: '没有远程提交。',
+      gcLoadMore: '加载更多（还有 {n} 个）',
       foIntro: 'AI 的操作轨迹：write/edit（带 diff）、read 探查、bash 执行',
       foEmpty: '本会话暂无操作记录——AI 读写文件或执行命令后，这里会按目标分组记录每次操作。',
       foOpsCount: '次操作',
@@ -670,7 +679,16 @@ window.__ModuleLoader__.load({
       ntfSecurityNote: 'Note: the official Bark/ntfy services relay over the public internet; a webhook URL or device key is a credential — keep it private.',
       foTabsLabel: 'File changes tabs',
       foTabGit: 'Workspace Changes',
+      foTabCommits: 'Commit History',
       foTabHistory: 'Operation Log',
+      gcLocalSeg: 'Local (unpushed)',
+      gcRemoteSeg: 'Remote (pushed)',
+      gcCommitsCount: '{n} commits',
+      gcBranchLabel: 'branch {branch}',
+      gcNoRemoteHint: '(no remote configured — all commits are local)',
+      gcEmptyLocal: 'No unpushed local commits.',
+      gcEmptyRemote: 'No remote commits.',
+      gcLoadMore: 'Load more ({n} more)',
       foIntro: 'AI operation trail: write/edit (with diffs), reads, bash',
       foEmpty: 'No operations in this session yet — once the AI reads, writes, or runs commands, each operation is recorded here grouped by target.',
       foOpsCount: 'operations',
@@ -1024,6 +1042,9 @@ window.__ModuleLoader__.load({
       '.dhb-gtTime{flex:none;font-size:11px;color:var(--dsw-alias-label-caption,#8a919e);font-variant-numeric:tabular-nums}',
       '.dhb-gtAdd{color:#1e7e34}',
       '.dhb-gtDel{color:#c0392b}',
+      '.dhb-gtHash{flex:none;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;color:#2f6fed}',
+      '.dhb-gtSubject{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}',
+      '.dhb-gtAuthor{flex:none;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px;color:var(--dsw-alias-label-caption,#8a919e)}',
       '.dhb-diff{margin:0;padding:8px 0;border-top:1px dashed var(--dsw-alias-border-l2,#e3e6ec);background:var(--dsw-alias-markdown-code-block,rgba(127,127,127,.05));font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11.5px;line-height:1.55;overflow-x:auto;direction:ltr}',
       '.dhb-diffL{display:block;padding:0 12px;white-space:pre;color:var(--dsw-alias-label-secondary,#3f4550)}',
       '.dhb-diffL[data-k="+"]{color:#1e7e34;background:rgba(30,126,52,.07)}',
@@ -2896,8 +2917,220 @@ window.__ModuleLoader__.load({
       )
     }
 
-    /** 文件变更面板顶层：双 tab——「工作区变更」（git 基线差异）与
-     * 「编辑记录」（AI 经 write/edit 工具的操作时间线）。 */
+    /** "2026-08-15T20:00:00+08:00" → locale-aware short form. */
+    function shortTime(iso) {
+      if (iso === '') return ''
+      try {
+        var d = new Date(iso)
+        if (Number.isNaN(d.getTime())) return iso
+        var two = function (v) { return (v < 10 ? '0' : '') + v }
+        return d.getFullYear() + '-' + two(d.getMonth() + 1) + '-' + two(d.getDate())
+          + ' ' + two(d.getHours()) + ':' + two(d.getMinutes())
+      } catch (err) {
+        return iso
+      }
+    }
+
+    /** 行内时间：今天显示 "HH:MM"，否则 "MM-DD HH:MM"。 */
+    function rowTime(iso) {
+      if (typeof iso !== 'string' || iso === '') return ''
+      try {
+        var d = new Date(iso)
+        if (Number.isNaN(d.getTime())) return ''
+        var two = function (v) { return (v < 10 ? '0' : '') + v }
+        var hm = two(d.getHours()) + ':' + two(d.getMinutes())
+        var now = new Date()
+        var sameDay = d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth() && d.getDate() === now.getDate()
+        return sameDay ? hm : two(d.getMonth() + 1) + '-' + two(d.getDate()) + ' ' + hm
+      } catch (err) {
+        return ''
+      }
+    }
+
+    /**
+     * 「提交历史」tab：仓库提交记录，按 本地未推送 / 远程已推送 分段。
+     * 数据来自宿主半 git log 折叠（/git/log）；点击一条提交展开其完整
+     * diff（/git/commit-diff），渲染复用 buildDiffRows。与「工作区变更」
+     * 互补：那边是磁盘对基线的差异，这边是已落库的提交流水。
+     */
+    function CommitHistoryView(props) {
+      var t = props.t
+      var kit = props.kit
+      useLocaleVersion()
+
+      var sessionId = kit !== undefined ? kit.sessionId : undefined
+      // hook 无条件调用（同 GitChangesView 的约定：条件 hook 是崩溃雷）
+      var useSessionsHook = kit !== undefined && typeof kit.useSessions === 'function' ? kit.useSessions : function () { return '' }
+      var row0 = useSessionsHook(function (s) {
+        return sessionId !== undefined && s.byId !== undefined ? s.byId[sessionId] : undefined
+      })
+      var cwd = row0 !== undefined && typeof row0.cwd === 'string' ? row0.cwd : ''
+
+      var segState = React.useState('local')
+      var seg = segState[0]
+      var setSeg = segState[1]
+      var limitState = React.useState(50)
+      var limit = limitState[0]
+      var setLimit = limitState[1]
+
+      var dataState = React.useState({ status: 'idle', commits: [], total: 0, branch: '', upstream: null, hasRemote: true, error: '' })
+      var data = dataState[0]
+      var setData = dataState[1]
+
+      // per-commit diff cache: { [hash]: { status, diff } }——与 GitChangesView
+      // 的逐文件缓存同构（含收起/幽灵展开防护）。
+      var diffState = React.useState({})
+      var diffs = diffState[0]
+      var setDiffs = diffState[1]
+
+      var load = React.useCallback(function (dir, scope, lim) {
+        if (dir === '') return
+        setData(function (prev) { return Object.assign({}, prev, { status: 'loading', error: '' }) })
+        api('/git/log?cwd=' + encodeURIComponent(dir) + '&scope=' + scope + '&limit=' + lim)
+          .then(function (value) {
+            // 新的一页到了——上一轮展开的 diff 全部过期，丢弃。
+            setDiffs({})
+            setData({
+              status: 'ready',
+              commits: value.commits === undefined ? [] : value.commits,
+              total: typeof value.total === 'number' ? value.total : 0,
+              branch: typeof value.branch === 'string' ? value.branch : '',
+              upstream: typeof value.upstream === 'string' ? value.upstream : null,
+              hasRemote: value.hasRemote === true,
+              error: '',
+            })
+          })
+          .catch(function (error) {
+            setData(function (prev) {
+              return Object.assign({}, prev, { status: 'error', error: String(error.message || error) })
+            })
+          })
+      }, [])
+
+      React.useEffect(function () {
+        // cwd / 分段 / 页宽任一变化即重载（加载更多=增大 limit）。
+        if (cwd !== '') load(cwd, seg, limit)
+      }, [cwd, seg, limit, load])
+
+      function switchSeg(next) {
+        if (next === seg) return
+        setDiffs({})
+        // 切段重置页宽：新分段从第一页开始，不继承另一段的"加载更多"。
+        if (limit !== 50) setLimit(50)
+        setSeg(next)
+      }
+
+      function onToggleCommit(commit) {
+        var hash = commit.hash
+        var existing = diffs[hash]
+        if (existing !== undefined) {
+          var next = Object.assign({}, diffs)
+          delete next[hash]
+          setDiffs(next)
+          return
+        }
+        if (cwd === '') return
+        setDiffs(function (prev) {
+          var copy = Object.assign({}, prev)
+          copy[hash] = { status: 'loading', diff: '' }
+          return copy
+        })
+        api('/git/commit-diff?cwd=' + encodeURIComponent(cwd) + '&ref=' + encodeURIComponent(hash))
+          .then(function (value) {
+            // 落地时校验仍是 loading 态：用户在途收起后此响应不得复活
+            // 已收起的行（幽灵展开——与 GitChangesView 同一教训）。
+            setDiffs(function (prev) {
+              var cur = prev[hash]
+              if (cur === undefined || cur.status !== 'loading') return prev
+              var copy = Object.assign({}, prev)
+              copy[hash] = { status: 'ready', diff: typeof value.diff === 'string' ? value.diff : '' }
+              return copy
+            })
+          })
+          .catch(function (error) {
+            setDiffs(function (prev) {
+              var copy = Object.assign({}, prev)
+              copy[hash] = { status: 'error', diff: String(error.message || error) }
+              return copy
+            })
+          })
+      }
+
+      var segItem = function (key, label) {
+        return h('button', {
+          className: 'dhb-tmTab', type: 'button',
+          'data-active': seg === key ? '1' : '0',
+          onClick: function () { switchSeg(key) },
+        }, label)
+      }
+
+      var emptyText = seg === 'local' ? t('gcEmptyLocal') : t('gcEmptyRemote')
+
+      return h('div', { className: 'dhb-gtPage' },
+        h('div', { className: 'dhb-gtHead' },
+          segItem('local', t('gcLocalSeg')),
+          segItem('remote', t('gcRemoteSeg')),
+          data.status === 'ready' && data.total > 0
+            ? h('span', { className: 'dhb-gtMeta' }, t('gcCommitsCount', { n: data.total })) : null,
+          data.branch !== '' ? h('span', { className: 'dhb-gtMeta', title: data.upstream !== null ? data.upstream : '' },
+            t('gcBranchLabel', { branch: data.branch })
+            + (data.upstream !== null ? ' → ' + data.upstream : '')) : null,
+          h('button', { className: 'dhb-btn', type: 'button', disabled: cwd === '', onClick: function () { load(cwd, seg, limit) } }, t('refresh')),
+        ),
+        data.status === 'idle' && cwd === '' ? h('p', { className: 'dhb-desc' }, t('gitNoCwd'))
+        : data.status === 'loading' ? h('p', { className: 'dhb-desc' }, t('loading'))
+        : data.status === 'error' ? h(Banner, { kind: 'err', text: data.error })
+        : data.total === 0
+          ? h('p', { className: 'dhb-desc' }, emptyText
+              + (seg === 'remote' && data.hasRemote !== true ? ' ' + t('gcNoRemoteHint') : ''))
+        : h('div', null,
+            seg === 'local' && data.hasRemote !== true ? h('p', { className: 'dhb-hint', style: { margin: 0 } }, t('gcNoRemoteHint')) : null,
+            h('div', { className: 'dhb-list' },
+              data.commits.map(function (commit) {
+                var slot = diffs[commit.hash]
+                return h('div', { className: 'dhb-gtRow', key: commit.hash },
+                  h('button', { className: 'dhb-gtFileBtn', type: 'button', onClick: function () { onToggleCommit(commit) } },
+                    h('span', { className: 'dhb-gtHash', title: commit.hash }, commit.short),
+                    h('span', { className: 'dhb-gtSubject', title: commit.subject }, commit.subject),
+                    h('span', { className: 'dhb-gtAuthor', title: commit.author }, commit.author),
+                    typeof commit.date === 'string' && commit.date !== ''
+                      ? h('span', { className: 'dhb-gtTime', title: shortTime(commit.date) }, rowTime(commit.date))
+                      : null,
+                  ),
+                  slot !== undefined
+                    ? h('pre', { className: 'dhb-diff' },
+                        slot.status === 'loading' ? h('span', { className: 'dhb-diffL', 'data-k': 'h' }, t('loading'))
+                        : slot.status === 'error' ? h('span', { className: 'dhb-diffL', 'data-k': 'h' }, slot.diff)
+                        : slot.diff === '' ? h('span', { className: 'dhb-diffL', 'data-k': 'h' }, t('gitDiffEmpty'))
+                        : buildDiffRows(slot.diff).map(function (row, idx) {
+                            return h('span', { className: 'dhb-diffL', 'data-k': row.k, key: idx },
+                              h('span', { className: 'dhb-diffN', style: { width: row.pad + 'ch' }, key: 'o' },
+                                row.oldN === null ? '' : String(row.oldN)),
+                              h('span', { className: 'dhb-diffN', style: { width: row.pad + 'ch' }, key: 'n' },
+                                row.newN === null ? '' : String(row.newN)),
+                              row.text,
+                            )
+                          }),
+                      )
+                    : null,
+                )
+              }),
+            ),
+            data.total > data.commits.length
+              ? h('div', { style: { textAlign: 'center', padding: 6 } },
+                  h('button', {
+                    className: 'dhb-btn', type: 'button',
+                    onClick: function () { setLimit(limit + 50) },
+                  }, t('gcLoadMore', { n: data.total - data.commits.length })),
+                )
+              : null,
+          ),
+      )
+    }
+
+    /** 文件变更面板顶层：三 tab——「工作区变更」（git 基线差异）、「提交
+     * 历史」（本地/远程提交记录）与「编辑记录」（AI 经 write/edit 工具
+     * 的操作时间线）。 */
     function ChangesView(props) {
       var t = props.t
       var kit = props.kit
@@ -2920,11 +3153,14 @@ window.__ModuleLoader__.load({
       return h('div', { className: 'dhb-page' },
         h('div', { className: 'dhb-toolsNav', role: 'tablist', 'aria-label': t('foTabsLabel') },
           tabItem('git', t('foTabGit')),
+          tabItem('commits', t('foTabCommits')),
           tabItem('history', t('foTabHistory')),
         ),
         tab === 'history'
           ? h(EditHistoryView, { t: t, kit: kit })
-          : h(GitChangesView, { t: t, kit: kit }),
+          : tab === 'commits'
+            ? h(CommitHistoryView, { t: t, kit: kit })
+            : h(GitChangesView, { t: t, kit: kit }),
       )
     }
 
@@ -3073,36 +3309,6 @@ window.__ModuleLoader__.load({
         if (r !== 0) return r * dir
         return String(a.path).localeCompare(String(b.path))
       })
-
-      /** "2026-08-15T20:00:00+08:00" → locale-aware short form. */
-      function shortTime(iso) {
-        if (iso === '') return ''
-        try {
-          var d = new Date(iso)
-          if (Number.isNaN(d.getTime())) return iso
-          var two = function (v) { return (v < 10 ? '0' : '') + v }
-          return d.getFullYear() + '-' + two(d.getMonth() + 1) + '-' + two(d.getDate())
-            + ' ' + two(d.getHours()) + ':' + two(d.getMinutes())
-        } catch (err) {
-          return iso
-        }
-      }
-
-      /** 行内时间：今天显示 "HH:MM"，否则 "MM-DD HH:MM"。 */
-      function rowTime(iso) {
-        if (typeof iso !== 'string' || iso === '') return ''
-        try {
-          var d = new Date(iso)
-          if (Number.isNaN(d.getTime())) return ''
-          var two = function (v) { return (v < 10 ? '0' : '') + v }
-          var hm = two(d.getHours()) + ':' + two(d.getMinutes())
-          var now = new Date()
-          var sameDay = d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth() && d.getDate() === now.getDate()
-          return sameDay ? hm : two(d.getMonth() + 1) + '-' + two(d.getDate()) + ' ' + hm
-        } catch (err) {
-          return ''
-        }
-      }
 
       return h('div', { className: 'dhb-gtPage' },
         h('div', { className: 'dhb-gtHead' },
