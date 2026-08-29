@@ -51,7 +51,7 @@
  * 用分区横幅代替模块切分。分区顺序：i18n 词典 → store/api/styles
  * 辅助 → MarketTab → McpSection → SkillsSection → plugin apply。
  */
-// GENERATED from src/* by scripts/build-client.mjs — edit src/, then rebuild. stamp:6488d6df227b
+// GENERATED from src/* by scripts/build-client.mjs — edit src/, then rebuild. stamp:7829f9709b6a
 window.__ModuleLoader__.load({
   id: 'dsh-base-plugin',
   factory: function (require) {
@@ -5101,10 +5101,12 @@ window.__ModuleLoader__.load({
     /**
      * dsh 进程停止/重启动作的控制器。宿主半的端点在应答后即销毁进程，
      * 因此确认成功后的 POST 失败是**预期内**的（连接被断开）、直接忽略。
-     * 重启后轮询直到新进程应答，然后刷新外壳。
+     * 重启后轮询直到**新 pid**应答（旧进程有 EXIT_DELAY 退场窗口，期间
+     * 仍能应答——不比 pid 会提前"恢复"，跳过去必 401），然后取新进程
+     * 的登录 URL 跳 /?token=… 自动换 30 天 cookie；取不到再裸刷新兜底。
      */
     function createServiceController() {
-      var store = createStore({ phase: 'idle', available: undefined, sec: 0, cmd: '' })
+      var store = createStore({ phase: 'idle', available: undefined, sec: 0, cmd: '', pid: null })
       var timers = [] // 本控制器排下的所有定时器（dispose 一并清）
 
       function checkAvailable() {
@@ -5112,13 +5114,13 @@ window.__ModuleLoader__.load({
           .then(function (value) {
             var snap = store.getSnapshot()
             if (snap.phase === 'idle' || snap.phase === 'failed') {
-              store.set({ phase: 'idle', available: true, sec: 0, cmd: value.command })
+              store.set({ phase: 'idle', available: true, sec: 0, cmd: value.command, pid: value.pid ?? null })
             }
           })
           .catch(function () {
             var snap = store.getSnapshot()
             if (snap.phase === 'idle') {
-              store.set({ phase: 'idle', available: false, sec: 0, cmd: '' })
+              store.set({ phase: 'idle', available: false, sec: 0, cmd: '', pid: null })
             }
           })
       }
@@ -5137,9 +5139,34 @@ window.__ModuleLoader__.load({
 
       function restart() {
         var cmd = store.getSnapshot().cmd
-        store.set({ phase: 'restarting', available: false, sec: 0, cmd: cmd })
+        var oldPid = store.getSnapshot().pid
+        store.set({ phase: 'restarting', available: false, sec: 0, cmd: cmd, pid: oldPid })
         post('/service/restart', {}).catch(function () { /* dropped = expected */ })
         var start = Date.now()
+
+        // 新进程应答后跳它的登录 URL：换 30 天 cookie 再落回 /，免除
+        // 裸刷新撞上 dsh ≥ 0.1.2-alpha.1 的浏览器鉴权围栏（401）。
+        // token 文件由 connection 服务就绪时写，可能比 webServer 晚几
+        // 秒——失败重试三轮再降级裸刷新。
+        function recoverWithLoginUrl(attempt) {
+          api('/service/login-url')
+            .then(function (v) {
+              if (v !== null && typeof v === 'object' && typeof v.url === 'string'
+                && v.url.indexOf('/?token=') !== -1) {
+                window.location.replace(v.url) // 303 换 cookie 后重定向回 /
+                return
+              }
+              throw new Error('no token url')
+            })
+            .catch(function () {
+              if (attempt < 3) {
+                timers.push(setTimeout(function () { recoverWithLoginUrl(attempt + 1) }, 1500))
+              } else {
+                try { window.location.reload() } catch (err) { /* manual refresh */ }
+              }
+            })
+        }
+
         var tick = function () {
           var snap = store.getSnapshot()
           if (snap.phase !== 'restarting') return
@@ -5149,9 +5176,13 @@ window.__ModuleLoader__.load({
             return
           }
           api('/service/info')
-            .then(function () {
-              // A process answered again — re-bootstrap the whole shell.
-              try { window.location.reload() } catch (err) { /* manual refresh */ }
+            .then(function (value) {
+              // 必须是新 pid：旧进程退场宽限期内仍会应答。
+              if (oldPid !== null && typeof value.pid === 'number' && value.pid === oldPid) {
+                throw new Error('old process still answering')
+              }
+              store.set({ phase: 'restarting', available: true, sec: sec, cmd: cmd, pid: value.pid ?? null })
+              recoverWithLoginUrl(0)
             })
             .catch(function () {
               store.set({ phase: 'restarting', available: false, sec: sec, cmd: cmd })

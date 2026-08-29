@@ -18,6 +18,7 @@
   "GET /dsh-base-plugin/api/ops/upstream",
   "GET /dsh-base-plugin/api/prompt-opt/available",
   "GET /dsh-base-plugin/api/service/info",
+  "GET /dsh-base-plugin/api/service/login-url",
   "GET /dsh-base-plugin/api/sessions",
   "GET /dsh-base-plugin/api/sessions/search",
   "GET /dsh-base-plugin/api/skills",
