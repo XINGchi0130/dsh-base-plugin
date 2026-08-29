@@ -26,6 +26,7 @@
   "GET /dsh-base-plugin/api/state",
   "GET /dsh-base-plugin/api/sysres",
   "GET /dsh-base-plugin/api/terminal/available",
+  "GET /dsh-base-plugin/api/terminal/complete",
   "GET /dsh-base-plugin/api/timemachine",
   "GET /dsh-base-plugin/api/usage",
   "GET /dsh-base-plugin/api/usage/debug",

@@ -51,7 +51,7 @@
  * 用分区横幅代替模块切分。分区顺序：i18n 词典 → store/api/styles
  * 辅助 → MarketTab → McpSection → SkillsSection → plugin apply。
  */
-// GENERATED from src/* by scripts/build-client.mjs — edit src/, then rebuild. stamp:f45d44c2a779
+// GENERATED from src/* by scripts/build-client.mjs — edit src/, then rebuild. stamp:2530e0927281
 window.__ModuleLoader__.load({
   id: 'dsh-base-plugin',
   factory: function (require) {
@@ -473,6 +473,7 @@ window.__ModuleLoader__.load({
       opsProbe_notifyPermission: '浏览器通知权限',
       sessModeMeta: '元数据',
       sessFilterSubagents: '子代理',
+      termSugHint: 'Tab 补全 · ↑↓ 选择 · 点击直接填入',
       confirmDeleteSubagents: '其关联的 {n} 个子代理会话（审查/委派的子任务对话）也将一并删除。',
       badgeSubagent: '子代理',
       sessModeFull: '全文',
@@ -897,6 +898,7 @@ window.__ModuleLoader__.load({
       opsProbe_notifyPermission: 'Browser notification permission',
       sessModeMeta: 'Metadata',
       sessFilterSubagents: 'subagents',
+      termSugHint: 'Tab complete · ↑↓ select · click to insert',
       confirmDeleteSubagents: 'Its {n} associated subagent sessions (review/delegation child conversations) will also be deleted.',
       badgeSubagent: 'subagent',
       sessModeFull: 'Full text',
@@ -3774,6 +3776,33 @@ window.__ModuleLoader__.load({
       var input = inputState[0]
       var setInput = inputState[1]
 
+      // 补全：历史（新→旧，去重）+ 字典 + 宿主 shell 级（PATH 二进制/
+      // 文件路径），按输入过滤；高亮项可 Tab 补全。
+      var cwd = typeof props.cwd === 'string' ? props.cwd : ''
+      var historyState = React.useState([])
+      var history = historyState[0]
+      var setHistory = historyState[1]
+      var sugIdxState = React.useState(0)
+      var sugIdx = sugIdxState[0]
+      var setSugIdx = sugIdxState[1]
+      var shellState = React.useState(null) // 宿主候选 { forText, list }
+      var shell = shellState[0]
+      var setShell = shellState[1]
+
+      // 宿主补全：120ms 防抖；过期响应丢弃（只认最后一次输入）。
+      React.useEffect(function () {
+        var text = input
+        if (text.trim() === '' || cwd === '') { setShell(null); return undefined }
+        var timer = setTimeout(function () {
+          api('/terminal/complete?cwd=' + encodeURIComponent(cwd) + '&text=' + encodeURIComponent(text))
+            .then(function (value) {
+              setShell({ forText: text, list: Array.isArray(value.candidates) ? value.candidates : [] })
+            })
+            .catch(function () { setShell(null) })
+        }, 120)
+        return function () { clearTimeout(timer) }
+      }, [input, cwd])
+
       var outRef = React.useRef(null)
       React.useEffect(function () {
         var el = outRef.current
@@ -3785,12 +3814,43 @@ window.__ModuleLoader__.load({
         var sent = onInput(term.key, input, true)
         // 只有 PTY 接受了该行才清空输入；被拒（如「命令仍在运行」）时
         // 保留已输入文本以便继续编辑。
+        var remember = function () {
+          setHistory(function (prev) { return [input].concat(prev.filter(function (c) { return c !== input })).slice(0, 50) })
+        }
         if (sent !== undefined && typeof sent.then === 'function') {
-          sent.then(function () { setInput('') }, function () { /* keep input */ })
+          sent.then(function () { setInput(''); remember() }, function () { /* keep input */ })
         } else {
           setInput('')
+          remember()
         }
       }
+
+      // 候选计算：历史优先（前缀命中），其次字典（命令/标签前缀或子串）。
+      function suggestions() {
+        var lower = input.trim().toLowerCase()
+        if (lower === '') return []
+        var seen = {}
+        var out = []
+        for (var i = 0; i < history.length && out.length < 5; i += 1) {
+          var hc = history[i]
+          if (seen[hc] !== undefined || hc.toLowerCase().indexOf(lower) !== 0) continue
+          seen[hc] = 1
+          out.push({ cmd: hc })
+        }
+        // 宿主 shell 级候选（仅对应当前输入的响应）：命令位=PATH 二进制，
+        // 参数位=文件路径。命令补全补个空格、目录路径补个斜杠。
+        if (shell !== null && shell.forText === input) {
+          for (var k = 0; k < shell.list.length && out.length < 8; k += 1) {
+            var cand = shell.list[k]
+            if (seen[cand.text] !== undefined) continue
+            seen[cand.text] = 1
+            out.push({ cmd: cand.text + (cand.isDir === true ? '/' : ' '), shell: true })
+          }
+        }
+        return out
+      }
+      var sug = suggestions()
+      var active = Math.min(sugIdx, Math.max(0, sug.length - 1))
 
       return h('div', { style: { display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, gap: 8 } },
         h('pre', { className: 'dhb-tmOut', ref: outRef }, term.output === '' ? t('termPlaceholder') : term.output),
@@ -3805,6 +3865,19 @@ window.__ModuleLoader__.load({
             onChange: function (e) { setInput(e.target.value) },
             onKeyDown: function (e) {
               if (isComposing(e)) return // IME Enter = confirm candidate, not submit
+              // Tab = 补全高亮候选（不缩进、不挪焦点）；↑↓ 在有候选时
+              // 换高亮（无候选时不拦截——留给将来的历史翻阅）。
+              if (e.key === 'Tab' && sug.length > 0) {
+                e.preventDefault()
+                setInput(sug[active].cmd)
+                setSugIdx(active)
+                return
+              }
+              if (sug.length > 0 && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) {
+                e.preventDefault()
+                setSugIdx((active + (e.key === 'ArrowDown' ? 1 : sug.length - 1)) % sug.length)
+                return
+              }
               if (e.key === 'Enter') submit()
               else if (e.key === 'c' && (e.ctrlKey || e.metaKey)) {
                 // macOS 上 Cmd+C 是复制：输入框里有选区时不拦截（否则
@@ -3825,6 +3898,22 @@ window.__ModuleLoader__.load({
             onClick: function () { onInterrupt(term.key) },
           }, '^C'),
         ),
+        sug.length > 0 ? h('div', { style: { display: 'flex', flexDirection: 'column', gap: 2 } },
+          sug.map(function (item, i) {
+            return h('div', {
+              key: item.cmd,
+              onClick: function () { setInput(item.cmd); setSugIdx(i) },
+              style: {
+                padding: '3px 8px', borderRadius: 6, cursor: 'pointer', fontSize: 11,
+                fontFamily: 'ui-monospace,Menlo,monospace', wordBreak: 'break-all',
+                background: i === active ? 'var(--dsw-alias-bg-hover,#eef1f6)' : 'transparent',
+              },
+            },
+              (i === active ? '▸ ' : '  ')
+              + item.cmd)
+          }),
+          h('div', { className: 'dhb-hint', style: { margin: 0 } }, t('termSugHint')),
+        ) : null,
       )
     }
 
@@ -4060,6 +4149,7 @@ window.__ModuleLoader__.load({
           ? h(TerminalPane, {
               t: t,
               term: active,
+              cwd: cwd,
               onInput: onInput,
               onInterrupt: onInterrupt,
             })
