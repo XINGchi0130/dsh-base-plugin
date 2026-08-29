@@ -1,7 +1,8 @@
 # DSH（DeepSeek Harness）官方插件参考手册
 
-> 依据 `/Users/zxc/project/deepseek-harness` 源码整理（版本 0.1.1-rc.2，2026-08-21 从 0.1.0-rc.5 升级，854 个提交）。
-> 0.1.1 主要变化：多模态图像管线（DeepSeek 视觉模型 + Files API 统一 + 附件规范编码）、凭据系统重构（可向用户请求凭据）、webserver 结构化 index 注入事件（`webserver/index-inject`，替代裸 HTML 变换的新机制）、Web UI 改进（宽表自适应/悬停滚动条/多行问答/自动开浏览器）、SQLite 持久化布局优化。
+> 依据 `/Users/zxc/project/deepseek-harness` 源码整理（版本 0.1.2-alpha.1，2026-08-28 从 0.1.1-rc.2 升级，1079 个提交）。
+> 0.1.2-alpha.1 主要变化：**浏览器鉴权围栏**（`connection` 行的 BrowserAuth：进程级 launch token URL 换 30 天 HMAC 签名 cookie，`/api` 与 index 全覆盖——回环也挡浏览器侧攻击面）、api-proxy 拆分为 `session-controller`/`settings-controller`/`workspace-controller` 三行、storage 三件套（storage/storage-json/storage-domain）从 Web 层移入 base 层、新增 `web-fetch-http`/`deepseek-llm-api-extensions`/`session-log-deepseek`/`plugin-package-inventory-deepseek` 行、预设目录迁至 `packages/preset/agent-presets/presets/` 且 `code` 预设更名 `ptc`、快照语料从 `examples/` 迁至顶层 `snapshots/`、webhook 双包（packages/webhook/*）。
+> 历史版本变化：0.1.1（多模态图像管线、凭据系统重构、`webserver/index-inject`、SQLite 布局优化）。
 > 目标：日常查阅不需要再翻源码。
 
 ---
@@ -108,6 +109,11 @@ Waterfall 语义：监听器收 `(...args, next)`；调 `next()` 走下游并拿
 | `settings` | `@deepseek-ai/dsh-settings-file` | 用户设置文档（$DSH_HOME/settings.yaml，热重载） |
 | `credentials` | `@deepseek-ai/dsh-credentials-local` | 凭据源（环境变量 > 托管文档 > .env） |
 | `subprocess` | `@deepseek-ai/dsh-subprocess-local` | 子进程服务 |
+| `deepseek-llm-api-extensions` | dsh-deepseek-llm-api-extensions | DeepSeek API 扩展（0.1.2 新增） |
+| `session-log-deepseek` | dsh-session-log-deepseek | DeepSeek 会话日志联动（0.1.2 新增） |
+| `plugin-package-inventory-deepseek` | dsh-plugin-package-inventory-deepseek | 插件包清单投影（0.1.2 新增） |
+| `web-fetch-http` | `@deepseek-ai/dsh-web-fetch-http` | web_fetch 的 HTTP 后端（0.1.2 从 web 服务拆出） |
+| `storage` / `storage-json` / `storage-domain` | dsh-storage* | 存储三件套（0.1.2 从 Web 层移入——CLI 等无 web 场景也要用） |
 
 ### 会话持久化与检索
 
@@ -198,7 +204,6 @@ Waterfall 语义：监听器收 `(...args, next)`；调 `next()` 走下游并拿
 | 行 id | 包名 | 用途 |
 |---|---|---|
 | `code-runtime` | `dsh-code-runtime-worker-thread` | 代码执行运行时 |
-| `storage` / `storage-json` / `storage-domain` | dsh-storage* | 存储抽象 / JSON 后端 / 域层 |
 | `message-feedback` | `dsh-message-feedback` | 消息点赞/点踩 |
 | `session-log-download` | `dsh-session-log-export` | `/export` 会话导出 |
 | `workspace` | `dsh-workspace` | 工作区域 |
@@ -208,11 +213,13 @@ Waterfall 语义：监听器收 `(...args, next)`；调 `next()` 走下游并拿
 | `file-reference-local` | `dsh-file-reference-local` | 本地文件引用（0.1.1 新增） |
 | `directory-picker` | `dsh-host-directory-picker-auto` | 目录选择器（自动挑 native/browse） |
 | `plugin-inventory` | `dsh-host-plugin-inventory` | Loader 插件清单只读投影 |
-| `api-gateway` | `dsh-host-apiproxy` | API 网关（/api） |
+| `session-controller` / `settings-controller` / `workspace-controller` | dsh-host-apiproxy 三面 | API 网关（0.1.2 由单行 `api-gateway` 拆为三个控制器行） |
 | `cordis-host-runner` | `dsh-cordis-host-runner` | **动态插件 Host 半**（见第 8 节） |
 | `web-startup` | `dsh-web-app/startup` | 命令行 flag 解析 |
 | `webserver` | `dsh-host-webserver` | HTTP 服务（默认 127.0.0.1:3080） |
 | `web-runtime` | `dsh-web-app` | 前端 dist、信任网、URL 打印 |
+
+**0.1.2 浏览器鉴权（重要）**：`connection`（dsh-client-connection，宿主侧部分）现在对**每个浏览器请求**强制鉴权——启动时生成进程级 launch token 打印在 URL 横幅里，`GET /?token=…` 一次性换 30 天 HMAC 签名 cookie（密钥持久化于 credentials 的 `client-connection/browser-session` 记录，跨重启有效）；无凭证请求一律 401（含 `/api` 与 index）。cookie 与访问域名绑定（127.0.0.1 与 localhost 互不通用）。第三方 Host 插件经 `webServer.register` 直挂的路由**不在**该围栏内，需自理同源/Host 检查。
 
 ### 浏览器侧（dsh.client 行）
 
@@ -228,6 +235,7 @@ Waterfall 语义：监听器收 `(...args, next)`；调 `next()` 走下游并拿
 | `ui-layout` / `ui-sidebar` | dsh-client-ui-* | 布局 / 侧栏 |
 | `ui-settings` (+general/models/plugin-inventory/plugins) | dsh-client-ui-settings* | 设置页各节 |
 | `ui-conversation` | dsh-client-ui-conversation | 会话流 |
+| `ui-chat` / `ui-approval` | dsh-client-ui-* | 聊天流 / 审批交互（0.1.2 拆分新增） |
 | `ui-tool` | dsh-client-ui-tool | 工具调用树与业务视图 |
 | `ui-cordis` | `dsh-client-ui-cordis` | **动态插件面板/审批 UI** |
 | `ui-workflow-run` / `ui-deliverables` / `ui-workspace` | dsh-client-ui-* | workflow 卡 / 产出文件 / 工作区 |
@@ -252,7 +260,7 @@ Waterfall 语义：监听器收 `(...args, next)`；调 `next()` 走下游并拿
 
 | 根 | 路径 | 信任级 |
 |---|---|---|
-| 随部署发行（只读！） | `apps/cli/config/agent-presets/`（安装后位于部署自身 config 旁） | `system` |
+| 随部署发行（只读！） | `packages/preset/agent-presets/presets/`（0.1.2 从 `apps/cli/config/agent-presets/` 迁来；安装后位于部署自身 config 旁） | `system` |
 | 用户自建 | `${DSH_HOME:-$HOME/.dsh}/.agent-presets/<id>/` | `user`（等同 shell 权限） |
 
 **绝对不要编辑/删除发行版 preset**：升级会覆盖；弄坏 `cordis` 预设会让预设创作模式本身失效。要改行为 → 复制成新目录改副本。
@@ -271,9 +279,9 @@ Waterfall 语义：监听器收 `(...args, next)`；调 `next()` 走下游并拿
 | id | name | order | 说明 |
 |---|---|---|---|
 | `standard` | 标准模式 | 1 | 全功能编码 Agent |
-| `minimal` | — | — | 最小集 |
-| `code` | — | — | 代码模式 |
-| `cordis` | 创造模式 | 4 | standard + `tool-cordis` 自引用工具集 + 组合创作技能 |
+| `minimal` | 极简模式 | — | 持久 shell + str_replace 编辑器双工具最小集 |
+| `ptc` | PTC 模式 | — | standard 全能力 + PTC SDK（模型用一个 TypeScript 程序编排多步操作；0.1.2 前身为 `code` 预设） |
+| `cordis` | 创造模式 | — | standard + `tool-cordis` 自引用工具集 + 组合创作技能 |
 
 ### `cordis` 预设的独有行
 
@@ -386,16 +394,17 @@ return {
 | Loader（cordis.yml 解析） | `vendor/loader/src/` |
 | 基础层组合 | `packages/bundle/base/cordis.patch.yml` |
 | Web 面组合 | `packages/bundle/web-app/cordis.patch.yml` |
-| 发行版预设 | `apps/cli/config/agent-presets/{standard,code,minimal,cordis}/` |
+| 发行版预设 | `packages/preset/agent-presets/presets/{standard,ptc,minimal,cordis}/` |
 | 动态插件 Host 半 | `packages/extensions/cordis-host-runner/src/`（index 1274 行：Service 本体；registry/sandbox/guard/lifecycle） |
 | 动态插件 Client 半 | `packages/extensions/cordis-client-runner/src/client/`（orchestrator/runtime/evaluator/guard/slot-catalog） |
 | 模型工具定义 | `packages/extensions/tool-cordis/src/`（index.ts 530 行；api-catalog.ts 4751 行 API 目录） |
 | 动态插件 UI | `packages/extensions/ui-cordis/src/client/`（CordisPanel/RunRow/DefineRow） |
 | 插件清单投影 | `packages/host/plugin-inventory/src/` |
 | 预设服务 | `packages/preset/agent-presets/src/`（discovery/authoring/mount/preset） |
-| 预设技能文档 | `apps/cli/config/agent-presets/cordis/skills/{editing-cordis-compositions,cordis-plugin-development}/SKILL.md` |
+| 预设技能文档 | `packages/preset/agent-presets/presets/cordis/skills/{editing-cordis-compositions,cordis-plugin-development}/SKILL.md` |
 | Cordis 入门文档 | `docs/cordis-primer.zh.md`、`docs/cordis-tutorial/`、`docs/architecture.zh.md` |
-| 组合示例 | `examples/*/cordis.yml`（web-cordis、headless-agent 等） |
+| 会话/SDK 快照语料 | `snapshots/{session,sdk,acp,web}/`（0.1.2 从 `examples/*/tests/snapshots` 迁出） |
+| 会话快照工具 | `packages/test-support/session-snapshot/`（0.1.2 由 acp-snapshot 更名） |
 
 ---
 
