@@ -51,7 +51,7 @@
  * 用分区横幅代替模块切分。分区顺序：i18n 词典 → store/api/styles
  * 辅助 → MarketTab → McpSection → SkillsSection → plugin apply。
  */
-// GENERATED from src/* by scripts/build-client.mjs — edit src/, then rebuild. stamp:7829f9709b6a
+// GENERATED from src/* by scripts/build-client.mjs — edit src/, then rebuild. stamp:17f24459942a
 window.__ModuleLoader__.load({
   id: 'dsh-base-plugin',
   factory: function (require) {
@@ -392,10 +392,10 @@ window.__ModuleLoader__.load({
       notFoundFull: '未找到技能：{name}',
       contentLabel: '内容',
       sectionSessions: '会话管理',
-      sectionMobile: '手机访问',
-      mobileIntro: '在局域网内用手机访问本机 DSH：扫码配对一次，之后直接打开。默认关闭；开启后本插件在独立端口启动一个带鉴权的反向代理，DSH 主服务仍只监听本机。',
+      sectionMobile: '局域网访问',
+      mobileIntro: '在局域网内用手机/平板/其它电脑访问本机 DSH：扫码配对一次，之后直接打开。默认关闭；开启后本插件在独立端口启动一个带鉴权的反向代理，DSH 主服务仍只监听本机。',
       mobileSecurityNote: '安全须知：传输为局域网 HTTP（配对码一次性、10 分钟有效；Cookie 签名绑定设备）。出门在外请配合 Tailscale 等加密组网使用，避免在不可信 Wi-Fi 下开启。',
-      mobileEnable: '启用手机访问',
+      mobileEnable: '启用局域网访问',
       mobilePort: '端口',
       mobileNotRunning: '服务未运行（检查端口占用或重启 dsh）',
       mobileQrTitle: '配对二维码',
@@ -415,8 +415,8 @@ window.__ModuleLoader__.load({
       mobileApply: '应用',
       mobileRunning: '运行中',
       mobileStopped: '已停止',
-      mobileEnabled: '已启用手机访问',
-      mobileDisabled: '已关闭手机访问',
+      mobileEnabled: '已启用局域网访问',
+      mobileDisabled: '已关闭局域网访问',
       sessionsIntro: '查看并永久删除本机持久化的会话（含已归档）。删除会销毁完整对话日志，不可恢复；正在运行的会话需先关闭。',
       sessUnavailable: '此主机没有会话持久化服务。',
       noSessions: '暂无会话。',
@@ -813,7 +813,7 @@ window.__ModuleLoader__.load({
       notFoundFull: 'Skill not found: {name}',
       contentLabel: 'content',
       sectionSessions: 'Sessions',
-      sectionMobile: 'Mobile Access',
+      sectionMobile: 'LAN Access',
       mobileIntro: 'Use DSH from your phone on the LAN: pair once by scanning, then just open it. Off by default; enabling starts an authenticated reverse proxy on its own port — the main dsh server keeps listening on loopback only.',
       mobileSecurityNote: 'Security note: transport is plain HTTP on the LAN (one-time pairing code valid 10 minutes; cookies are device-bound HMAC-signed). For remote use, pair over an encrypted overlay like Tailscale; avoid enabling on untrusted Wi-Fi.',
       mobileEnable: 'Enable mobile access',

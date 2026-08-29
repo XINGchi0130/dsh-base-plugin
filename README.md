@@ -2,7 +2,7 @@
 
 English | [中文](README.zh.md)
 
-An enhancement plugin for [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) (DSH): **plugin market, MCP management, session management, mobile access, notifications, terminal, file changes, prompt optimization** — 12 capabilities delivered entirely through Settings pages and the tools dock, **without touching DSH source code**. Bilingual UI (follows the DSH language setting); every page adapts to phone screens.
+An enhancement plugin for [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) (DSH): **plugin market, MCP management, session management, LAN access, notifications, terminal, file changes, prompt optimization** — 12 capabilities delivered entirely through Settings pages and the tools dock, **without touching DSH source code**. Bilingual UI (follows the DSH language setting); every page adapts to phone screens.
 
 ## Features
 
@@ -16,7 +16,7 @@ An enhancement plugin for [DeepSeek Harness](https://github.com/deepseek-ai/deep
 | **Sessions** | Settings → Sessions | Every persisted session in one list (filter/**cross-session full-text search**); delete (rows vanish from every sidebar live); export MD/Zip; **time machine** (fork from any turn) |
 | **Ops** | Settings → Ops | Upstream version check (local vs latest official + behind-count); **health check** (service mounting / route probe / state-file permissions / DOM contracts / notification permission) |
 | **Notifications** | Settings → Notifications | Turn finished / job settled / approval waiting / context nearly full → **browser notifications** (zero-config; the page must stay open — a background tab is fine, catches up on return) / Bark / ntfy / webhook |
-| **Mobile Access** | Settings → Mobile Access | Pair by QR on the LAN and use the full DSH UI from your phone (HMAC device cookies + exponential backoff) |
+| **LAN Access** | Settings → LAN Access | Pair by QR and use the full DSH UI from any device on the LAN (HMAC device cookies + exponential backoff) |
 | **File Changes** | session ⋯ menu | Three tabs: **Workspace Changes** (git baseline diff, strictly read-only) + **Commit History** (local-unpushed / remote-pushed segments; click a commit to expand its diff) + **Operation Log** (AI read/write/bash trail with ±lines and success/failure) |
 | **Terminal** | session ⋯ menu | Multiple PTY terminals: Enter to run, Ctrl+C interrupt, streaming output |
 | **Monitor** | session ⋯ menu | Three tabs: **Overview** (turns/timing/tokens/context pressure), **Tasks** (background jobs + subagent tree), **System** (CPU/memory/load, pressure-based) |
@@ -94,7 +94,7 @@ dsh-base-plugin/
 │   ├── sessions.js        # session deletion (five-step idempotent) + export/time machine
 │   ├── git.js             # baseline/status/diff (numstat -z)
 │   ├── sysres.js          # system resource sampling (pressure-based memory)
-│   ├── mobile/            # mobile access (proxy/auth/QR/PWA)
+│   ├── mobile/            # LAN access (proxy/auth/QR/PWA)
 │   └── ...
 ├── src/                   # browser-half sources (25 modules, concatenated into client.js)
 ├── scripts/
