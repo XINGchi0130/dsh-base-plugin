@@ -22,7 +22,8 @@
  *
  * @module dsh-base-plugin
  */
-import { chmodSync, existsSync, mkdirSync } from 'node:fs'
+import { chmodSync, existsSync, mkdirSync, writeFileSync } from 'node:fs'
+import { join } from 'node:path'
 import { dshHome, statePath } from './lib/env.js'
 import { commit, mutateState } from './lib/patch.js'
 import { installNotifyBridge, notifyFrom } from './lib/notify.js'
@@ -30,6 +31,7 @@ import { registerRoutes } from './lib/routes.js'
 import { loadState, saveState } from './lib/state.js'
 import { MobileAuth } from './lib/mobile/auth.js'
 import { startMobileProxy } from './lib/mobile/server.js'
+import { secretFromRecord } from './lib/mobile/upstream-auth.js'
 
 export const name = 'dsh-base-plugin'
 
@@ -83,6 +85,11 @@ export const inject = ['webServer']
 
 export async function apply(ctx) {
   ctxRef = ctx
+  // fiber 停止时释放模块级引用：HMR/插件更新会先装新 fiber 再停旧
+  // fiber，无此释放时旧 fiber 的 ctx 可能残留，persistMobile 的告警
+  // 会写向已销毁 fiber 的 logger。只清属于自己的赋值（新 fiber 已
+  // 覆写时不误伤）。
+  ctx.effect(() => () => { if (ctxRef === ctx) ctxRef = null }, 'dsh-base-plugin: ctxRef release')
   // Migrate/seed the state file on first load: loadState falls back to the
   // legacy `dsh-hub.json`, so persisting ITS result (never an empty literal)
   // keeps migrated plugins/MCP/persona instead of clobbering them.
@@ -148,6 +155,29 @@ export async function apply(ctx) {
   }
   ctx.effect(() => () => { void stopMobile() }, 'dsh-base-plugin: mobile server')
 
+  // dsh ≥ 0.1.2-alpha.1 的浏览器鉴权：每次启动生成进程级 launch token，
+  // 出现在 dsh web 的启动横幅里；进程一死 token 即作废。浏览器完成一次
+  // token → cookie 交换后 30 天内免疫重启，但"token 无处可寻"曾让多次
+  // 重启之间反复 401。这里在 connection 服务就绪后把当前进程的完整
+  // token URL 持久化到固定文件（0600，与状态文件同标准），任何时候
+  // `cat ~/.dsh/dsh-web-url.txt` 都能拿到属于当前进程的 URL。
+  // cookie 按访问域名分别绑定（127.0.0.1 与 localhost 互不通用——第 4 次
+  // 401 风暴的根因），因此两个域名各写一行，别再用错入口。
+  ctx.inject(['connection'], (connectionCtx) => {
+    try {
+      const port = typeof connectionCtx.webServer?.port === 'number' ? connectionCtx.webServer.port : 3080
+      const urls = [
+        connectionCtx.connection.authenticatedUrl(`http://127.0.0.1:${String(port)}`),
+        connectionCtx.connection.authenticatedUrl(`http://localhost:${String(port)}`),
+      ]
+      writeFileSync(join(dshHome(), 'dsh-web-url.txt'), `${urls.join('\n')}\n`, { mode: 0o600 })
+      ctx.logger.info?.('dsh-base-plugin: launch URLs (127.0.0.1 + localhost) persisted to ~/.dsh/dsh-web-url.txt')
+    } catch (error) {
+      ctx.logger.warn?.(`dsh-base-plugin: cannot persist the launch URL: ${String(error)}`)
+    }
+  })
+
+
   const startMobile = async () => {
     if (mobileHandle !== null) return
     const mobile = loadState().mobile
@@ -159,6 +189,15 @@ export async function apply(ctx) {
         auth: ensureAuth(),
         onStateChange: persistMobile,
         version: 'dsh-base-plugin',
+        // dsh ≥ 0.1.2-alpha.1 signs browser sessions with a persistent
+        // credential record the upstream Connection plugin owns; both run in
+        // this process, so the proxy can mint the same cookie for its hop.
+        readUpstreamSecret: async () => {
+          const credentials = ctx.get('credentials')
+          if (credentials === undefined || typeof credentials.readRecord !== 'function') return undefined
+          const record = await credentials.readRecord('client-connection/browser-session')
+          return secretFromRecord(record)
+        },
       })
       ctx.logger.info(`dsh-base-plugin: mobile access listening on 0.0.0.0:${mobileHandle.port}`)
     } catch (error) {
