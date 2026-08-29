@@ -280,15 +280,28 @@
       '}',
     ]
 
-    /** 样式表只插入一次；返回 disposer，停止时移除。 */
+    /** 样式表插入（并发挂载时引用计数，最后一个卸载方才真正移除标签）；
+     * 返回 disposer。每个挂载方都拿到自己的 disposer——此前重复挂载时
+     * 第二方拿到 undefined，先卸载的一方会拆掉仍被引用的共用标签。 */
     function injectStyles() {
       if (typeof document === 'undefined') return undefined
-      if (document.getElementById('dsh-base-plugin/styles') !== null) return undefined
-      var tag = document.createElement('style')
-      tag.id = 'dsh-base-plugin/styles'
-      tag.textContent = CSS.join('\n')
-      document.head.appendChild(tag)
+      var tag = document.getElementById('dsh-base-plugin/styles')
+      if (tag === null) {
+        tag = document.createElement('style')
+        tag.id = 'dsh-base-plugin/styles'
+        tag.textContent = CSS.join('\n')
+        document.head.appendChild(tag)
+        tag.setAttribute('data-dshbp-owners', '1')
+      } else {
+        tag.setAttribute('data-dshbp-owners', String(Number(tag.getAttribute('data-dshbp-owners') ?? '0') + 1))
+      }
+      var owned = tag
       return function () {
-        if (tag.parentNode !== null) tag.parentNode.removeChild(tag)
+        var count = Number(owned.getAttribute('data-dshbp-owners') ?? '1') - 1
+        if (count > 0) {
+          owned.setAttribute('data-dshbp-owners', String(count))
+          return
+        }
+        if (owned.parentNode !== null) owned.parentNode.removeChild(owned)
       }
     }

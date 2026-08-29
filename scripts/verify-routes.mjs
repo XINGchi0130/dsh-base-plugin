@@ -8,6 +8,7 @@ const us = await import('../lib/routes/usage-sessions.js')
 const ms = await import('../lib/routes/mobile-service.js')
 const pm = await import('../lib/routes/packages-mcp.js')
 const nt = await import('../lib/routes/notify.js')
+const ops = await import('../lib/routes/ops.js')
 
 const noop = () => {}
 const ctx = { get: () => undefined }
@@ -19,7 +20,7 @@ const groups = [
   panels.terminalsRoutes(ctx, deps), panels.gitRoutes(ctx, deps),
   panel_monitor(panels), us.usageRoutes(ctx, deps), us.sessionsRoutes(ctx),
   ms.mobileRoutes(ctx, deps), ms.serviceRoutes(ctx),
-  pm.packageRoutes(ctx, deps), pm.mcpRoutes(ctx), nt.notifyRoutes(),
+  pm.packageRoutes(ctx, deps), pm.mcpRoutes(ctx), nt.notifyRoutes(), ops.opsRoutes(ctx),
 ]
 function panel_monitor(panels) { return panels.monitorRoutes(ctx) }
 function panel_fileops(panels) { return panels.fileOpsRoutes(ctx) }

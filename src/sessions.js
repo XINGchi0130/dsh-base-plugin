@@ -31,6 +31,24 @@
       var query = queryState[0]
       var setQuery = queryState[1]
 
+      // 搜索模式：'meta' 标题/ID/cwd 筛选（本地、即输即筛）；'fulltext'
+      // 跨会话全文搜索（宿主半扫描日志，回车或点按钮触发，见 lib/search.js）。
+      var modeState = React.useState('meta')
+      var mode = modeState[0]
+      var setMode = modeState[1]
+
+      var ftState = React.useState({ status: 'idle', value: null, error: '' })
+      var ft = ftState[0]
+      var setFt = ftState[1]
+
+      function runFullSearch() {
+        if (query.trim() === '') return
+        setFt({ status: 'loading', value: null, error: '' })
+        api('/sessions/search?q=' + encodeURIComponent(query.trim()))
+          .then(function (value) { setFt({ status: 'ready', value: value, error: '' }) })
+          .catch(function (error) { setFt({ status: 'error', value: null, error: String(error.message || error) }) })
+      }
+
       var msgState = React.useState(null)
       var msg = msgState[0]
       var setMsg = msgState[1]
@@ -173,6 +191,10 @@
         return data.counts.ghosts
       }
 
+      // 全文模式激活：有查询词且已跑过（或正在跑）搜索时，以结果列表
+      // 取代会话卡片列表。
+      var ftActive = mode === 'fulltext' && query.trim() !== '' && ft.status !== 'idle'
+
       return h('div', { className: 'dhb-page' },
         h('h2', { className: 'dhb-title' }, t('sectionSessions')),
         h('p', { className: 'dhb-desc' }, t('sessionsIntro')),
@@ -182,23 +204,65 @@
             className: 'dhb-input',
             type: 'search',
             value: query,
-            placeholder: t('sessSearchPlaceholder'),
+            placeholder: mode === 'fulltext' ? t('sessFtPlaceholder') : t('sessSearchPlaceholder'),
             onChange: function (e) { setQuery(e.target.value) },
+            onKeyDown: function (e) { if (e.key === 'Enter' && mode === 'fulltext') runFullSearch() },
           }),
+          mode === 'fulltext'
+            ? h('button', {
+                className: 'dhb-btn dhb-btnPrimary', type: 'button',
+                disabled: ft.status === 'loading',
+                onClick: runFullSearch,
+              }, ft.status === 'loading' ? t('loading') : t('search'))
+            : null,
         ),
         h('div', { className: 'dhb-row' },
-          SESS_FILTERS.map(function (key) {
-            var labelKey = 'sessFilter' + key.charAt(0).toUpperCase() + key.slice(1)
-            return h('button', {
-              key: key,
-              type: 'button',
-              className: 'dhb-btn' + (filter === key ? ' dhb-btnPrimary' : ''),
-              onClick: function () { setFilter(key) },
-            }, t(labelKey) + ' (' + filterCount(key) + ')')
-          }),
-          h('button', { className: 'dhb-btn', type: 'button', onClick: refresh }, t('refresh')),
+          h('button', {
+            type: 'button',
+            className: 'dhb-btn' + (mode === 'meta' ? ' dhb-btnPrimary' : ''),
+            onClick: function () { setMode('meta'); setFt({ status: 'idle', value: null, error: '' }) },
+          }, t('sessModeMeta')),
+          h('button', {
+            type: 'button',
+            className: 'dhb-btn' + (mode === 'fulltext' ? ' dhb-btnPrimary' : ''),
+            onClick: function () { setMode('fulltext') },
+          }, t('sessModeFull')),
         ),
-        h('div', { className: 'dhb-list' },
+        ftActive ? h('div', { className: 'dhb-list' },
+          ft.status === 'loading' ? h('p', { className: 'dhb-desc' }, t('loading'))
+          : ft.status === 'error' ? h(Banner, { kind: 'err', text: ft.error })
+          : h('div', null,
+            h('p', { className: 'dhb-hint', style: { margin: '0 0 8px' } },
+              t('sessFtSummary', { n: String(ft.value.matches.length), s: String(ft.value.sessionsScanned) })
+              + (ft.value.truncated === true ? ' · ' + t('sessFtTruncated') : '')),
+            ft.value.matches.length === 0 ? h('p', { className: 'dhb-desc' }, t('sessFtNoMatch'))
+            : ft.value.matches.map(function (m, i) {
+                return h('div', { className: 'dhb-card', key: m.id + ':' + String(i) },
+                  h('div', { className: 'dhb-cardTitle' },
+                    (m.title !== '' ? m.title : t('sessUntitled')) + ' · ' + t('tmTurnLabel', { n: String(m.turn) })),
+                  h('div', { className: 'dhb-cardMeta' },
+                    h('span', { className: 'dhb-badge', 'data-kind': m.role === 'user' ? 'pending' : 'ok' },
+                      m.role === 'user' ? t('sessFtRoleUser') : t('sessFtRoleAssistant')),
+                    m.matchesInSession > 1 ? h('span', { className: 'dhb-badge' }, t('sessFtCount', { n: String(m.matchesInSession) })) : null,
+                  ),
+                  h('p', { className: 'dhb-hint', style: { margin: 0 } }, m.snippet),
+                )
+              }),
+          ),
+        ) : h('div', null,
+          h('div', { className: 'dhb-row' },
+            SESS_FILTERS.map(function (key) {
+              var labelKey = 'sessFilter' + key.charAt(0).toUpperCase() + key.slice(1)
+              return h('button', {
+                key: key,
+                type: 'button',
+                className: 'dhb-btn' + (filter === key ? ' dhb-btnPrimary' : ''),
+                onClick: function () { setFilter(key) },
+              }, t(labelKey) + ' (' + filterCount(key) + ')')
+            }),
+            h('button', { className: 'dhb-btn', type: 'button', onClick: refresh }, t('refresh')),
+          ),
+          h('div', { className: 'dhb-list' },
           data.status === 'idle' ? h('p', { className: 'dhb-desc' }, t('loading'))
           : data.status === 'error' ? h(Banner, { kind: 'err', text: msg !== null ? msg.text : t('errorTitle') })
           : visible.length === 0 ? h('p', { className: 'dhb-desc' }, searching ? t('sessNoMatch') : t('noSessions'))
@@ -257,6 +321,7 @@
               ),
             )
           }),
+          ),
         ),
       )
     }

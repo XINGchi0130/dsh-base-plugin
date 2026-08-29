@@ -36,6 +36,7 @@ const ORDER = [
   'sessions',  // 会话管理设置节
   'mobile',    // 手机访问设置节
   'notify',    // 通知设置节
+  'ops',       // 运维设置节（登录URL/上游版本/自检）
   'changes',   // 文件变更面板
   'terminal',  // 终端面板
   'monitor',   // 监控面板

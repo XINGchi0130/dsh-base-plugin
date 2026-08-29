@@ -13,7 +13,8 @@ An enhancement plugin for [DeepSeek Harness](https://github.com/deepseek-ai/deep
 | **Skills** | Settings → Skills | Browse registered skills; create/edit/delete under `~/.dsh/skills/` — writes hot-register instantly |
 | **System Prompt** | Settings → System Prompt | Edit the global persona (effective for every session); `{{model}}`/`{{cwd}}` variables; hot-reload on save |
 | **Usage** | Settings → Usage | Token totals across every session, per-model cost estimates (editable prices), 31-day trend, top sessions |
-| **Sessions** | Settings → Sessions | Every persisted session in one list (filter/search); delete (rows vanish from every sidebar live); export MD/Zip; **time machine** (fork from any turn) |
+| **Sessions** | Settings → Sessions | Every persisted session in one list (filter/**cross-session full-text search**); delete (rows vanish from every sidebar live); export MD/Zip; **time machine** (fork from any turn) |
+| **Ops** | Settings → Ops | Upstream version check (local vs latest official + behind-count); **health check** (service mounting / route probe / state-file permissions / DOM contracts / notification permission) |
 | **Notifications** | Settings → Notifications | Turn finished / job settled / approval waiting / context nearly full → **browser notifications** (zero-config; the page must stay open — a background tab is fine, catches up on return) / Bark / ntfy / webhook |
 | **Mobile Access** | Settings → Mobile Access | Pair by QR on the LAN and use the full DSH UI from your phone (HMAC device cookies + exponential backoff) |
 | **File Changes** | session ⋯ menu | Three tabs: **Workspace Changes** (git baseline diff, strictly read-only) + **Commit History** (local-unpushed / remote-pushed segments; click a commit to expand its diff) + **Operation Log** (AI read/write/bash trail with ±lines and success/failure) |

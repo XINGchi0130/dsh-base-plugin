@@ -4,8 +4,10 @@
     var inject = ['slots']
 
     async function apply(ctx) {
-      var slots = ctx.get('slots')
-      if (slots === undefined) return
+      // slots 是上方声明的硬依赖：Cordis 保证 apply 运行时服务已挂载，
+      // 直接经声明通道读取（声明 inject 后不再对同一服务用 ctx.get 探测）。
+      // locale 等可选能力仍走 ctx.get + 缺席处理。
+      var slots = ctx.slots
 
       var disposeStyles = injectStyles()
 
@@ -259,6 +261,20 @@
         )
       })
 
+      // 访问与安全设置节（登录 URL/二维码、上游版本、健康自检）。
+      var disposeOps = slots.inject('settings.section', function () {
+        return slots.register(
+          {
+            name: 'settings.section',
+            id: 'dsh-base-plugin-ops',
+            order: 205,
+            label: function () { return t('sectionOps') },
+            registrant: 'dsh-base-plugin',
+          },
+          function () { return h(OpsSection, { t: t }) },
+        )
+      })
+
       // 浏览器通知渠道的事件泵：启用且渠道=browser 且已授权时 30s 轮询。
       // 三个关键设计：
       // 1. 游标以「泵启动时刻」为起点（Date.now()）——若从 0 起会把环形
@@ -330,6 +346,7 @@
           disposeSessions()
           disposeMobile()
           disposeNotify()
+          disposeOps()
           for (var j = 0; j < localeDisposers.length; j += 1) {
             var dispose = localeDisposers[j]
             if (typeof dispose === 'function') dispose()

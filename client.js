@@ -51,7 +51,7 @@
  * 用分区横幅代替模块切分。分区顺序：i18n 词典 → store/api/styles
  * 辅助 → MarketTab → McpSection → SkillsSection → plugin apply。
  */
-// GENERATED from src/* by scripts/build-client.mjs — edit src/, then rebuild. stamp:986ea655af52
+// GENERATED from src/* by scripts/build-client.mjs — edit src/, then rebuild. stamp:6488d6df227b
 window.__ModuleLoader__.load({
   id: 'dsh-base-plugin',
   factory: function (require) {
@@ -452,6 +452,34 @@ window.__ModuleLoader__.load({
       confirmDeleteSession: '永久删除会话「{name}」？其完整对话日志与历史将被销毁，不可恢复。',
       sessDeleted: '已删除会话：{id}',
       sessUntitled: '（未命名会话）',
+      sectionOps: '运维',
+      opsIntro: '登录 URL、上游版本与健康自检——升级/鉴权事故的预防与自愈入口。',
+      opsUpstreamTitle: '上游版本',
+      opsUpstreamIdle: '点「检查更新」查询官方最新版本。',
+      opsLocalVer: '本地',
+      opsRemoteVer: '官方最新',
+      opsBehind: '本地落后官方 master {n} 个提交',
+      opsUpToDate: '本地与官方 master 同步。',
+      opsBehindUnknown: '落后提交数不可用（网络受限或无 git）。',
+      opsCheckUpdates: '检查更新',
+      opsReleasesLink: '发布页',
+      opsHealthTitle: '健康自检',
+      opsHealthHint: '检查关键服务挂载、自家路由可达、状态文件权限与客户端 DOM 契约。',
+      opsRunHealth: '运行自检',
+      opsHealthRoute: '路由探活',
+      opsHealthStatePerm: '状态文件 0600 权限',
+      opsProbe_domConversationScroll: 'DOM 契约：会话滚动容器',
+      opsProbe_domSettingsNav: 'DOM 契约：设置导航',
+      opsProbe_notifyPermission: '浏览器通知权限',
+      sessModeMeta: '元数据',
+      sessModeFull: '全文',
+      sessFtPlaceholder: '输入关键词，回车搜索全部会话的对话内容…',
+      sessFtSummary: '{n} 条命中（扫描 {s} 个会话）',
+      sessFtTruncated: '结果不完整（已达上限）',
+      sessFtNoMatch: '没有匹配的消息。',
+      sessFtRoleUser: '用户',
+      sessFtRoleAssistant: '助手',
+      sessFtCount: '该会话 {n} 处命中',
     }
 
     var EN = {
@@ -845,6 +873,34 @@ window.__ModuleLoader__.load({
       confirmDeleteSession: 'Permanently delete session "{name}"? Its full conversation log and history will be destroyed and cannot be recovered.',
       sessDeleted: 'Deleted session: {id}',
       sessUntitled: '(untitled session)',
+      sectionOps: 'Ops',
+      opsIntro: 'Login URL, upstream version and health checks — the prevention and self-healing entry for upgrade/auth incidents.',
+      opsUpstreamTitle: 'Upstream version',
+      opsUpstreamIdle: 'Click "Check updates" to query the latest official release.',
+      opsLocalVer: 'Local',
+      opsRemoteVer: 'Latest official',
+      opsBehind: 'Local is {n} commits behind official master',
+      opsUpToDate: 'Local is in sync with official master.',
+      opsBehindUnknown: 'Behind-count unavailable (network restricted or no git).',
+      opsCheckUpdates: 'Check updates',
+      opsReleasesLink: 'Releases',
+      opsHealthTitle: 'Health check',
+      opsHealthHint: 'Checks service mounting, own-route reachability, state-file permissions and client DOM contracts.',
+      opsRunHealth: 'Run checks',
+      opsHealthRoute: 'Route probe',
+      opsHealthStatePerm: 'State file 0600 permissions',
+      opsProbe_domConversationScroll: 'DOM contract: conversation scroll container',
+      opsProbe_domSettingsNav: 'DOM contract: settings navigation',
+      opsProbe_notifyPermission: 'Browser notification permission',
+      sessModeMeta: 'Metadata',
+      sessModeFull: 'Full text',
+      sessFtPlaceholder: 'Type keywords and press Enter to search all session messages…',
+      sessFtSummary: '{n} matches ({s} sessions scanned)',
+      sessFtTruncated: 'results incomplete (cap reached)',
+      sessFtNoMatch: 'No matching messages.',
+      sessFtRoleUser: 'user',
+      sessFtRoleAssistant: 'assistant',
+      sessFtCount: '{n} matches in this session',
     }
 
     /** 无 locale 服务时的回退：按浏览器语言选择词典，替换 {x} 占位。 */
@@ -1202,16 +1258,29 @@ window.__ModuleLoader__.load({
       '}',
     ]
 
-    /** 样式表只插入一次；返回 disposer，停止时移除。 */
+    /** 样式表插入（并发挂载时引用计数，最后一个卸载方才真正移除标签）；
+     * 返回 disposer。每个挂载方都拿到自己的 disposer——此前重复挂载时
+     * 第二方拿到 undefined，先卸载的一方会拆掉仍被引用的共用标签。 */
     function injectStyles() {
       if (typeof document === 'undefined') return undefined
-      if (document.getElementById('dsh-base-plugin/styles') !== null) return undefined
-      var tag = document.createElement('style')
-      tag.id = 'dsh-base-plugin/styles'
-      tag.textContent = CSS.join('\n')
-      document.head.appendChild(tag)
+      var tag = document.getElementById('dsh-base-plugin/styles')
+      if (tag === null) {
+        tag = document.createElement('style')
+        tag.id = 'dsh-base-plugin/styles'
+        tag.textContent = CSS.join('\n')
+        document.head.appendChild(tag)
+        tag.setAttribute('data-dshbp-owners', '1')
+      } else {
+        tag.setAttribute('data-dshbp-owners', String(Number(tag.getAttribute('data-dshbp-owners') ?? '0') + 1))
+      }
+      var owned = tag
       return function () {
-        if (tag.parentNode !== null) tag.parentNode.removeChild(tag)
+        var count = Number(owned.getAttribute('data-dshbp-owners') ?? '1') - 1
+        if (count > 0) {
+          owned.setAttribute('data-dshbp-owners', String(count))
+          return
+        }
+        if (owned.parentNode !== null) owned.parentNode.removeChild(owned)
       }
     }
 
@@ -2124,6 +2193,24 @@ window.__ModuleLoader__.load({
       var query = queryState[0]
       var setQuery = queryState[1]
 
+      // 搜索模式：'meta' 标题/ID/cwd 筛选（本地、即输即筛）；'fulltext'
+      // 跨会话全文搜索（宿主半扫描日志，回车或点按钮触发，见 lib/search.js）。
+      var modeState = React.useState('meta')
+      var mode = modeState[0]
+      var setMode = modeState[1]
+
+      var ftState = React.useState({ status: 'idle', value: null, error: '' })
+      var ft = ftState[0]
+      var setFt = ftState[1]
+
+      function runFullSearch() {
+        if (query.trim() === '') return
+        setFt({ status: 'loading', value: null, error: '' })
+        api('/sessions/search?q=' + encodeURIComponent(query.trim()))
+          .then(function (value) { setFt({ status: 'ready', value: value, error: '' }) })
+          .catch(function (error) { setFt({ status: 'error', value: null, error: String(error.message || error) }) })
+      }
+
       var msgState = React.useState(null)
       var msg = msgState[0]
       var setMsg = msgState[1]
@@ -2266,6 +2353,10 @@ window.__ModuleLoader__.load({
         return data.counts.ghosts
       }
 
+      // 全文模式激活：有查询词且已跑过（或正在跑）搜索时，以结果列表
+      // 取代会话卡片列表。
+      var ftActive = mode === 'fulltext' && query.trim() !== '' && ft.status !== 'idle'
+
       return h('div', { className: 'dhb-page' },
         h('h2', { className: 'dhb-title' }, t('sectionSessions')),
         h('p', { className: 'dhb-desc' }, t('sessionsIntro')),
@@ -2275,23 +2366,65 @@ window.__ModuleLoader__.load({
             className: 'dhb-input',
             type: 'search',
             value: query,
-            placeholder: t('sessSearchPlaceholder'),
+            placeholder: mode === 'fulltext' ? t('sessFtPlaceholder') : t('sessSearchPlaceholder'),
             onChange: function (e) { setQuery(e.target.value) },
+            onKeyDown: function (e) { if (e.key === 'Enter' && mode === 'fulltext') runFullSearch() },
           }),
+          mode === 'fulltext'
+            ? h('button', {
+                className: 'dhb-btn dhb-btnPrimary', type: 'button',
+                disabled: ft.status === 'loading',
+                onClick: runFullSearch,
+              }, ft.status === 'loading' ? t('loading') : t('search'))
+            : null,
         ),
         h('div', { className: 'dhb-row' },
-          SESS_FILTERS.map(function (key) {
-            var labelKey = 'sessFilter' + key.charAt(0).toUpperCase() + key.slice(1)
-            return h('button', {
-              key: key,
-              type: 'button',
-              className: 'dhb-btn' + (filter === key ? ' dhb-btnPrimary' : ''),
-              onClick: function () { setFilter(key) },
-            }, t(labelKey) + ' (' + filterCount(key) + ')')
-          }),
-          h('button', { className: 'dhb-btn', type: 'button', onClick: refresh }, t('refresh')),
+          h('button', {
+            type: 'button',
+            className: 'dhb-btn' + (mode === 'meta' ? ' dhb-btnPrimary' : ''),
+            onClick: function () { setMode('meta'); setFt({ status: 'idle', value: null, error: '' }) },
+          }, t('sessModeMeta')),
+          h('button', {
+            type: 'button',
+            className: 'dhb-btn' + (mode === 'fulltext' ? ' dhb-btnPrimary' : ''),
+            onClick: function () { setMode('fulltext') },
+          }, t('sessModeFull')),
         ),
-        h('div', { className: 'dhb-list' },
+        ftActive ? h('div', { className: 'dhb-list' },
+          ft.status === 'loading' ? h('p', { className: 'dhb-desc' }, t('loading'))
+          : ft.status === 'error' ? h(Banner, { kind: 'err', text: ft.error })
+          : h('div', null,
+            h('p', { className: 'dhb-hint', style: { margin: '0 0 8px' } },
+              t('sessFtSummary', { n: String(ft.value.matches.length), s: String(ft.value.sessionsScanned) })
+              + (ft.value.truncated === true ? ' · ' + t('sessFtTruncated') : '')),
+            ft.value.matches.length === 0 ? h('p', { className: 'dhb-desc' }, t('sessFtNoMatch'))
+            : ft.value.matches.map(function (m, i) {
+                return h('div', { className: 'dhb-card', key: m.id + ':' + String(i) },
+                  h('div', { className: 'dhb-cardTitle' },
+                    (m.title !== '' ? m.title : t('sessUntitled')) + ' · ' + t('tmTurnLabel', { n: String(m.turn) })),
+                  h('div', { className: 'dhb-cardMeta' },
+                    h('span', { className: 'dhb-badge', 'data-kind': m.role === 'user' ? 'pending' : 'ok' },
+                      m.role === 'user' ? t('sessFtRoleUser') : t('sessFtRoleAssistant')),
+                    m.matchesInSession > 1 ? h('span', { className: 'dhb-badge' }, t('sessFtCount', { n: String(m.matchesInSession) })) : null,
+                  ),
+                  h('p', { className: 'dhb-hint', style: { margin: 0 } }, m.snippet),
+                )
+              }),
+          ),
+        ) : h('div', null,
+          h('div', { className: 'dhb-row' },
+            SESS_FILTERS.map(function (key) {
+              var labelKey = 'sessFilter' + key.charAt(0).toUpperCase() + key.slice(1)
+              return h('button', {
+                key: key,
+                type: 'button',
+                className: 'dhb-btn' + (filter === key ? ' dhb-btnPrimary' : ''),
+                onClick: function () { setFilter(key) },
+              }, t(labelKey) + ' (' + filterCount(key) + ')')
+            }),
+            h('button', { className: 'dhb-btn', type: 'button', onClick: refresh }, t('refresh')),
+          ),
+          h('div', { className: 'dhb-list' },
           data.status === 'idle' ? h('p', { className: 'dhb-desc' }, t('loading'))
           : data.status === 'error' ? h(Banner, { kind: 'err', text: msg !== null ? msg.text : t('errorTitle') })
           : visible.length === 0 ? h('p', { className: 'dhb-desc' }, searching ? t('sessNoMatch') : t('noSessions'))
@@ -2350,6 +2483,7 @@ window.__ModuleLoader__.load({
               ),
             )
           }),
+          ),
         ),
       )
     }
@@ -2747,6 +2881,166 @@ window.__ModuleLoader__.load({
           ),
         ),
         h('p', { className: 'dhb-hint' }, t('ntfSecurityNote')),
+      )
+    }
+
+    // ── 运维设置节 ──────────────────────────────────────────────────
+
+    /**
+     * 客户端侧自检探针：DOM 契约（navicons/rail 依赖的产品选择器）与
+     * 通知权限。返回 [{ id, ok: boolean|null, detail }]；null = 无法判定
+     * （如设置对话框未打开时的导航探针——对话框关闭时不该算失败）。
+     */
+    function opsClientProbes() {
+      var probes = []
+      // rail.js 的滚动容器契约
+      try {
+        probes.push({
+          id: 'domConversationScroll',
+          ok: document.querySelector('[data-conversation-scroll]') !== null ? true : null,
+          detail: '[data-conversation-scroll]',
+        })
+      } catch (error) {
+        probes.push({ id: 'domConversationScroll', ok: null, detail: String(error) })
+      }
+      // navicons.js 的设置导航契约（对话框未开时跳过）
+      try {
+        var dialog = document.querySelector('div[role="dialog"]')
+        probes.push({
+          id: 'domSettingsNav',
+          ok: dialog === null ? null : dialog.querySelector('nav') !== null,
+          detail: 'div[role="dialog"] nav',
+        })
+      } catch (error) {
+        probes.push({ id: 'domSettingsNav', ok: null, detail: String(error) })
+      }
+      // 浏览器通知权限（通知泵的前提）
+      try {
+        var perm = typeof Notification === 'undefined' ? 'unsupported' : Notification.permission
+        probes.push({ id: 'notifyPermission', ok: perm === 'granted' ? true : perm === 'unsupported' ? null : false, detail: perm })
+      } catch (error) {
+        probes.push({ id: 'notifyPermission', ok: null, detail: String(error) })
+      }
+      return probes
+    }
+
+    function OpsSection(props) {
+      var t = props.t
+      useLocaleVersion()
+
+      var upstreamState = React.useState({ status: 'idle', value: null, error: '' })
+      var upstream = upstreamState[0]
+      var setUpstream = upstreamState[1]
+
+      var healthState = React.useState(null) // null 未跑；{ status, value, probes }
+      var health = healthState[0]
+      var setHealth = healthState[1]
+
+      var refreshUpstream = React.useCallback(function () {
+        setUpstream(function (prev) { return { status: 'loading', value: prev.value, error: '' } })
+        api('/ops/upstream').then(function (value) {
+          setUpstream({ status: 'ready', value: value, error: '' })
+        }).catch(function (error) {
+          setUpstream(function (prev) { return { status: 'error', value: prev.value, error: String(error.message || error) } })
+        })
+      }, [])
+
+      function runHealth() {
+        setHealth({ status: 'loading', value: null, probes: [] })
+        api('/ops/health').then(function (value) {
+          setHealth({ status: 'ready', value: value, probes: opsClientProbes() })
+        }).catch(function (error) {
+          setHealth({ status: 'error', value: null, probes: opsClientProbes(t), error: String(error.message || error) })
+        })
+      }
+
+      var upstreamValue = upstream.value
+      var healthValue = health !== null ? health.value : null
+
+      return h('div', { className: 'dhb-page' },
+        h('h2', { className: 'dhb-title' }, t('sectionOps')),
+        h('p', { className: 'dhb-desc' }, t('opsIntro')),
+
+        // ── 上游版本 ────────────────────────────────────────────────────
+        h('div', { className: 'dhb-card' },
+          h('div', { className: 'dhb-cardTitle' }, t('opsUpstreamTitle')),
+          upstream.status === 'idle' ? h('p', { className: 'dhb-hint' }, t('opsUpstreamIdle'))
+          : h('div', { className: 'dhb-cardMeta' },
+            upstreamValue !== null && upstreamValue.local !== undefined
+              ? h('span', null, t('opsLocalVer') + ': ' + (upstreamValue.local.version !== '' ? upstreamValue.local.version : '?')
+                + (upstreamValue.local.commit !== '' ? ' (' + upstreamValue.local.commit + ')' : ''))
+              : null,
+            upstreamValue !== null && upstreamValue.remote !== undefined && upstreamValue.remote.latestTag !== ''
+              ? h('span', null, t('opsRemoteVer') + ': ' + upstreamValue.remote.latestTag)
+              : null,
+          ),
+          upstream.status === 'ready' && upstreamValue !== null && upstreamValue.remote !== undefined
+            ? h('p', { className: 'dhb-hint', style: { margin: 0 } },
+                typeof upstreamValue.remote.behindBy === 'number'
+                ? (upstreamValue.remote.behindBy === 0 ? t('opsUpToDate')
+                  : t('opsBehind', { n: String(upstreamValue.remote.behindBy) }))
+                : t('opsBehindUnknown'))
+            : null,
+          upstream.status === 'error' && upstream.error !== '' ? h('p', { className: 'dhb-hint', style: { margin: 0, color: '#c0392b' } }, upstream.error) : null,
+          h('div', { className: 'dhb-cardActions' },
+            h('button', {
+              className: 'dhb-btn', type: 'button',
+              disabled: upstream.status === 'loading',
+              onClick: refreshUpstream,
+            }, upstream.status === 'loading' ? t('loading') : t('opsCheckUpdates')),
+            h('a', {
+              className: 'dhb-btn',
+              href: 'https://github.com/' + (upstreamValue !== null && typeof upstreamValue.repo === 'string' ? upstreamValue.repo : 'deepseek-ai/deepseek-harness') + '/releases',
+              target: '_blank',
+              rel: 'noreferrer',
+            }, t('opsReleasesLink')),
+          ),
+        ),
+
+        // ── 健康自检 ────────────────────────────────────────────────────
+        h('div', { className: 'dhb-card' },
+          h('div', { className: 'dhb-cardTitle' }, t('opsHealthTitle')),
+          h('p', { className: 'dhb-cardDesc' }, t('opsHealthHint')),
+          h('div', { className: 'dhb-cardActions' },
+            h('button', {
+              className: 'dhb-btn dhb-btnPrimary', type: 'button',
+              disabled: health !== null && health.status === 'loading',
+              onClick: runHealth,
+            }, health !== null && health.status === 'loading' ? t('loading') : t('opsRunHealth')),
+          ),
+          health !== null && health.status === 'ready' && healthValue !== null ? h('div', { className: 'dhb-list' },
+            // 服务挂载
+            Object.keys(healthValue.services).map(function (key) {
+              return h('div', { className: 'dhb-row', key: key, style: { gap: 6 } },
+                h('span', { className: 'dhb-badge', 'data-kind': healthValue.services[key] === true ? 'ok' : 'failed' },
+                  (healthValue.services[key] === true ? '✓ ' : '✗ ') + key))
+            }),
+            // 路由探活
+            healthValue.routeProbe !== null && typeof healthValue.routeProbe === 'object'
+              ? h('div', { className: 'dhb-row', key: 'routeProbe', style: { gap: 6 } },
+                h('span', { className: 'dhb-badge', 'data-kind': healthValue.routeProbe.ok === true ? 'ok' : 'failed' },
+                  (healthValue.routeProbe.ok === true ? '✓ ' : '✗ ') + t('opsHealthRoute')
+                  + ' · ' + String(healthValue.routeProbe.status) + ' · ' + String(healthValue.routeProbe.ms) + 'ms'))
+              : null,
+            // 状态文件权限
+            healthValue.stateFileModeOk !== null
+              ? h('div', { className: 'dhb-row', key: 'statePerm', style: { gap: 6 } },
+                h('span', { className: 'dhb-badge', 'data-kind': healthValue.stateFileModeOk === true ? 'ok' : 'failed' },
+                  (healthValue.stateFileModeOk === true ? '✓ ' : '✗ ') + t('opsHealthStatePerm')))
+              : null,
+            // 客户端探针（DOM 契约 / 通知权限）
+            health.probes.map(function (probe) {
+              return h('div', { className: 'dhb-row', key: probe.id, style: { gap: 6 } },
+                h('span', {
+                  className: 'dhb-badge',
+                  'data-kind': probe.ok === true ? 'ok' : probe.ok === false ? 'failed' : 'pending',
+                }, (probe.ok === true ? '✓ ' : probe.ok === false ? '✗ ' : '· ') + t('opsProbe_' + probe.id)),
+                h('span', { className: 'dhb-hint' }, probe.detail))
+            }),
+          ) : null,
+          health !== null && health.status === 'error'
+            ? h('p', { className: 'dhb-hint', style: { color: '#c0392b' } }, health.error) : null,
+        ),
       )
     }
 
@@ -5687,8 +5981,10 @@ window.__ModuleLoader__.load({
     var inject = ['slots']
 
     async function apply(ctx) {
-      var slots = ctx.get('slots')
-      if (slots === undefined) return
+      // slots 是上方声明的硬依赖：Cordis 保证 apply 运行时服务已挂载，
+      // 直接经声明通道读取（声明 inject 后不再对同一服务用 ctx.get 探测）。
+      // locale 等可选能力仍走 ctx.get + 缺席处理。
+      var slots = ctx.slots
 
       var disposeStyles = injectStyles()
 
@@ -5942,6 +6238,20 @@ window.__ModuleLoader__.load({
         )
       })
 
+      // 访问与安全设置节（登录 URL/二维码、上游版本、健康自检）。
+      var disposeOps = slots.inject('settings.section', function () {
+        return slots.register(
+          {
+            name: 'settings.section',
+            id: 'dsh-base-plugin-ops',
+            order: 205,
+            label: function () { return t('sectionOps') },
+            registrant: 'dsh-base-plugin',
+          },
+          function () { return h(OpsSection, { t: t }) },
+        )
+      })
+
       // 浏览器通知渠道的事件泵：启用且渠道=browser 且已授权时 30s 轮询。
       // 三个关键设计：
       // 1. 游标以「泵启动时刻」为起点（Date.now()）——若从 0 起会把环形
@@ -6013,6 +6323,7 @@ window.__ModuleLoader__.load({
           disposeSessions()
           disposeMobile()
           disposeNotify()
+          disposeOps()
           for (var j = 0; j < localeDisposers.length; j += 1) {
             var dispose = localeDisposers[j]
             if (typeof dispose === 'function') dispose()
