@@ -51,7 +51,7 @@
  * 用分区横幅代替模块切分。分区顺序：i18n 词典 → store/api/styles
  * 辅助 → MarketTab → McpSection → SkillsSection → plugin apply。
  */
-// GENERATED from src/* by scripts/build-client.mjs — edit src/, then rebuild. stamp:17f24459942a
+// GENERATED from src/* by scripts/build-client.mjs — edit src/, then rebuild. stamp:f45d44c2a779
 window.__ModuleLoader__.load({
   id: 'dsh-base-plugin',
   factory: function (require) {
@@ -472,6 +472,9 @@ window.__ModuleLoader__.load({
       opsProbe_domSettingsNav: 'DOM 契约：设置导航',
       opsProbe_notifyPermission: '浏览器通知权限',
       sessModeMeta: '元数据',
+      sessFilterSubagents: '子代理',
+      confirmDeleteSubagents: '其关联的 {n} 个子代理会话（审查/委派的子任务对话）也将一并删除。',
+      badgeSubagent: '子代理',
       sessModeFull: '全文',
       sessFtPlaceholder: '输入关键词，回车搜索全部会话的对话内容…',
       sessFtSummary: '{n} 条命中（扫描 {s} 个会话）',
@@ -893,6 +896,9 @@ window.__ModuleLoader__.load({
       opsProbe_domSettingsNav: 'DOM contract: settings navigation',
       opsProbe_notifyPermission: 'Browser notification permission',
       sessModeMeta: 'Metadata',
+      sessFilterSubagents: 'subagents',
+      confirmDeleteSubagents: 'Its {n} associated subagent sessions (review/delegation child conversations) will also be deleted.',
+      badgeSubagent: 'subagent',
       sessModeFull: 'Full text',
       sessFtPlaceholder: 'Type keywords and press Enter to search all session messages…',
       sessFtSummary: '{n} matches ({s} sessions scanned)',
@@ -2164,7 +2170,7 @@ window.__ModuleLoader__.load({
     // ── 会话设置节（清单 + 破坏性删除）──────────────────────────────────
 
     /** 过滤键按显示顺序；文案经 t('sessFilter'+键名) 取。 */
-    var SESS_FILTERS = ['all', 'live', 'archived', 'ghost']
+    var SESS_FILTERS = ['all', 'live', 'archived', 'ghost', 'subagents']
 
     /** 行的显示名：投影标题，否则用「未命名」文案。 */
     function sessionDisplayName(item, t) {
@@ -2268,7 +2274,29 @@ window.__ModuleLoader__.load({
 
       function onDelete(item) {
         if (busy !== null) return
-        showConfirm(t('confirmDeleteSession', { name: sessionDisplayName(item, t) }), { okLabel: t('sessDelete'), danger: true })
+        // 级联提示：统计该会话的全部后代（多级 BFS——与宿主删除逻辑同构）。
+        var byParent = {}
+        data.items.forEach(function (s) {
+          if (typeof s.parentSession === 'string' && s.parentSession !== '') {
+            (byParent[s.parentSession] = byParent[s.parentSession] || []).push(s.id)
+          }
+        })
+        var descendants = 0
+        var queue = [item.id]
+        var seen = {}
+        seen[item.id] = true
+        while (queue.length > 0) {
+          var cur = queue.shift()
+          ;(byParent[cur] || []).forEach(function (child) {
+            if (seen[child]) return
+            seen[child] = true
+            descendants += 1
+            queue.push(child)
+          })
+        }
+        var confirmText = t('confirmDeleteSession', { name: sessionDisplayName(item, t) })
+        if (descendants > 0) confirmText += '\n' + t('confirmDeleteSubagents', { n: String(descendants) })
+        showConfirm(confirmText, { okLabel: t('sessDelete'), danger: true })
           .then(function (ok) {
             if (!ok) return
             setMsg(null)
@@ -2329,9 +2357,13 @@ window.__ModuleLoader__.load({
       }
 
       var visible = data.items
-      if (filter === 'live') visible = visible.filter(function (s) { return s.live === true })
+      if (filter === 'live') visible = visible.filter(function (s) { return s.live === true && s.subagent !== true })
       else if (filter === 'archived') visible = visible.filter(function (s) { return s.archived === true })
       else if (filter === 'ghost') visible = visible.filter(function (s) { return s.hasLog !== true && s.live !== true })
+      else if (filter === 'subagents') visible = visible.filter(function (s) { return s.subagent === true })
+      // 「全部」默认排除子代理（审查/委派 fan-out 的噪声会话）——它们
+      // 有专属页签；元数据/全文搜索仍覆盖全部会话。
+      else visible = visible.filter(function (s) { return s.subagent !== true })
 
       // 搜索在当前过滤片内收窄：对标题、id、cwd（用户可见的三字段）
       // 做不区分大小写的子串匹配。
@@ -2347,9 +2379,10 @@ window.__ModuleLoader__.load({
 
       function filterCount(key) {
         if (data.counts === null) return ''
-        if (key === 'all') return data.counts.total
+        if (key === 'all') return data.counts.total - (data.counts.subagents ?? 0)
         if (key === 'live') return data.counts.live
         if (key === 'archived') return data.counts.archived
+        if (key === 'subagents') return data.counts.subagents ?? 0
         return data.counts.ghosts
       }
 
@@ -2437,6 +2470,8 @@ window.__ModuleLoader__.load({
                 item.archived === true ? h('span', { className: 'dhb-badge', 'data-kind': 'managed' }, t('badgeArchived')) : null,
                 item.live === true && item.archived === true ? h('span', { className: 'dhb-badge', 'data-phase': 'pending' }, t('sessArchivedLiveBadge')) : null,
                 item.hasLog !== true && item.live !== true ? h('span', { className: 'dhb-badge', 'data-kind': 'failed' }, t('badgeGhost')) : null,
+                item.subagent === true ? h('span', { className: 'dhb-badge', 'data-phase': 'pending' },
+                  t('badgeSubagent') + (item.parentSession !== null && item.parentSession !== undefined ? ' · ' + item.parentSession.slice(0, 14) + '…' : '')) : null,
                 typeof item.cwd === 'string' && item.cwd !== '' ? h('span', null, item.cwd) : null,
                 item.workspace !== null && typeof item.workspace.title === 'string' ? h('span', null, '· ' + item.workspace.title) : null,
                 typeof item.createdAt === 'number' && item.createdAt > 0 ? h('span', null, new Date(item.createdAt).toLocaleString()) : null,
